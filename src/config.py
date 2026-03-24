@@ -23,6 +23,7 @@ class Settings:
     xui_username: str
     xui_password: str
     xui_inbound_id: int
+    xui_sub_port: int
     vpn_public_host: str
     vpn_public_port: int
     vpn_tag: str
@@ -40,6 +41,7 @@ def load_settings() -> Settings:
         xui_username=_get("XUI_USERNAME"),
         xui_password=_get("XUI_PASSWORD"),
         xui_inbound_id=int(_get("XUI_INBOUND_ID")),
+        xui_sub_port=int(_get("XUI_SUB_PORT", "2096")),
         vpn_public_host=_get("VPN_PUBLIC_HOST"),
         vpn_public_port=int(_get("VPN_PUBLIC_PORT")),
         vpn_tag=_get("VPN_TAG", "VPN"),

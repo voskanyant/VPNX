@@ -48,5 +48,6 @@ python -m src.main
 
 - `XUI_BASE_URL` must include your web base path, for example:
   - `https://127.0.0.1:45659/mil993e2RzVGipj`
+- `XUI_SUB_PORT` is used for subscription links (`/sub/<subId>`), usually `2096`.
 - Use a secret manager or environment variables in production.
 - Rotate panel credentials before production launch.

@@ -59,7 +59,14 @@ class VPNBot:
         if not sub:
             await update.message.reply_text("No subscription found. Use /buy first.")
             return
-        await self._send_config(update, sub["vless_url"], sub["expires_at"])
+        client_uuid = str(sub["client_uuid"])
+        sub_id = await self.xui.get_client_sub_id(self.settings.xui_inbound_id, client_uuid)
+        sub_url = (
+            f"https://{self.settings.vpn_public_host}:{self.settings.xui_sub_port}/sub/{sub_id}"
+            if sub_id
+            else None
+        )
+        await self._send_config(update, sub["vless_url"], sub["expires_at"], sub_url)
 
     async def _create_or_extend(self, update: Update) -> None:
         user_id = await self._ensure_user(update)
@@ -94,7 +101,13 @@ class VPNBot:
                 vless_url=vless_url,
                 expires_at=new_exp,
             )
-            await self._send_config(update, vless_url, new_exp)
+            sub_id = await self.xui.get_client_sub_id(self.settings.xui_inbound_id, client_uuid)
+            sub_url = (
+                f"https://{self.settings.vpn_public_host}:{self.settings.xui_sub_port}/sub/{sub_id}"
+                if sub_id
+                else None
+            )
+            await self._send_config(update, vless_url, new_exp, sub_url)
             return
 
         base = sub["expires_at"] if sub["expires_at"] > now else now
@@ -114,20 +127,39 @@ class VPNBot:
             fingerprint=reality.fingerprint,
         )
         await self.db.extend_subscription(sub["id"], new_exp, vless_url)
-        await self._send_config(update, vless_url, new_exp)
-
-    async def _send_config(self, update: Update, vless_url: str, expires_at: datetime) -> None:
-        img = qrcode.make(vless_url)
-        buff = io.BytesIO()
-        img.save(buff, format="PNG")
-        buff.seek(0)
-
-        text = (
-            f"Plan active until: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}\n\n"
-            f"`{vless_url}`"
+        sub_id = await self.xui.get_client_sub_id(self.settings.xui_inbound_id, client_uuid)
+        sub_url = (
+            f"https://{self.settings.vpn_public_host}:{self.settings.xui_sub_port}/sub/{sub_id}"
+            if sub_id
+            else None
         )
-        await update.message.reply_photo(photo=buff, caption="Your VPN QR")
-        await update.message.reply_text(text, parse_mode="Markdown")
+        await self._send_config(update, vless_url, new_exp, sub_url)
+
+    async def _send_config(
+        self,
+        update: Update,
+        vless_url: str,
+        expires_at: datetime,
+        subscription_url: str | None = None,
+    ) -> None:
+        if subscription_url:
+            sub_img = qrcode.make(subscription_url)
+            sub_buff = io.BytesIO()
+            sub_img.save(sub_buff, format="PNG")
+            sub_buff.seek(0)
+            await update.message.reply_photo(photo=sub_buff, caption="Subscription QR (best for V2Box)")
+
+        vless_img = qrcode.make(vless_url)
+        vless_buff = io.BytesIO()
+        vless_img.save(vless_buff, format="PNG")
+        vless_buff.seek(0)
+
+        text = f"Plan active until: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}\n\n"
+        if subscription_url:
+            text += f"Subscription URL:\n{subscription_url}\n\n"
+        text += f"Direct VLESS URL:\n{vless_url}"
+        await update.message.reply_photo(photo=vless_buff, caption="Direct VLESS QR")
+        await update.message.reply_text(text)
 
     async def reminder_tick(self) -> None:
         items = await self.db.due_reminders()

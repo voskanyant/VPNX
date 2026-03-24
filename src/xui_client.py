@@ -59,6 +59,17 @@ class XUIClient:
         data = await self._get(f"/panel/api/inbounds/get/{inbound_id}")
         return data["obj"]
 
+    async def get_client_sub_id(self, inbound_id: int, client_uuid: str) -> str | None:
+        inbound = await self.get_inbound(inbound_id)
+        settings_raw = inbound.get("settings", "{}")
+        settings = json.loads(settings_raw) if isinstance(settings_raw, str) else settings_raw
+        clients = settings.get("clients", [])
+        for c in clients:
+            if str(c.get("id", "")).lower() == client_uuid.lower():
+                sub_id = c.get("subId")
+                return str(sub_id) if sub_id else None
+        return None
+
     async def add_client(
         self,
         inbound_id: int,
