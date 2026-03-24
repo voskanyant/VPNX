@@ -11,7 +11,7 @@ def build_vless_url(
     short_id: str,
     sni: str,
     fingerprint: str = "chrome",
-    flow: str = "xtls-rprx-vision",
+    flow: str = "",
 ) -> str:
     params = {
         "encryption": "none",
@@ -21,7 +21,8 @@ def build_vless_url(
         "fp": fingerprint,
         "sni": sni,
         "sid": short_id,
-        "flow": flow,
     }
+    if flow:
+        params["flow"] = flow
     query = urlencode(params, safe="")
     return f"vless://{uuid}@{host}:{port}?{query}#{quote(tag)}"

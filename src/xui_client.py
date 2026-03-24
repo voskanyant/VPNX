@@ -75,7 +75,7 @@ class XUIClient:
             "totalGB": 0,
             "expiryTime": expiry_ms,
             "enable": True,
-            "flow": "xtls-rprx-vision",
+            "flow": "",
         }
         settings = json.dumps({"clients": [client]}, separators=(",", ":"))
         await self._post("/panel/api/inbounds/addClient", {"id": inbound_id, "settings": settings})
@@ -96,7 +96,7 @@ class XUIClient:
             "totalGB": 0,
             "expiryTime": expiry_ms,
             "enable": True,
-            "flow": "xtls-rprx-vision",
+            "flow": "",
         }
         settings = json.dumps({"clients": [client]}, separators=(",", ":"))
         await self._post(f"/panel/api/inbounds/updateClient/{client_uuid}", {"id": inbound_id, "settings": settings})
