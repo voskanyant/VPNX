@@ -509,6 +509,12 @@ class VPNBot:
         customer_name: str | None = None,
     ) -> None:
         await self._refresh_cms()
+        await update.message.reply_text(
+            self._content_text(
+                "stars_only_notice",
+                "Оплата в боте доступна только через Telegram Stars ⭐",
+            )
+        )
         payload = f"buy:{user_id}:{int(datetime.now(timezone.utc).timestamp())}"
         await self.db.create_order(user_id=user_id, amount_stars=self.settings.plan_price_stars, payload=payload)
         if phone:
