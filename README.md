@@ -39,6 +39,7 @@ cp .env.example .env
 
 Fill `.env` values.
 Set `PLAN_PRICE_STARS` (for example `250`).
+Set `MAX_DEVICES_PER_SUB=1` to block shared access from multiple devices on one subscription.
 
 4. Run:
 
@@ -114,8 +115,11 @@ You can edit bot texts and button labels from Directus without redeploy.
    - `label` (string)
 
 4. Supported button keys:
+   - `menu_trial`
    - `menu_buy`
+   - `menu_renew`
    - `menu_mysub`
+   - `menu_instructions`
    - `contact_share`
    - `contact_cancel`
 

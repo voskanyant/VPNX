@@ -37,6 +37,7 @@ class Settings:
     vpn_tag: str
     plan_days: int
     plan_price_stars: int
+    max_devices_per_sub: int
     price_text: str
     timezone: str
     cms_base_url: str | None
@@ -61,6 +62,7 @@ def load_settings() -> Settings:
         vpn_tag=_get("VPN_TAG", "VPN"),
         plan_days=int(_get("PLAN_DAYS", "30")),
         plan_price_stars=int(_get("PLAN_PRICE_STARS", "250")),
+        max_devices_per_sub=int(_get("MAX_DEVICES_PER_SUB", "1")),
         price_text=_get("PRICE_TEXT", "Monthly plan"),
         timezone=_get("TIMEZONE", "UTC"),
         cms_base_url=_get_optional("CMS_BASE_URL"),

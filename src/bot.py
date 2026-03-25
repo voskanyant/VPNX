@@ -583,6 +583,7 @@ class VPNBot:
             client_uuid,
             client_email,
             new_exp,
+            limit_ip=self.settings.max_devices_per_sub,
             comment="trial",
         )
 
@@ -635,6 +636,7 @@ class VPNBot:
                 client_uuid,
                 client_email,
                 new_exp,
+                limit_ip=self.settings.max_devices_per_sub,
                 comment=customer_name,
             )
 
@@ -669,7 +671,13 @@ class VPNBot:
         new_exp = base + timedelta(days=self.settings.plan_days)
         client_uuid = str(sub["client_uuid"])
         client_email = sub["client_email"]
-        await self.xui.update_client(self.settings.xui_inbound_id, client_uuid, client_email, new_exp)
+        await self.xui.update_client(
+            self.settings.xui_inbound_id,
+            client_uuid,
+            client_email,
+            new_exp,
+            limit_ip=self.settings.max_devices_per_sub,
+        )
 
         vless_url = build_vless_url(
             uuid=client_uuid,
