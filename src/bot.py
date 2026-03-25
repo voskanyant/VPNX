@@ -64,17 +64,17 @@ class VPNBot:
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.menu_click))
 
     def _menu_keyboard(self) -> ReplyKeyboardMarkup:
-        buy_label = self._button_label("menu_buy", "Купить VPN")
-        mysub_label = self._button_label("menu_mysub", "Моя подписка")
-        support_label = self._button_label("menu_support", "💬 Support")
-        return ReplyKeyboardMarkup(
-            [
-                [KeyboardButton(buy_label), KeyboardButton(mysub_label)],
-                [KeyboardButton(support_label)],
-            ],
-            resize_keyboard=True,
-            is_persistent=True,
-        )
+        buttons = self._menu_buttons()
+        rows: list[list[KeyboardButton]] = []
+        row: list[KeyboardButton] = []
+        for _, label in buttons:
+            row.append(KeyboardButton(label))
+            if len(row) == 2:
+                rows.append(row)
+                row = []
+        if row:
+            rows.append(row)
+        return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
 
     def _contact_keyboard(self) -> ReplyKeyboardMarkup:
         share_label = self._button_label("contact_share", "Share phone number")
@@ -92,6 +92,30 @@ class VPNBot:
     def _button_label(self, key: str, default: str) -> str:
         value = self._cms_buttons.get(key)
         return value if value else default
+
+    def _menu_buttons(self) -> list[tuple[str, str]]:
+        buttons: list[tuple[str, str]] = []
+        seen: set[str] = set()
+
+        for key, default_label in (
+            ("menu_buy", "Купить VPN"),
+            ("menu_mysub", "Моя подписка"),
+        ):
+            label = self._button_label(key, default_label).strip()
+            if label:
+                buttons.append((key, label))
+                seen.add(key)
+
+        for key, label in self._cms_buttons.items():
+            if not key.startswith("menu_") or key in seen:
+                continue
+            cleaned = label.strip()
+            if not cleaned:
+                continue
+            buttons.append((key, cleaned))
+            seen.add(key)
+
+        return buttons
 
     async def _refresh_cms(self, force: bool = False) -> None:
         if self.cms is None:
@@ -160,9 +184,6 @@ class VPNBot:
         await self._refresh_cms()
         raw_text = (update.message.text or "").strip()
         text = raw_text.lower()
-        buy_label = self._button_label("menu_buy", "Купить VPN").strip().lower()
-        sub_label = self._button_label("menu_mysub", "Моя подписка").strip().lower()
-        support_label = self._button_label("menu_support", "💬 Support").strip().lower()
         cancel_label = self._button_label("contact_cancel", "Cancel").strip().lower()
 
         if text in {"cancel", "отмена", cancel_label}:
@@ -202,15 +223,28 @@ class VPNBot:
             )
             return
 
-        if text == buy_label:
+        menu_buttons = self._menu_buttons()
+        label_to_key = {label.strip().lower(): key for key, label in menu_buttons}
+        selected_menu_key = label_to_key.get(text)
+
+        if selected_menu_key == "menu_buy":
             await self.buy(update, context)
             return
-        if text == sub_label:
+        if selected_menu_key == "menu_mysub":
             await self.mysub(update, context)
             return
-        if text == support_label:
+
+        if selected_menu_key:
+            response_key = f"{selected_menu_key}_response"
+            legacy_key = f"{selected_menu_key.removeprefix('menu_')}_response"
             await update.message.reply_text(
-                self._content_text("support_response", "Support: @your_support"),
+                self._content_text(
+                    response_key,
+                    self._content_text(
+                        legacy_key,
+                        self._content_text("menu_unknown_message", "Use menu buttons."),
+                    ),
+                ),
                 reply_markup=self._menu_keyboard(),
             )
             return
