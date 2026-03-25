@@ -762,17 +762,15 @@ class VPNBot:
         qr.box_size = max(4, min(7, 360 // modules))
         qr_img = qr.make_image(fill_color="#111111", back_color="white").convert("RGB")
 
-        # White rounded card with a subtle accent stripe to improve visual style
+        # White rounded card without header text.
         card_w = qr_img.width + 40
-        card_h = qr_img.height + 96
+        card_h = qr_img.height + 40
         card = Image.new("RGB", (card_w, card_h), "#EEF3FF")
         draw = ImageDraw.Draw(card)
         draw.rounded_rectangle((8, 8, card_w - 8, card_h - 8), radius=28, fill="white", outline="#DCE5FF", width=2)
-        draw.rounded_rectangle((18, 18, card_w - 18, 46), radius=14, fill="#E8F0FF")
-        draw.text((28, 25), title, fill="#294A8D")
 
         qr_with_border = ImageOps.expand(qr_img, border=6, fill="#F4F7FF")
-        card.paste(qr_with_border, ((card_w - qr_with_border.width) // 2, 52))
+        card.paste(qr_with_border, ((card_w - qr_with_border.width) // 2, (card_h - qr_with_border.height) // 2))
         return card
 
     async def reminder_tick(self) -> None:
