@@ -80,8 +80,8 @@ class VPNBot:
         return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
 
     def _contact_keyboard(self) -> ReplyKeyboardMarkup:
-        share_label = self._button_label("contact_share", "Share phone number")
-        cancel_label = self._button_label("contact_cancel", "Cancel")
+        share_label = self._button_label("contact_share", "\u041f\u043e\u0434\u0435\u043b\u0438\u0442\u044c\u0441\u044f \u043d\u043e\u043c\u0435\u0440\u043e\u043c")
+        cancel_label = self._button_label("contact_cancel", "\u041e\u0442\u043c\u0435\u043d\u0430")
         return ReplyKeyboardMarkup(
             [[KeyboardButton(share_label, request_contact=True)], [KeyboardButton(cancel_label)]],
             resize_keyboard=True,
@@ -107,14 +107,14 @@ class VPNBot:
 
     def _menu_buttons(self, has_active_subscription: bool = False) -> list[tuple[str, str]]:
         buy_key = "menu_renew" if has_active_subscription else "menu_buy"
-        buy_default = "\U0001f504 Renew" if has_active_subscription else "\U0001f4b3 Buy VPN"
+        buy_default = "\U0001f504 \u041f\u0440\u043e\u0434\u043b\u0438\u0442\u044c" if has_active_subscription else "\U0001f4b3 \u041a\u0443\u043f\u0438\u0442\u044c VPN"
         return [
-            ("menu_trial", self._button_label("menu_trial", "\U0001f381 Try Free").strip() or "\U0001f381 Try Free"),
+            ("menu_trial", self._button_label("menu_trial", "\U0001f381 \u041f\u043e\u043f\u0440\u043e\u0431\u043e\u0432\u0430\u0442\u044c \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e").strip() or "\U0001f381 \u041f\u043e\u043f\u0440\u043e\u0431\u043e\u0432\u0430\u0442\u044c \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e"),
             (buy_key, self._button_label(buy_key, buy_default).strip() or buy_default),
-            ("menu_mysub", self._button_label("menu_mysub", "\U0001f4ca My Subscription").strip() or "\U0001f4ca My Subscription"),
+            ("menu_mysub", self._button_label("menu_mysub", "\U0001f4ca \u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430").strip() or "\U0001f4ca \u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430"),
             (
                 "menu_instructions",
-                self._button_label("menu_instructions", "\U0001f4ac Instructions").strip() or "\U0001f4ac Instructions",
+                self._button_label("menu_instructions", "\U0001f4ac \u0418\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f").strip() or "\U0001f4ac \u0418\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f",
             ),
         ]
 
@@ -125,7 +125,7 @@ class VPNBot:
             response_key,
             self._content_text(
                 legacy_key,
-                self._content_text("menu_unknown_message", "Use menu buttons."),
+                self._content_text("menu_unknown_message", "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0438 \u043c\u0435\u043d\u044e."),
             ),
         )
 
@@ -253,9 +253,10 @@ class VPNBot:
         user_id = await self._ensure_user(update)
         await self._refresh_cms()
         default_msg = (
-            "Welcome to VPN X.\n\n"
-            "Fast and stable VPN access.\n\n"
-            "Use menu buttons below."
+            "\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c \u0432 VPN X.\n\n"
+            "\u041c\u044b \u043f\u0440\u0435\u0434\u043b\u0430\u0433\u0430\u0435\u043c \u0431\u044b\u0441\u0442\u0440\u044b\u0439, \u043b\u0435\u0433\u043a\u0438\u0439 \u0438 \u0441\u0442\u0430\u0431\u0438\u043b\u044c\u043d\u044b\u0439 VPN \u0434\u043b\u044f \u0420\u043e\u0441\u0441\u0438\u0438.\n"
+            "\u041f\u043e\u0434\u0445\u043e\u0434\u0438\u0442 \u0434\u043b\u044f \u043f\u043e\u0432\u0441\u0435\u0434\u043d\u0435\u0432\u043d\u043e\u0433\u043e \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u044f: \u0441\u043e\u0446\u0441\u0435\u0442\u0438, \u043c\u0435\u0441\u0441\u0435\u043d\u0434\u0436\u0435\u0440\u044b, \u0441\u0430\u0439\u0442\u044b \u0438 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f.\n\n"
+            "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0438 \u043c\u0435\u043d\u044e \u043d\u0438\u0436\u0435."
         )
         msg = self._content_text("start_message", default_msg)
         await update.message.reply_text(msg, reply_markup=await self._menu_keyboard_for_user(user_id))
@@ -264,7 +265,7 @@ class VPNBot:
         await self._refresh_cms()
         raw_text = (update.message.text or "").strip()
         text = raw_text.lower()
-        cancel_label = self._button_label("contact_cancel", "Cancel").strip().lower()
+        cancel_label = self._button_label("contact_cancel", "\u041e\u0442\u043c\u0435\u043d\u0430").strip().lower()
         user_id = await self._ensure_user(update)
         menu_keyboard = await self._menu_keyboard_for_user(user_id)
 
@@ -273,7 +274,7 @@ class VPNBot:
             context.user_data.pop("buy_wait_name", None)
             context.user_data.pop("buy_phone", None)
             await update.message.reply_text(
-                self._content_text("cancel_message", "Operation canceled."),
+                self._content_text("cancel_message", "\u041e\u043f\u0435\u0440\u0430\u0446\u0438\u044f \u043e\u0442\u043c\u0435\u043d\u0435\u043d\u0430."),
                 reply_markup=menu_keyboard,
             )
             return
@@ -283,7 +284,7 @@ class VPNBot:
             if not phone:
                 context.user_data.pop("buy_wait_name", None)
                 await update.message.reply_text(
-                    self._content_text("phone_missing_message", "Phone is missing. Press Buy VPN again."),
+                    self._content_text("phone_missing_message", "\u041d\u043e\u043c\u0435\u0440 \u043d\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u00ab\u041a\u0443\u043f\u0438\u0442\u044c VPN\u00bb \u0435\u0449\u0435 \u0440\u0430\u0437."),
                     reply_markup=menu_keyboard,
                 )
                 return
@@ -291,7 +292,7 @@ class VPNBot:
             context.user_data.pop("buy_wait_name", None)
             context.user_data.pop("buy_phone", None)
             await update.message.reply_text(
-                self._content_text("sending_invoice_message", "Sending invoice..."),
+                self._content_text("sending_invoice_message", "\u0412\u044b\u0441\u044b\u043b\u0430\u044e \u0441\u0447\u0435\u0442..."),
                 reply_markup=menu_keyboard,
             )
             await self._send_stars_invoice(update, user_id, phone=phone, customer_name=customer_name)
@@ -299,7 +300,7 @@ class VPNBot:
 
         if context.user_data.get("buy_wait_phone"):
             await update.message.reply_text(
-                self._content_text("share_contact_hint_message", "Press the button and share your contact."),
+                self._content_text("share_contact_hint_message", "\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443 \u0438 \u043f\u043e\u0434\u0435\u043b\u0438\u0442\u0435\u0441\u044c \u043a\u043e\u043d\u0442\u0430\u043a\u0442\u043e\u043c."),
                 reply_markup=self._contact_keyboard(),
             )
             return
@@ -328,7 +329,7 @@ class VPNBot:
             await self._send_menu_node(update, selected_menu_key)
             return
         await update.message.reply_text(
-            self._content_text("menu_unknown_message", "Use menu buttons below."),
+            self._content_text("menu_unknown_message", "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0438 \u043c\u0435\u043d\u044e \u043d\u0438\u0436\u0435."),
             reply_markup=menu_keyboard,
         )
 
@@ -355,14 +356,14 @@ class VPNBot:
             await update.message.reply_text(
                 self._content_text(
                     "trial_unavailable_message",
-                    "Trial is available only once for new users.",
+                    "\u041f\u0440\u043e\u0431\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0442\u043e\u043b\u044c\u043a\u043e \u043e\u0434\u0438\u043d \u0440\u0430\u0437 \u0434\u043b\u044f \u043d\u043e\u0432\u044b\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439.",
                 ),
                 reply_markup=await self._menu_keyboard_for_user(user_id),
             )
             return
 
         await update.message.reply_text(
-            self._content_text("trial_activating_message", "Activating your 7-day trial..."),
+            self._content_text("trial_activating_message", "\u0410\u043a\u0442\u0438\u0432\u0438\u0440\u0443\u044e \u0432\u0430\u0448 \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434 \u043d\u0430 7 \u0434\u043d\u0435\u0439..."),
             reply_markup=await self._menu_keyboard_for_user(user_id),
         )
         await self._create_trial_for_user(update, user_id=user_id, days=7)
