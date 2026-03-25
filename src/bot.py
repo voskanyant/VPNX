@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import qrcode
+from PIL import Image, ImageDraw, ImageOps
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -171,13 +172,13 @@ class VPNBot:
         subscription_url: str | None = None,
     ) -> None:
         if subscription_url:
-            sub_img = qrcode.make(subscription_url)
+            sub_img = self._build_styled_qr(subscription_url, "Subscription QR")
             sub_buff = io.BytesIO()
             sub_img.save(sub_buff, format="PNG")
             sub_buff.seek(0)
             await update.message.reply_photo(photo=sub_buff, caption="Subscription QR (best for V2Box)")
 
-        vless_img = qrcode.make(vless_url)
+        vless_img = self._build_styled_qr(vless_url, "Direct VLESS QR")
         vless_buff = io.BytesIO()
         vless_img.save(vless_buff, format="PNG")
         vless_buff.seek(0)
@@ -188,6 +189,31 @@ class VPNBot:
         text += f"Direct VLESS URL:\n{vless_url}"
         await update.message.reply_photo(photo=vless_buff, caption="Direct VLESS QR")
         await update.message.reply_text(text)
+
+    @staticmethod
+    def _build_styled_qr(data: str, title: str) -> Image.Image:
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=12,
+            border=2,
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="#111111", back_color="white").convert("RGB")
+
+        # White rounded card with a subtle accent stripe to improve visual style
+        card_w = qr_img.width + 64
+        card_h = qr_img.height + 120
+        card = Image.new("RGB", (card_w, card_h), "#EEF3FF")
+        draw = ImageDraw.Draw(card)
+        draw.rounded_rectangle((8, 8, card_w - 8, card_h - 8), radius=28, fill="white", outline="#DCE5FF", width=2)
+        draw.rounded_rectangle((24, 22, card_w - 24, 54), radius=16, fill="#E8F0FF")
+        draw.text((36, 30), title, fill="#294A8D")
+
+        qr_with_border = ImageOps.expand(qr_img, border=8, fill="#F4F7FF")
+        card.paste(qr_with_border, ((card_w - qr_with_border.width) // 2, 68))
+        return card
 
     async def reminder_tick(self) -> None:
         items = await self.db.due_reminders()
