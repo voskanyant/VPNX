@@ -46,6 +46,48 @@ Set `PLAN_PRICE_STARS` (for example `250`).
 python -m src.main
 ```
 
+## Directus Content Sync From Git
+
+Directus content can be versioned in repo and synced on every deploy.
+
+- Seed files:
+  - `directus_seed/bot_buttons.json`
+  - `directus_seed/bot_content.json`
+- Sync tool:
+  - `scripts/sync_directus.py`
+- Deploy workflow runs sync automatically after DB migration.
+
+### Seed Format
+
+`directus_seed/bot_buttons.json`:
+
+```json
+[
+  { "key": "menu_buy", "label": "Купить VPN" },
+  { "key": "menu_mysub", "label": "Моя подписка" }
+]
+```
+
+`directus_seed/bot_content.json`:
+
+```json
+[
+  { "key": "start_message", "value": "Добро пожаловать..." },
+  { "key": "menu_buy_response", "value": "..." }
+]
+```
+
+### Manual Run (Server)
+
+```bash
+/opt/vpnbot/.venv/bin/python /opt/vpnbot/scripts/sync_directus.py \
+  --env-file /opt/vpnbot/.env \
+  --buttons-file /opt/vpnbot/directus_seed/bot_buttons.json \
+  --content-file /opt/vpnbot/directus_seed/bot_content.json
+```
+
+Use `--dry-run` to preview changes.
+
 ## Notes
 
 - `XUI_BASE_URL` must include your web base path, for example:

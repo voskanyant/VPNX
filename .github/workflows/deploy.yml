@@ -33,5 +33,9 @@ jobs:
               exit 1
             fi
             psql "$DATABASE_URL" -f /opt/vpnbot/sql/schema.sql
+            /opt/vpnbot/.venv/bin/python /opt/vpnbot/scripts/sync_directus.py \
+              --env-file /opt/vpnbot/.env \
+              --buttons-file /opt/vpnbot/directus_seed/bot_buttons.json \
+              --content-file /opt/vpnbot/directus_seed/bot_content.json
             systemctl restart vpnbot
             systemctl --no-pager --full status vpnbot | head -n 30
