@@ -119,7 +119,7 @@ class VPNBot:
         buy_key = "menu_renew" if has_active_subscription else "menu_buy"
         buy_default = "\U0001f504 \u041f\u0440\u043e\u0434\u043b\u0438\u0442\u044c" if has_active_subscription else "\U0001f4b3 \u041a\u0443\u043f\u0438\u0442\u044c VPN"
         return [
-            ("menu_trial", self._button_label("menu_trial", "\U0001f381 \u041f\u043e\u043f\u0440\u043e\u0431\u043e\u0432\u0430\u0442\u044c \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e").strip() or "\U0001f381 \u041f\u043e\u043f\u0440\u043e\u0431\u043e\u0432\u0430\u0442\u044c \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e"),
+            ("menu_trial", self._button_label("menu_trial", "\U0001f381 \u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e 7\u0434").strip() or "\U0001f381 \u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e 7\u0434"),
             (buy_key, self._button_label(buy_key, buy_default).strip() or buy_default),
             ("menu_mysub", self._button_label("menu_mysub", "\U0001f4ca \u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430").strip() or "\U0001f4ca \u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430"),
             (
