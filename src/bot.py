@@ -732,13 +732,13 @@ class VPNBot:
         qr_payload = subscription_url or vless_url
         qr_title = "Subscription QR" if subscription_url else "Direct VLESS QR"
 
-        if len(self._copy_links) > 500:
-            self._copy_links.clear()
-        copy_token = uuid.uuid4().hex[:12]
-        self._copy_links[copy_token] = link_for_copy
-
         buttons: list[list[InlineKeyboardButton]] = [
-            [InlineKeyboardButton(text="\U0001f4cb \u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u0441\u044b\u043b\u043a\u0443", callback_data=f"copy|{copy_token}|_")],
+            [
+                InlineKeyboardButton(
+                    text="\U0001f4cb \u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u0441\u044b\u043b\u043a\u0443",
+                    api_kwargs={"copy_text": {"text": link_for_copy}},
+                )
+            ],
         ]
         if subscription_url:
             buttons.insert(0, [InlineKeyboardButton(text="\U0001f517 \u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443", url=subscription_url)])
@@ -752,6 +752,13 @@ class VPNBot:
         text = f"\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u0430\u043a\u0442\u0438\u0432\u043d\u0430 \u0434\u043e: {self._format_local_dt(expires_at)}"
         if subscription_url:
             text += f"\\n\\n\u0421\u0441\u044b\u043b\u043a\u0430 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438:\\n{subscription_url}"
+        text += (
+            "\\n\\n"
+            + self._content_text(
+                "copy_link_hint",
+                "Нажмите «Скопировать ссылку», затем откройте Streisand, нажмите + и выберите Import from Clipboard.",
+            )
+        )
 
         await update.message.reply_photo(photo=qr_buff)
         await update.message.reply_text(text, reply_markup=action_markup)
