@@ -752,24 +752,27 @@ class VPNBot:
         qr = qrcode.QRCode(
             version=None,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=8,
+            box_size=1,
             border=2,
         )
         qr.add_data(data)
         qr.make(fit=True)
+        modules = max(1, qr.modules_count)
+        # Keep QR sharp and compact by selecting module size before rendering.
+        qr.box_size = max(4, min(7, 360 // modules))
         qr_img = qr.make_image(fill_color="#111111", back_color="white").convert("RGB")
 
         # White rounded card with a subtle accent stripe to improve visual style
-        card_w = qr_img.width + 64
-        card_h = qr_img.height + 120
+        card_w = qr_img.width + 40
+        card_h = qr_img.height + 96
         card = Image.new("RGB", (card_w, card_h), "#EEF3FF")
         draw = ImageDraw.Draw(card)
         draw.rounded_rectangle((8, 8, card_w - 8, card_h - 8), radius=28, fill="white", outline="#DCE5FF", width=2)
-        draw.rounded_rectangle((24, 22, card_w - 24, 54), radius=16, fill="#E8F0FF")
-        draw.text((36, 30), title, fill="#294A8D")
+        draw.rounded_rectangle((18, 18, card_w - 18, 46), radius=14, fill="#E8F0FF")
+        draw.text((28, 25), title, fill="#294A8D")
 
-        qr_with_border = ImageOps.expand(qr_img, border=8, fill="#F4F7FF")
-        card.paste(qr_with_border, ((card_w - qr_with_border.width) // 2, 68))
+        qr_with_border = ImageOps.expand(qr_img, border=6, fill="#F4F7FF")
+        card.paste(qr_with_border, ((card_w - qr_with_border.width) // 2, 52))
         return card
 
     async def reminder_tick(self) -> None:
