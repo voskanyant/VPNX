@@ -176,18 +176,17 @@ class VPNBot:
             sub_buff = io.BytesIO()
             sub_img.save(sub_buff, format="PNG")
             sub_buff.seek(0)
-            await update.message.reply_photo(photo=sub_buff, caption="Subscription QR (best for V2Box)")
+            await update.message.reply_photo(photo=sub_buff)
 
         vless_img = self._build_styled_qr(vless_url, "Direct VLESS QR")
         vless_buff = io.BytesIO()
         vless_img.save(vless_buff, format="PNG")
         vless_buff.seek(0)
 
-        text = f"Plan active until: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}\n\n"
+        text = f"Plan active until: {expires_at.strftime('%Y-%m-%d %H:%M UTC')}"
         if subscription_url:
-            text += f"Subscription URL:\n{subscription_url}\n\n"
-        text += f"Direct VLESS URL:\n{vless_url}"
-        await update.message.reply_photo(photo=vless_buff, caption="Direct VLESS QR")
+            text += f"\n\nSubscription URL:\n{subscription_url}"
+        await update.message.reply_photo(photo=vless_buff)
         await update.message.reply_text(text)
 
     @staticmethod
