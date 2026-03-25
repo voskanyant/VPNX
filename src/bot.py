@@ -37,6 +37,7 @@ class VPNBot:
         self.app.add_handler(CommandHandler("start", self.start))
         self.app.add_handler(CommandHandler("menu", self.start))
         self.app.add_handler(CommandHandler("buy", self.buy))
+        self.app.add_handler(CommandHandler("mysub", self.mysub))
         self.app.add_handler(CommandHandler("myvpn", self.myvpn))
         self.app.add_handler(CommandHandler("renew", self.renew))
         self.app.add_handler(PreCheckoutQueryHandler(self.precheckout))
@@ -47,8 +48,7 @@ class VPNBot:
     def _menu_keyboard() -> ReplyKeyboardMarkup:
         return ReplyKeyboardMarkup(
             [
-                [KeyboardButton("Buy 30 Days"), KeyboardButton("My VPN")],
-                [KeyboardButton("Renew 30 Days"), KeyboardButton("Help")],
+                [KeyboardButton("Buy VPN"), KeyboardButton("My Subscription")],
             ],
             resize_keyboard=True,
             is_persistent=True,
@@ -64,34 +64,56 @@ class VPNBot:
         msg = (
             "VPN bot is ready.\n\n"
             "Use buttons below or commands:\n"
-            "/buy, /myvpn, /renew"
+            "/buy, /mysub"
         )
         await update.message.reply_text(msg, reply_markup=self._menu_keyboard())
 
     async def menu_click(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         text = (update.message.text or "").strip().lower()
-        if text == "buy 30 days":
+        if text == "buy vpn":
             await self.buy(update, context)
             return
-        if text == "my vpn":
-            await self.myvpn(update, context)
+        if text == "my subscription":
+            await self.mysub(update, context)
             return
-        if text == "renew 30 days":
-            await self.renew(update, context)
-            return
-        if text == "help":
-            await update.message.reply_text(
-                "Buttons:\nBuy 30 Days\nMy VPN\nRenew 30 Days\n\nCommands:\n/buy\n/myvpn\n/renew",
-                reply_markup=self._menu_keyboard(),
-            )
+        await update.message.reply_text("Use menu buttons: Buy VPN or My Subscription.", reply_markup=self._menu_keyboard())
 
     async def buy(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_id = await self._ensure_user(update)
+        await update.message.reply_text(
+            f"Plan: {self.settings.plan_days} days\n"
+            f"Price: {self.settings.plan_price_stars} Stars\n"
+            "After successful payment, VPN will activate automatically."
+        )
         await self._send_stars_invoice(update, user_id)
 
     async def renew(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_id = await self._ensure_user(update)
         await self._send_stars_invoice(update, user_id)
+
+    async def mysub(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        user_id = await self._ensure_user(update)
+        sub = await self.db.get_active_subscription(user_id)
+        if not sub:
+            await update.message.reply_text("No active subscription.\nUse Buy VPN to purchase.")
+            return
+
+        now = datetime.now(timezone.utc)
+        expires_at = sub["expires_at"]
+        if expires_at > now:
+            days_left = int((expires_at - now).total_seconds() // 86400)
+            if (expires_at - now).total_seconds() % 86400:
+                days_left += 1
+            await update.message.reply_text(
+                "Subscription: ACTIVE\n"
+                f"Expires: {expires_at:%Y-%m-%d %H:%M UTC}\n"
+                f"Days left: {days_left}"
+            )
+        else:
+            await update.message.reply_text(
+                "Subscription: EXPIRED\n"
+                f"Expired at: {expires_at:%Y-%m-%d %H:%M UTC}"
+            )
 
     async def _send_stars_invoice(self, update: Update, user_id: int) -> None:
         payload = f"buy:{user_id}:{int(datetime.now(timezone.utc).timestamp())}"
