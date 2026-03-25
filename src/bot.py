@@ -765,7 +765,7 @@ class VPNBot:
         qr.make(fit=True)
         modules = max(1, qr.modules_count)
         # Keep QR sharp and close to bottom-button width by sizing modules before render.
-        target_width_px = 460
+        target_width_px = 320
         qr.box_size = max(3, min(8, target_width_px // (modules + 2)))
         return qr.make_image(fill_color="#111111", back_color="white").convert("RGB")
 
