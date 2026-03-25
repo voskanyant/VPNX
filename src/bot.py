@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import logging
 import re
 import time
@@ -10,11 +11,12 @@ from datetime import datetime, timedelta, timezone
 
 import qrcode
 from PIL import Image, ImageDraw, ImageOps
-from telegram import KeyboardButton, LabeledPrice, ReplyKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, LabeledPrice, ReplyKeyboardMarkup, Update
 from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
+    CallbackQueryHandler,
     MessageHandler,
     PreCheckoutQueryHandler,
     filters,
@@ -59,6 +61,7 @@ class VPNBot:
         self.app.add_handler(CommandHandler("renew", self.renew))
         self.app.add_handler(CommandHandler("admin_reload", self.admin_reload))
         self.app.add_handler(PreCheckoutQueryHandler(self.precheckout))
+        self.app.add_handler(CallbackQueryHandler(self.inline_callback))
         self.app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, self.successful_payment))
         self.app.add_handler(MessageHandler(filters.CONTACT, self.handle_contact))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.menu_click))
@@ -116,6 +119,86 @@ class VPNBot:
             seen.add(key)
 
         return buttons
+
+    def _node_response_text(self, node_key: str) -> str:
+        response_key = f"{node_key}_response"
+        legacy_key = f"{node_key.removeprefix('menu_')}_response"
+        return self._content_text(
+            response_key,
+            self._content_text(
+                legacy_key,
+                self._content_text("menu_unknown_message", "Use menu buttons."),
+            ),
+        )
+
+    def _node_inline_keyboard(self, node_key: str, parent_key: str | None = None) -> InlineKeyboardMarkup | None:
+        raw = self._cms_content.get(f"{node_key}_buttons")
+        if not raw:
+            return None
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            LOGGER.warning("Invalid JSON in content key '%s_buttons'", node_key)
+            return None
+
+        rows: list[list[InlineKeyboardButton]] = []
+        if isinstance(parsed, list):
+            if parsed and all(isinstance(r, list) for r in parsed):
+                source_rows = parsed
+            else:
+                source_rows = [parsed]
+            for row in source_rows:
+                if not isinstance(row, list):
+                    continue
+                row_buttons: list[InlineKeyboardButton] = []
+                for item in row:
+                    if not isinstance(item, dict):
+                        continue
+                    text = str(item.get("text", "")).strip()
+                    if not text:
+                        continue
+                    url = item.get("url")
+                    submenu = item.get("submenu")
+                    response = item.get("response")
+                    if isinstance(url, str) and url.strip():
+                        row_buttons.append(InlineKeyboardButton(text=text, url=url.strip()))
+                    elif isinstance(submenu, str) and submenu.strip():
+                        submenu_key = submenu.strip()
+                        row_buttons.append(
+                            InlineKeyboardButton(
+                                text=text,
+                                callback_data=f"nav|{submenu_key}|{node_key}",
+                            )
+                        )
+                    elif isinstance(response, str) and response.strip():
+                        response_key = response.strip()
+                        row_buttons.append(
+                            InlineKeyboardButton(
+                                text=text,
+                                callback_data=f"msg|{response_key}|{node_key}",
+                            )
+                        )
+                if row_buttons:
+                    rows.append(row_buttons)
+
+        if parent_key:
+            rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data=f"nav|{parent_key}|_")])
+
+        if not rows:
+            return None
+        return InlineKeyboardMarkup(rows)
+
+    async def _send_menu_node(
+        self,
+        update: Update,
+        node_key: str,
+        parent_key: str | None = None,
+    ) -> None:
+        assert update.message is not None
+        text = self._node_response_text(node_key)
+        markup = self._node_inline_keyboard(node_key, parent_key=parent_key)
+        await update.message.reply_text(text=text, reply_markup=markup)
 
     async def _refresh_cms(self, force: bool = False) -> None:
         if self.cms is None:
@@ -235,18 +318,7 @@ class VPNBot:
             return
 
         if selected_menu_key:
-            response_key = f"{selected_menu_key}_response"
-            legacy_key = f"{selected_menu_key.removeprefix('menu_')}_response"
-            await update.message.reply_text(
-                self._content_text(
-                    response_key,
-                    self._content_text(
-                        legacy_key,
-                        self._content_text("menu_unknown_message", "Use menu buttons."),
-                    ),
-                ),
-                reply_markup=self._menu_keyboard(),
-            )
+            await self._send_menu_node(update, selected_menu_key)
             return
         await update.message.reply_text(
             self._content_text("menu_unknown_message", "Используйте кнопки меню: Купить VPN или Моя подписка."),
@@ -321,6 +393,35 @@ class VPNBot:
             return
         await self._refresh_cms(force=True)
         await update.message.reply_text("CMS content reloaded.")
+
+    async def inline_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await self._refresh_cms()
+        query = update.callback_query
+        if query is None:
+            return
+        data = query.data or ""
+        parts = data.split("|")
+        if len(parts) != 3:
+            await query.answer()
+            return
+
+        kind, target, parent = parts
+        if kind == "nav":
+            text = self._node_response_text(target)
+            parent_key = None if parent == "_" else parent
+            markup = self._node_inline_keyboard(target, parent_key=parent_key)
+            await query.edit_message_text(text=text, reply_markup=markup)
+            await query.answer()
+            return
+
+        if kind == "msg":
+            response = self._content_text(target, self._content_text("menu_unknown_message", "No content found."))
+            await query.answer()
+            if query.message is not None:
+                await query.message.reply_text(response)
+            return
+
+        await query.answer()
 
     async def mysub(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self._refresh_cms()
