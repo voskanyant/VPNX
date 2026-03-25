@@ -757,7 +757,7 @@ class VPNBot:
         qr = qrcode.QRCode(
             version=None,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=12,
+            box_size=9,
             border=2,
         )
         qr.add_data(data)
@@ -775,6 +775,10 @@ class VPNBot:
 
         qr_with_border = ImageOps.expand(qr_img, border=8, fill="#F4F7FF")
         card.paste(qr_with_border, ((card_w - qr_with_border.width) // 2, 68))
+        max_width = 460
+        if card.width > max_width:
+            ratio = max_width / float(card.width)
+            card = card.resize((max_width, int(card.height * ratio)), Image.Resampling.LANCZOS)
         return card
 
     async def reminder_tick(self) -> None:
