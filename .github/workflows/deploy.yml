@@ -27,9 +27,11 @@ jobs:
             cd /opt/vpnbot
             git pull --ff-only origin main
             /opt/vpnbot/.venv/bin/pip install -r requirements.txt
-            set -a
-            source /opt/vpnbot/.env
-            set +a
+            DATABASE_URL="$(grep -E '^DATABASE_URL=' /opt/vpnbot/.env | sed 's/^DATABASE_URL=//')"
+            if [ -z "${DATABASE_URL}" ]; then
+              echo "DATABASE_URL is missing in /opt/vpnbot/.env"
+              exit 1
+            fi
             psql "$DATABASE_URL" -f /opt/vpnbot/sql/schema.sql
             systemctl restart vpnbot
             systemctl --no-pager --full status vpnbot | head -n 30
