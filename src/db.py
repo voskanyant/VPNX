@@ -129,3 +129,54 @@ class DB:
             subscription_id,
             reminder_type,
         )
+
+    async def create_order(self, user_id: int, amount_stars: int, payload: str) -> int:
+        assert self.pool is not None
+        row = await self.pool.fetchrow(
+            """
+            INSERT INTO orders (user_id, amount_stars, currency, payload, status)
+            VALUES ($1, $2, 'XTR', $3, 'pending')
+            RETURNING id
+            """,
+            user_id,
+            amount_stars,
+            payload,
+        )
+        return int(row["id"])
+
+    async def get_order_by_payload(self, payload: str) -> dict[str, Any] | None:
+        assert self.pool is not None
+        row = await self.pool.fetchrow(
+            "SELECT * FROM orders WHERE payload = $1 LIMIT 1",
+            payload,
+        )
+        return dict(row) if row else None
+
+    async def is_charge_processed(self, telegram_payment_charge_id: str) -> bool:
+        assert self.pool is not None
+        row = await self.pool.fetchrow(
+            "SELECT 1 FROM orders WHERE telegram_payment_charge_id = $1 LIMIT 1",
+            telegram_payment_charge_id,
+        )
+        return row is not None
+
+    async def mark_order_paid(
+        self,
+        order_id: int,
+        telegram_payment_charge_id: str,
+        provider_payment_charge_id: str | None,
+    ) -> None:
+        assert self.pool is not None
+        await self.pool.execute(
+            """
+            UPDATE orders
+            SET status = 'paid',
+                telegram_payment_charge_id = $2,
+                provider_payment_charge_id = $3,
+                paid_at = NOW()
+            WHERE id = $1
+            """,
+            order_id,
+            telegram_payment_charge_id,
+            provider_payment_charge_id,
+        )

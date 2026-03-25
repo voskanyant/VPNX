@@ -29,3 +29,19 @@ CREATE TABLE IF NOT EXISTS reminder_logs (
     sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (subscription_id, reminder_type)
 );
+
+CREATE TABLE IF NOT EXISTS orders (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount_stars INTEGER NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'XTR',
+    payload TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    telegram_payment_charge_id TEXT UNIQUE,
+    provider_payment_charge_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    paid_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);

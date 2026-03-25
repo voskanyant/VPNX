@@ -28,6 +28,7 @@ class Settings:
     vpn_public_port: int
     vpn_tag: str
     plan_days: int
+    plan_price_stars: int
     price_text: str
     timezone: str
 
@@ -46,6 +47,7 @@ def load_settings() -> Settings:
         vpn_public_port=int(_get("VPN_PUBLIC_PORT")),
         vpn_tag=_get("VPN_TAG", "VPN"),
         plan_days=int(_get("PLAN_DAYS", "30")),
+        plan_price_stars=int(_get("PLAN_PRICE_STARS", "250")),
         price_text=_get("PRICE_TEXT", "Monthly plan"),
         timezone=_get("TIMEZONE", "UTC"),
     )

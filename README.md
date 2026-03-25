@@ -3,6 +3,7 @@
 MVP bot for selling VPN access:
 
 - `/buy` creates or renews a 30-day subscription
+- `/buy` sends Telegram Stars invoice (`XTR`)
 - `/myvpn` sends VLESS link and QR code
 - `/renew` extends subscription
 - background reminders before expiration
@@ -37,6 +38,7 @@ cp .env.example .env
 ```
 
 Fill `.env` values.
+Set `PLAN_PRICE_STARS` (for example `250`).
 
 4. Run:
 

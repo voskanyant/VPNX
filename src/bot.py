@@ -7,8 +7,15 @@ from datetime import datetime, timedelta, timezone
 
 import qrcode
 from PIL import Image, ImageDraw, ImageOps
-from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import KeyboardButton, LabeledPrice, ReplyKeyboardMarkup, Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    PreCheckoutQueryHandler,
+    filters,
+)
 
 from .config import Settings
 from .db import DB
@@ -32,6 +39,8 @@ class VPNBot:
         self.app.add_handler(CommandHandler("buy", self.buy))
         self.app.add_handler(CommandHandler("myvpn", self.myvpn))
         self.app.add_handler(CommandHandler("renew", self.renew))
+        self.app.add_handler(PreCheckoutQueryHandler(self.precheckout))
+        self.app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, self.successful_payment))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.menu_click))
 
     @staticmethod
@@ -77,10 +86,58 @@ class VPNBot:
             )
 
     async def buy(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await self._create_or_extend(update)
+        user_id = await self._ensure_user(update)
+        await self._send_stars_invoice(update, user_id)
 
     async def renew(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await self._create_or_extend(update)
+        user_id = await self._ensure_user(update)
+        await self._send_stars_invoice(update, user_id)
+
+    async def _send_stars_invoice(self, update: Update, user_id: int) -> None:
+        payload = f"buy:{user_id}:{int(datetime.now(timezone.utc).timestamp())}"
+        await self.db.create_order(user_id=user_id, amount_stars=self.settings.plan_price_stars, payload=payload)
+        prices = [LabeledPrice(label=f"VPN {self.settings.plan_days} days", amount=self.settings.plan_price_stars)]
+        await update.message.reply_invoice(
+            title=f"VPN {self.settings.plan_days} Days",
+            description=f"Access for {self.settings.plan_days} days",
+            payload=payload,
+            provider_token="",
+            currency="XTR",
+            prices=prices,
+        )
+
+    async def precheckout(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        query = update.pre_checkout_query
+        order = await self.db.get_order_by_payload(query.invoice_payload)
+        if not order:
+            await query.answer(ok=False, error_message="Order not found. Please try again.")
+            return
+        if order["status"] != "pending":
+            await query.answer(ok=False, error_message="Order already processed.")
+            return
+        if int(query.total_amount) != int(order["amount_stars"]):
+            await query.answer(ok=False, error_message="Amount mismatch. Please retry.")
+            return
+        await query.answer(ok=True)
+
+    async def successful_payment(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        payment = update.message.successful_payment
+        order = await self.db.get_order_by_payload(payment.invoice_payload)
+        if not order:
+            await update.message.reply_text("Payment received, but order not found. Contact support.")
+            return
+
+        charge_id = payment.telegram_payment_charge_id
+        if await self.db.is_charge_processed(charge_id):
+            return
+
+        await self.db.mark_order_paid(
+            order_id=int(order["id"]),
+            telegram_payment_charge_id=charge_id,
+            provider_payment_charge_id=payment.provider_payment_charge_id,
+        )
+        await update.message.reply_text("Payment successful. Activating your VPN...")
+        await self._create_or_extend_for_user(update, int(order["user_id"]))
 
     async def myvpn(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_id = await self._ensure_user(update)
@@ -97,8 +154,7 @@ class VPNBot:
         )
         await self._send_config(update, sub["vless_url"], sub["expires_at"], sub_url)
 
-    async def _create_or_extend(self, update: Update) -> None:
-        user_id = await self._ensure_user(update)
+    async def _create_or_extend_for_user(self, update: Update, user_id: int) -> None:
         now = datetime.now(timezone.utc)
         sub = await self.db.get_active_subscription(user_id)
 
