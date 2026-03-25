@@ -31,6 +31,7 @@ from .xui_client import XUIClient
 
 
 LOGGER = logging.getLogger(__name__)
+STREISAND_APPSTORE_URL = "https://apps.apple.com/us/app/streisand/id6450534064"
 
 
 class VPNBot:
@@ -48,6 +49,7 @@ class VPNBot:
         self.xui = xui
         self.cms = cms
         self._pending_profiles: dict[str, dict[str, str]] = {}
+        self._copy_links: dict[str, str] = {}
         self._cms_content: dict[str, str] = {}
         self._cms_buttons: dict[str, str] = {}
         self._cms_loaded_at: float = 0.0
@@ -454,10 +456,20 @@ class VPNBot:
             return
 
         if kind == "msg":
-            response = self._content_text(target, self._content_text("menu_unknown_message", "No content found."))
+            response = self._content_text(target, self._content_text("menu_unknown_message", "\u041a\u043e\u043d\u0442\u0435\u043d\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d."))
             await query.answer()
             if query.message is not None:
                 await query.message.reply_text(response)
+            return
+
+        if kind == "copy":
+            link = self._copy_links.get(target)
+            await query.answer()
+            if query.message is not None:
+                if link:
+                    await query.message.reply_text(f"\u0421\u043a\u043e\u043f\u0438\u0440\u0443\u0439\u0442\u0435 \u0441\u0441\u044b\u043b\u043a\u0443 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438:\\n{link}")
+                else:
+                    await query.message.reply_text("\u0421\u0441\u044b\u043b\u043a\u0430 \u0443\u0441\u0442\u0430\u0440\u0435\u043b\u0430. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \xab\u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430\xbb \u0435\u0449\u0435 \u0440\u0430\u0437.")
             return
 
         await query.answer()
@@ -705,6 +717,8 @@ class VPNBot:
         expires_at: datetime,
         subscription_url: str | None = None,
     ) -> None:
+        action_markup: InlineKeyboardMarkup | None = None
+
         if subscription_url:
             sub_img = self._build_styled_qr(subscription_url, "Subscription QR")
             sub_buff = io.BytesIO()
@@ -712,16 +726,30 @@ class VPNBot:
             sub_buff.seek(0)
             await update.message.reply_photo(photo=sub_buff)
 
+            if len(self._copy_links) > 500:
+                self._copy_links.clear()
+            copy_token = uuid.uuid4().hex[:12]
+            self._copy_links[copy_token] = subscription_url
+
+            action_markup = InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton(text="\U0001f517 \u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443", url=subscription_url)],
+                    [InlineKeyboardButton(text="\U0001f4cb \u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u0441\u044b\u043b\u043a\u0443", callback_data=f"copy|{copy_token}|_")],
+                    [InlineKeyboardButton(text="\U0001f34f Streisand \u0432 App Store", url=STREISAND_APPSTORE_URL)],
+                ]
+            )
+
         vless_img = self._build_styled_qr(vless_url, "Direct VLESS QR")
         vless_buff = io.BytesIO()
         vless_img.save(vless_buff, format="PNG")
         vless_buff.seek(0)
 
-        text = f"Подписка активна до: {self._format_local_dt(expires_at)}"
+        text = f"\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u0430\u043a\u0442\u0438\u0432\u043d\u0430 \u0434\u043e: {self._format_local_dt(expires_at)}"
         if subscription_url:
-            text += f"\n\nСсылка подписки:\n{subscription_url}"
+            text += f"\\n\\n\u0421\u0441\u044b\u043b\u043a\u0430 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438:\\n{subscription_url}"
+
         await update.message.reply_photo(photo=vless_buff)
-        await update.message.reply_text(text)
+        await update.message.reply_text(text, reply_markup=action_markup)
 
     @staticmethod
     def _build_styled_qr(data: str, title: str) -> Image.Image:
