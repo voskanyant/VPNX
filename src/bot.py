@@ -62,9 +62,10 @@ class VPNBot:
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self._ensure_user(update)
         msg = (
-            "VPN бот готов к работе.\n\n"
-            "Используйте кнопки ниже или команды:\n"
-            "/buy, /mysub"
+            "Добро пожаловать в VPN X.\n\n"
+            "Мы предлагаем быстрый, легкий и стабильный VPN для России.\n"
+            "Подходит для повседневного использования: соцсети, мессенджеры, сайты и приложения.\n\n"
+            "Нажмите «Купить VPN», чтобы оформить подписку, или «Моя подписка», чтобы проверить статус."
         )
         await update.message.reply_text(msg, reply_markup=self._menu_keyboard())
 
