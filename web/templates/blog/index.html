@@ -1,24 +1,24 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
-{% block title %}VXcloud - Инструкции{% endblock %}
+{% block title %}VXcloud - ??????????{% endblock %}
 
 {% block content %}
-<section class="hero">
-  <h1>Инструкции VXcloud</h1>
-  <p>Легкий блог с пошаговыми гайдами для клиентов.</p>
+<section class="section-card mb-3">
+  <h1 class="h2 mb-2">?????????? VXcloud</h1>
+  <p class="text-secondary mb-0">????????? ????? ??? ?????????????.</p>
 </section>
 
-<section class="posts">
+<section class="vstack gap-3">
   {% for post in posts %}
-    <article class="post-card">
-      <h2><a href="{% url 'blog_post_detail' slug=post.slug %}">{{ post.title }}</a></h2>
-      {% if post.summary %}<p>{{ post.summary }}</p>{% endif %}
-      <time>{{ post.published_at|date:'d.m.Y H:i' }}</time>
+    <article class="section-card">
+      <h2 class="h4 mb-2"><a class="text-decoration-none" href="{% url 'blog_post_detail' slug=post.slug %}">{{ post.title }}</a></h2>
+      {% if post.summary %}<p class="mb-2">{{ post.summary }}</p>{% endif %}
+      <small class="text-secondary">{{ post.published_at|date:'d.m.Y H:i' }}</small>
     </article>
   {% empty %}
-    <article class="post-card">
-      <h2>Пока нет публикаций</h2>
-      <p>Добавьте первый пост в админке: <code>/admin</code>.</p>
+    <article class="section-card">
+      <h2 class="h4">???? ??? ??????????</h2>
+      <p class="mb-0">???????? ?????? ???? ? ???????: <code>/admin</code>.</p>
     </article>
   {% endfor %}
 </section>
