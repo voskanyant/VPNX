@@ -805,6 +805,7 @@ class VPNBot:
         link_for_copy = subscription_url or vless_url
         qr_payload = subscription_url or vless_url
         qr_title = "Subscription QR" if subscription_url else "Direct VLESS QR"
+        instructions_url = self._content_text("instructions_page_url", "").strip()
 
         buttons: list[list[InlineKeyboardButton]] = [
             [
@@ -816,6 +817,15 @@ class VPNBot:
         ]
         if subscription_url:
             buttons.insert(0, [InlineKeyboardButton(text="\U0001f517 \u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443", url=subscription_url)])
+        if instructions_url:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=self._button_label("open_instructions", "\U0001f4d8 \u0418\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f"),
+                        url=instructions_url,
+                    )
+                ]
+            )
         action_markup = InlineKeyboardMarkup(buttons)
 
         qr_img = self._build_styled_qr(qr_payload, qr_title)
