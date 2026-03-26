@@ -19,7 +19,7 @@ body {
 .app-layout {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 280px 1fr;
 }
 
 .sidebar {
@@ -27,37 +27,80 @@ body {
   top: 0;
   align-self: start;
   height: 100vh;
-  background: #0f151b;
-  color: #ecf3ff;
-  border-right: 1px solid #1f2a35;
-  padding: 22px 14px;
+  background: transparent;
+  color: #0f172a;
+  border-right: 0;
+  padding: 24px 18px;
 }
 
 .sidebar .brand {
   display: block;
-  color: #ffffff;
-  margin-bottom: 18px;
+  color: #0f172a;
+  margin-bottom: 22px;
 }
 
 .side-nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  position: relative;
+  padding-left: 22px;
+}
+
+.side-nav::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background-image: radial-gradient(circle, #8a94a3 1.5px, transparent 2px);
+  background-size: 2px 12px;
+  background-repeat: repeat-y;
 }
 
 .side-link {
+  position: relative;
   text-decoration: none;
-  color: #d2dceb;
-  border: 1px solid #24303d;
-  background: #151d26;
+  color: #1f2937;
+  border: 1px solid transparent;
+  background: transparent;
   border-radius: 10px;
-  padding: 9px 10px;
+  padding: 10px 12px;
   font: 600 14px/1.2 Arial, sans-serif;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.side-link::before {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: #9aa3b2;
+  box-shadow: 0 0 0 2px #f7f8f5;
 }
 
 .side-link:hover {
-  background: #1a2430;
-  color: #fff;
+  background: #ecf0f6;
+  color: #0f172a;
+}
+
+.side-link.is-active {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #d5dbe6;
+}
+
+.side-link.is-active::before {
+  width: 12px;
+  height: 12px;
+  left: -22px;
+  background: #111827;
+  box-shadow: 0 0 0 2px #f7f8f5, 0 0 0 4px #cfd6e3;
 }
 
 .content-area {
@@ -222,7 +265,23 @@ code {
   .sidebar {
     position: static;
     height: auto;
-    border-right: 0;
-    border-bottom: 1px solid #1f2a35;
+    border-bottom: 1px solid #d9dfe8;
+    padding-bottom: 14px;
+  }
+
+  .side-nav {
+    padding-left: 14px;
+  }
+
+  .side-nav::before {
+    left: 2px;
+  }
+
+  .side-link::before {
+    left: -12px;
+  }
+
+  .side-link.is-active::before {
+    left: -14px;
   }
 }
