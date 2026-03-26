@@ -1,4 +1,4 @@
-name: Deploy VPnBot
+name: Deploy VXcloud
 
 on:
   push:
@@ -37,5 +37,24 @@ jobs:
               --env-file /opt/vpnbot/.env \
               --buttons-file /opt/vpnbot/directus_seed/bot_buttons.json \
               --content-file /opt/vpnbot/directus_seed/bot_content.json
-            systemctl restart vpnbot
-            systemctl --no-pager --full status vpnbot | head -n 30
+            set -a
+            . /opt/vpnbot/.env
+            set +a
+            /opt/vpnbot/.venv/bin/python /opt/vpnbot/web/manage.py migrate --settings=vxcloud_site.settings
+            /opt/vpnbot/.venv/bin/python /opt/vpnbot/web/manage.py collectstatic --noinput --settings=vxcloud_site.settings
+
+            if systemctl list-unit-files | grep -q '^vpnbot.service'; then
+              systemctl restart vpnbot
+            fi
+
+            if systemctl list-unit-files | grep -q '^vxcloud-web.service'; then
+              systemctl restart vxcloud-web
+            fi
+
+            if systemctl list-unit-files | grep -q '^nginx.service'; then
+              systemctl restart nginx
+            fi
+
+            systemctl --no-pager --full status vpnbot | head -n 20 || true
+            systemctl --no-pager --full status vxcloud-web | head -n 20 || true
+            systemctl --no-pager --full status nginx | head -n 20 || true
