@@ -41,7 +41,9 @@ class DB:
             SELECT *
             FROM subscriptions
             WHERE user_id = $1
-            ORDER BY id DESC
+              AND is_active = TRUE
+              AND expires_at > NOW()
+            ORDER BY expires_at DESC, id DESC
             LIMIT 1
             """,
             user_id,
@@ -193,6 +195,30 @@ class DB:
             telegram_payment_charge_id,
             provider_payment_charge_id,
         )
+
+    async def mark_order_paid_if_pending(
+        self,
+        order_id: int,
+        telegram_payment_charge_id: str,
+        provider_payment_charge_id: str | None,
+    ) -> bool:
+        assert self.pool is not None
+        row = await self.pool.fetchrow(
+            """
+            UPDATE orders
+            SET status = 'paid',
+                telegram_payment_charge_id = $2,
+                provider_payment_charge_id = $3,
+                paid_at = NOW()
+            WHERE id = $1
+              AND status = 'pending'
+            RETURNING id
+            """,
+            order_id,
+            telegram_payment_charge_id,
+            provider_payment_charge_id,
+        )
+        return row is not None
 
     async def get_latest_paid_order(self, user_id: int) -> dict[str, Any] | None:
         assert self.pool is not None

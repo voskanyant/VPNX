@@ -8,6 +8,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Awaitable, Callable
 from urllib.parse import quote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -55,6 +56,8 @@ class VPNBot:
         self._cms_buttons: dict[str, str] = {}
         self._cms_loaded_at: float = 0.0
         self._cms_lock = asyncio.Lock()
+        self._provision_locks: dict[int, asyncio.Lock] = {}
+        self._provision_locks_guard = asyncio.Lock()
 
     def register(self) -> None:
         self.app.add_handler(CommandHandler("start", self.start))
@@ -104,10 +107,7 @@ class VPNBot:
         return value if value else default
 
     async def _has_active_subscription(self, user_id: int) -> bool:
-        sub = await self.db.get_active_subscription(user_id)
-        if not sub:
-            return False
-        return sub["expires_at"] > datetime.now(timezone.utc)
+        return await self.db.get_active_subscription(user_id) is not None
 
     async def _menu_keyboard_for_user(self, user_id: int) -> ReplyKeyboardMarkup:
         return self._menu_keyboard(has_active_subscription=await self._has_active_subscription(user_id))
@@ -248,6 +248,23 @@ class VPNBot:
                 self._cms_loaded_at = time.monotonic()
             except Exception:
                 LOGGER.exception("Failed to refresh CMS content")
+
+    async def _get_provision_lock(self, user_id: int) -> asyncio.Lock:
+        async with self._provision_locks_guard:
+            lock = self._provision_locks.get(user_id)
+            if lock is None:
+                lock = asyncio.Lock()
+                self._provision_locks[user_id] = lock
+            return lock
+
+    async def _run_user_provision(
+        self,
+        user_id: int,
+        action: Callable[[], Awaitable[None]],
+    ) -> None:
+        lock = await self._get_provision_lock(user_id)
+        async with lock:
+            await action()
 
     @staticmethod
     def _normalize_phone(value: str) -> str:
@@ -440,7 +457,10 @@ class VPNBot:
             self._content_text("trial_activating_message", "\u0410\u043a\u0442\u0438\u0432\u0438\u0440\u0443\u044e \u0432\u0430\u0448 \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434 \u043d\u0430 7 \u0434\u043d\u0435\u0439..."),
             reply_markup=await self._menu_keyboard_for_user(user_id),
         )
-        await self._create_trial_for_user(update, user_id=user_id, days=7)
+        await self._run_user_provision(
+            user_id,
+            lambda: self._create_trial_for_user(update, user_id=user_id, days=7),
+        )
 
     async def handle_contact(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self._refresh_cms()
@@ -552,7 +572,13 @@ class VPNBot:
                     )
                 )
                 try:
-                    await asyncio.wait_for(self._create_or_extend_for_user(update, user_id), timeout=45)
+                    await asyncio.wait_for(
+                        self._run_user_provision(
+                            user_id,
+                            lambda: self._create_or_extend_for_user(update, user_id),
+                        ),
+                        timeout=45,
+                    )
                     return
                 except Exception:
                     LOGGER.exception(
@@ -672,11 +698,21 @@ class VPNBot:
             await self.mysub(update, context)
             return
 
-        await self.db.mark_order_paid(
+        marked = await self.db.mark_order_paid_if_pending(
             order_id=int(order["id"]),
             telegram_payment_charge_id=charge_id,
             provider_payment_charge_id=payment.provider_payment_charge_id,
         )
+        if not marked:
+            await update.message.reply_text(
+                self._content_text(
+                    "payment_already_processed_message",
+                    "Платеж уже обработан. Отправляю вашу подписку...",
+                )
+            )
+            await self.mysub(update, context)
+            return
+
         profile = self._pending_profiles.pop(payment.invoice_payload, {})
         phone = profile.get("phone")
         customer_name = profile.get("name")
@@ -684,11 +720,14 @@ class VPNBot:
 
         try:
             await asyncio.wait_for(
-                self._create_or_extend_for_user(
-                    update,
+                self._run_user_provision(
                     int(order["user_id"]),
-                    phone=phone,
-                    customer_name=customer_name,
+                    lambda: self._create_or_extend_for_user(
+                        update,
+                        int(order["user_id"]),
+                        phone=phone,
+                        customer_name=customer_name,
+                    ),
                 ),
                 timeout=45,
             )
