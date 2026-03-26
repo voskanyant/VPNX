@@ -474,13 +474,53 @@ class VPNBot:
 
         await query.answer()
 
+
     async def mysub(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self._refresh_cms()
+        assert update.message is not None
         user_id = await self._ensure_user(update)
         sub = await self.db.get_active_subscription(user_id)
         if not sub:
+            paid_order = await self.db.get_latest_paid_order(user_id)
+            if paid_order:
+                await update.message.reply_text(
+                    self._content_text(
+                        "recovering_subscription_message",
+                        "Найден оплаченный заказ. Пробую восстановить подписку...",
+                    )
+                )
+                try:
+                    await asyncio.wait_for(self._create_or_extend_for_user(update, user_id), timeout=45)
+                    return
+                except Exception:
+                    LOGGER.exception(
+                        "Failed to recover subscription for user_id=%s from paid order_id=%s",
+                        user_id,
+                        paid_order.get("id"),
+                    )
+                    await update.message.reply_text(
+                        self._content_text(
+                            "recover_failed_message",
+                            "Не удалось автоматически восстановить подписку. Поддержка уже уведомлена, пожалуйста подождите.",
+                        )
+                    )
+                    if self.settings.telegram_admin_id:
+                        try:
+                            await self.app.bot.send_message(
+                                chat_id=self.settings.telegram_admin_id,
+                                text=(
+                                    "⚠️ Ошибка восстановления подписки.\n"
+                                    f"user_id={user_id} paid_order_id={paid_order.get('id')}"
+                                ),
+                            )
+                        except Exception:
+                            LOGGER.exception("Failed to notify admin about recovery issue")
+                    return
             await update.message.reply_text(
-                self._content_text("no_subscription_message", "У вас нет активной подписки.\nНажмите «Купить VPN».")
+                self._content_text(
+                    "no_subscription_message",
+                    "У вас нет активной подписки.\nНажмите «Купить VPN».",
+                )
             )
             return
 

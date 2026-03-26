@@ -193,3 +193,17 @@ class DB:
             telegram_payment_charge_id,
             provider_payment_charge_id,
         )
+
+    async def get_latest_paid_order(self, user_id: int) -> dict[str, Any] | None:
+        assert self.pool is not None
+        row = await self.pool.fetchrow(
+            """
+            SELECT *
+            FROM orders
+            WHERE user_id = $1 AND status = 'paid'
+            ORDER BY paid_at DESC NULLS LAST, id DESC
+            LIMIT 1
+            """,
+            user_id,
+        )
+        return dict(row) if row else None
