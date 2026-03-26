@@ -6,24 +6,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}VXcloud Guide{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'site.css' %}" />
+  <style>
+    /* Fallback layout if static file is unavailable */
+    .app-layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+    .sidebar { background: #11161c; color: #e9eef5; padding: 20px 16px; }
+    .sidebar a { color: #e9eef5; text-decoration: none; }
+    .content-area { padding: 18px 14px 40px; }
+    @media (max-width: 900px) {
+      .app-layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+    }
+  </style>
 </head>
 <body>
-  <main class="container">
-    <header class="top">
+  <div class="app-layout">
+    <aside class="sidebar">
       <a href="/" class="brand">VXcloud</a>
-      <div class="top-links">
-        <a href="/account/" class="admin-link">Кабинет</a>
-        <a href="/admin/" class="admin-link">Admin</a>
+      <nav class="side-nav">
+        <a href="/" class="side-link">Инструкции</a>
+        <a href="/account/" class="side-link">Личный кабинет</a>
+        <a href="/admin/" class="side-link">Админка</a>
+      </nav>
+    </aside>
+    <main class="content-area">
+      <div class="container">
+        {% if messages %}
+          <section class="alerts">
+            {% for message in messages %}
+              <p class="alert {{ message.tags }}">{{ message }}</p>
+            {% endfor %}
+          </section>
+        {% endif %}
+        {% block content %}{% endblock %}
       </div>
-    </header>
-    {% if messages %}
-      <section class="alerts">
-        {% for message in messages %}
-          <p class="alert {{ message.tags }}">{{ message }}</p>
-        {% endfor %}
-      </section>
-    {% endif %}
-    {% block content %}{% endblock %}
-  </main>
+    </main>
+  </div>
 </body>
 </html>
