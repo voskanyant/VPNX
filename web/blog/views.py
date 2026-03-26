@@ -5,6 +5,10 @@ from django.utils import timezone
 from .models import Post
 
 
+def home(request: HttpRequest) -> HttpResponse:
+    return render(request, "blog/home.html")
+
+
 def index(request: HttpRequest) -> HttpResponse:
     posts = Post.objects.filter(is_published=True, published_at__lte=timezone.now())
     return render(request, "blog/index.html", {"posts": posts})

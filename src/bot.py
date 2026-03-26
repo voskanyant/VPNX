@@ -264,6 +264,46 @@ class VPNBot:
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_id = await self._ensure_user(update)
         await self._refresh_cms()
+        start_arg = (context.args[0].strip() if context.args else "")
+        if start_arg.startswith("link_"):
+            link_code = start_arg.removeprefix("link_")
+            status = await self.db.consume_telegram_link_code(link_code, update.effective_user.id)
+            if status == "ok":
+                await update.message.reply_text(
+                    self._content_text(
+                        "link_success_message",
+                        "Готово! Telegram успешно привязан к вашему аккаунту на сайте.",
+                    ),
+                    reply_markup=await self._menu_keyboard_for_user(user_id),
+                )
+                return
+            if status == "used":
+                await update.message.reply_text(
+                    self._content_text(
+                        "link_used_message",
+                        "Этот код уже использован. Сгенерируйте новый код на сайте.",
+                    ),
+                    reply_markup=await self._menu_keyboard_for_user(user_id),
+                )
+                return
+            if status == "expired":
+                await update.message.reply_text(
+                    self._content_text(
+                        "link_expired_message",
+                        "Код привязки истек. Сгенерируйте новый код на сайте.",
+                    ),
+                    reply_markup=await self._menu_keyboard_for_user(user_id),
+                )
+                return
+            await update.message.reply_text(
+                self._content_text(
+                    "link_invalid_message",
+                    "Неверный код привязки. Проверьте код и попробуйте снова.",
+                ),
+                reply_markup=await self._menu_keyboard_for_user(user_id),
+            )
+            return
+
         default_msg = (
             "\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c \u0432 VXcloud.\n\n"
             "\u041c\u044b \u043f\u0440\u0435\u0434\u043b\u0430\u0433\u0430\u0435\u043c \u0431\u044b\u0441\u0442\u0440\u044b\u0439, \u043b\u0435\u0433\u043a\u0438\u0439 \u0438 \u0441\u0442\u0430\u0431\u0438\u043b\u044c\u043d\u044b\u0439 VPN \u0434\u043b\u044f \u0420\u043e\u0441\u0441\u0438\u0438.\n"

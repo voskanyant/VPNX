@@ -2,6 +2,7 @@
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 
 
 class LinkedAccount(models.Model):
@@ -11,6 +12,27 @@ class LinkedAccount(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} -> {self.telegram_id}"
+
+
+class TelegramLinkToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="telegram_link_tokens")
+    code = models.CharField(max_length=32, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    consumed_telegram_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "consumed_at", "expires_at"]),
+        ]
+
+    @property
+    def is_active(self) -> bool:
+        return self.consumed_at is None and self.expires_at > timezone.now()
+
+    def __str__(self) -> str:
+        return f"link:{self.code} user={self.user_id}"
 
 
 class BotUser(models.Model):

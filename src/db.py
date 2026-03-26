@@ -207,3 +207,64 @@ class DB:
             user_id,
         )
         return dict(row) if row else None
+
+    async def consume_telegram_link_code(self, code: str, telegram_id: int) -> str:
+        assert self.pool is not None
+        normalized = code.strip().upper()
+        if not normalized:
+            return "invalid"
+
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                token = await conn.fetchrow(
+                    """
+                    SELECT id, user_id
+                    FROM cabinet_telegramlinktoken
+                    WHERE code = $1
+                      AND consumed_at IS NULL
+                      AND expires_at > NOW()
+                    ORDER BY id DESC
+                    LIMIT 1
+                    FOR UPDATE
+                    """,
+                    normalized,
+                )
+                if not token:
+                    exists = await conn.fetchrow(
+                        "SELECT consumed_at, expires_at FROM cabinet_telegramlinktoken WHERE code = $1 ORDER BY id DESC LIMIT 1",
+                        normalized,
+                    )
+                    if not exists:
+                        return "invalid"
+                    if exists["consumed_at"] is not None:
+                        return "used"
+                    return "expired"
+
+                user_id = int(token["user_id"])
+
+                await conn.execute(
+                    "DELETE FROM cabinet_linkedaccount WHERE telegram_id = $1 AND user_id <> $2",
+                    telegram_id,
+                    user_id,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO cabinet_linkedaccount (user_id, telegram_id, created_at)
+                    VALUES ($1, $2, NOW())
+                    ON CONFLICT (user_id)
+                    DO UPDATE SET telegram_id = EXCLUDED.telegram_id
+                    """,
+                    user_id,
+                    telegram_id,
+                )
+                await conn.execute(
+                    """
+                    UPDATE cabinet_telegramlinktoken
+                    SET consumed_at = NOW(),
+                        consumed_telegram_id = $2
+                    WHERE id = $1
+                    """,
+                    int(token["id"]),
+                    telegram_id,
+                )
+        return "ok"

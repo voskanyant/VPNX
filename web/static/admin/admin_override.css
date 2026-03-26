@@ -1,0 +1,35 @@
+html,
+html[data-theme="light"],
+html[data-theme="dark"],
+html[data-theme="auto"] {
+  color-scheme: light;
+}
+
+/* Keep admin in light mode even if browser/system prefers dark */
+html[data-theme="dark"],
+html[data-theme="auto"] {
+  --body-bg: #ffffff;
+  --body-fg: #1f2937;
+  --header-bg: #f8fafc;
+  --header-color: #0f172a;
+  --breadcrumbs-bg: #f1f5f9;
+  --breadcrumbs-fg: #334155;
+  --primary: #2563eb;
+  --secondary: #1d4ed8;
+  --link-fg: #1d4ed8;
+  --link-selected-fg: #1e3a8a;
+  --hairline-color: #e2e8f0;
+  --border-color: #dbe3ee;
+}
+
+/* Wider post edit area */
+#content-main,
+.change-form #content-main,
+.change-form .submit-row {
+  max-width: 1400px;
+}
+
+.change-form .tox,
+.change-form .tox-tinymce {
+  max-width: 100%;
+}

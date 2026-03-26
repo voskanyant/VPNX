@@ -13,8 +13,9 @@
     <aside class="sidebar">
       <a href="/" class="brand">VXcloud</a>
       <nav class="side-nav">
-        <a href="/" class="side-link{% if request.path == '/' %} is-active{% endif %}">Инструкции</a>
-        <a href="/account/" class="side-link{% if request.path|slice:':9' == '/account/' %} is-active{% endif %}">Личный кабинет</a>
+        <a href="/" class="side-link{% if request.path == '/' %} is-active{% endif %}">Главная</a>
+        <a href="/instructions/" class="side-link{% if request.path|slice:':14' == '/instructions/' or request.path|slice:':6' == '/post/' %} is-active{% endif %}">Инструкции</a>
+        <a href="/account/" class="side-link{% if request.path|slice:':9' == '/account/' or request.path|slice:':10' == '/accounts/' %} is-active{% endif %}">Личный кабинет</a>
       </nav>
     </aside>
     <main class="content-area">
@@ -39,7 +40,7 @@
       el.classList.add('btn', 'btn-primary');
     });
     // Hard guard: keep only allowed sidebar links.
-    const allowedLinks = new Set(['/', '/account/']);
+    const allowedLinks = new Set(['/', '/instructions/', '/account/']);
     document.querySelectorAll('.side-nav a').forEach((el) => {
       const href = (el.getAttribute('href') || '').trim();
       if (!allowedLinks.has(href)) el.remove();

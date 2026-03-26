@@ -3,8 +3,10 @@
 import base64
 import io
 import os
+import secrets
+import string
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import qrcode
 from django.contrib import messages
@@ -15,8 +17,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
-from .forms import LinkTelegramForm, SignUpForm
-from .models import BotOrder, BotSubscription, BotUser, LinkedAccount
+from .forms import SignUpForm
+from .models import BotOrder, BotSubscription, BotUser, LinkedAccount, TelegramLinkToken
 
 
 def signup_view(request: HttpRequest) -> HttpResponse:
@@ -68,19 +70,48 @@ def account_dashboard(request: HttpRequest) -> HttpResponse:
 @login_required
 def link_telegram(request: HttpRequest) -> HttpResponse:
     linked = LinkedAccount.objects.filter(user=request.user).first()
-    form = LinkTelegramForm(request.POST or None, initial={"telegram_id": linked.telegram_id if linked else None})
+    now = timezone.now()
 
-    if request.method == "POST" and form.is_valid():
-        telegram_id = form.cleaned_data["telegram_id"]
-        bot_user = BotUser.objects.filter(telegram_id=telegram_id).first()
-        if not bot_user:
-            form.add_error("telegram_id", "Такой Telegram ID не найден в базе бота")
-        else:
-            LinkedAccount.objects.update_or_create(user=request.user, defaults={"telegram_id": telegram_id})
-            messages.success(request, "Telegram аккаунт привязан")
-            return redirect("account_dashboard")
+    if request.method == "POST":
+        TelegramLinkToken.objects.filter(user=request.user, consumed_at__isnull=True).delete()
+        messages.info(request, "Создан новый код для привязки Telegram.")
+        return redirect("account_link")
 
-    return render(request, "cabinet/link_telegram.html", {"form": form})
+    token = (
+        TelegramLinkToken.objects.filter(
+            user=request.user,
+            consumed_at__isnull=True,
+            expires_at__gt=now,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if token is None:
+        token = TelegramLinkToken.objects.create(
+            user=request.user,
+            code=_generate_link_code(),
+            expires_at=now + timedelta(minutes=20),
+        )
+
+    bot_username = os.getenv("TELEGRAM_BOT_USERNAME", "").strip().lstrip("@")
+    deep_link = f"https://t.me/{bot_username}?start=link_{token.code}" if bot_username else ""
+
+    return render(
+        request,
+        "cabinet/link_telegram.html",
+        {
+            "linked": linked,
+            "link_code": token.code,
+            "deep_link": deep_link,
+            "expires_at": token.expires_at,
+            "bot_username": bot_username,
+        },
+    )
+
+
+def _generate_link_code(length: int = 12) -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 @login_required
