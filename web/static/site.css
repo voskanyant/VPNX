@@ -44,13 +44,13 @@ body {
   flex-direction: column;
   gap: 10px;
   position: relative;
-  padding-left: 22px;
+  padding-right: 22px;
 }
 
 .side-nav::before {
   content: "";
   position: absolute;
-  left: 8px;
+  right: 8px;
   top: 6px;
   bottom: 6px;
   width: 2px;
@@ -72,7 +72,7 @@ body {
 .side-link::before {
   content: "";
   position: absolute;
-  left: -20px;
+  right: -20px;
   top: 50%;
   width: 8px;
   height: 8px;
@@ -96,7 +96,7 @@ body {
 .side-link.is-active::before {
   width: 12px;
   height: 12px;
-  left: -22px;
+  right: -22px;
   background: #111827;
   box-shadow: 0 0 0 2px #f7f8f5, 0 0 0 4px #cfd6e3;
 }
@@ -269,18 +269,18 @@ code {
   }
 
   .side-nav {
-    padding-left: 14px;
+    padding-right: 14px;
   }
 
   .side-nav::before {
-    left: 2px;
+    right: 2px;
   }
 
   .side-link::before {
-    left: -12px;
+    right: -12px;
   }
 
   .side-link.is-active::before {
-    left: -14px;
+    right: -14px;
   }
 }
