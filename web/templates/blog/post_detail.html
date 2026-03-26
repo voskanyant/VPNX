@@ -1,0 +1,12 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}{{ post.title }} - VXcloud{% endblock %}
+
+{% block content %}
+<article class="article">
+  <a href="/" class="back">← Все статьи</a>
+  <h1>{{ post.title }}</h1>
+  <time>{{ post.published_at|date:'d.m.Y H:i' }}</time>
+  <div class="content">{{ post.content|linebreaks }}</div>
+</article>
+{% endblock %}

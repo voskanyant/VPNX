@@ -171,3 +171,27 @@ server {
     }
 }
 ```
+
+## Django Guide CMS (Blog + Admin)
+
+A lightweight Django guide CMS is included in `web/` with admin panel.
+
+### Local Run
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+cd web
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver 0.0.0.0:8088
+```
+
+Open:
+
+- Guide: `http://127.0.0.1:8088/`
+- Admin: `http://127.0.0.1:8088/admin/`
+
+Add posts in admin (`Post`) and they appear on the public guide page.

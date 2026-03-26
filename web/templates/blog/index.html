@@ -1,0 +1,25 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}VXcloud - Инструкции{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Инструкции VXcloud</h1>
+  <p>Легкий блог с пошаговыми гайдами для клиентов.</p>
+</section>
+
+<section class="posts">
+  {% for post in posts %}
+    <article class="post-card">
+      <h2><a href="{% url 'blog_post_detail' slug=post.slug %}">{{ post.title }}</a></h2>
+      {% if post.summary %}<p>{{ post.summary }}</p>{% endif %}
+      <time>{{ post.published_at|date:'d.m.Y H:i' }}</time>
+    </article>
+  {% empty %}
+    <article class="post-card">
+      <h2>Пока нет публикаций</h2>
+      <p>Добавьте первый пост в админке: <code>/admin</code>.</p>
+    </article>
+  {% endfor %}
+</section>
+{% endblock %}
