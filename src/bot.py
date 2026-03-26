@@ -394,12 +394,6 @@ class VPNBot:
             await self._send_menu_node(update, selected_menu_key)
             return
         if selected_menu_key == "menu_site":
-            await update.message.reply_text(
-                self._content_text("site_open_message", "\u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u0441\u0430\u0439\u0442 VXcloud:"),
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(text=self._button_label("open_site", "\u041e\u0442\u043a\u0440\u044b\u0442\u044c VXcloud"), url=self._site_url())]]
-                ),
-            )
             return
 
         if selected_menu_key:
