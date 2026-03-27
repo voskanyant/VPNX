@@ -34,6 +34,7 @@ from .xui_client import XUIClient
 
 LOGGER = logging.getLogger(__name__)
 STREISAND_APPSTORE_URL = "https://apps.apple.com/us/app/streisand/id6450534064"
+V2BOX_PLAYSTORE_URL = "https://play.google.com/store/search?q=V2Box&c=apps"
 
 
 class VPNBot:
@@ -155,9 +156,11 @@ class VPNBot:
         legacy_key = f"{node_key.removeprefix('menu_')}_response"
         if node_key == "menu_instructions":
             default = (
-                "Инструкция по подключению:\n"
-                f"{self._site_url().rstrip('/')}/instructions/\n\n"
-                "Если ссылка не открылась автоматически, нажмите кнопку ниже."
+                "Короткая инструкция:\n"
+                "1) Установите приложение\n"
+                "2) Нажмите «Моя подписка» и скопируйте ссылку\n"
+                "3) Импортируйте ссылку в приложение\n\n"
+                "Выберите платформу кнопками ниже."
             )
             return self._content_text(response_key, self._content_text(legacy_key, default))
         return self._content_text(
@@ -173,7 +176,11 @@ class VPNBot:
         if not raw:
             if node_key == "menu_instructions":
                 return InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(text="📘 Открыть инструкцию", url=f"{self._site_url().rstrip('/')}/instructions/")]]
+                    [
+                        [InlineKeyboardButton(text="🍏 iOS (Streisand)", url=STREISAND_APPSTORE_URL)],
+                        [InlineKeyboardButton(text="🤖 Android (V2Box)", url=V2BOX_PLAYSTORE_URL)],
+                        [InlineKeyboardButton(text="💻 Инструкция на сайте", url=f"{self._site_url().rstrip('/')}/instructions/")],
+                    ]
                 )
             return None
 
