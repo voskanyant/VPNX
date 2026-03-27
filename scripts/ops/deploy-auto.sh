@@ -28,4 +28,4 @@ docker compose --env-file .env ps
 
 echo "[6/6] Done."
 echo "If needed, stashes are here:"
-git stash list | head -n 3
+git stash list | head -n 3 || true
