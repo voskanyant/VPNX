@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "wagtail",
     "modelcluster",
     "taggit",
+    "cms",
     "blog",
     "cabinet",
 ]
@@ -111,4 +112,5 @@ LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 WAGTAIL_SITE_NAME = "VXcloud CMS"
+WAGTAILADMIN_BASE_URL = os.getenv("WAGTAILADMIN_BASE_URL", "https://vxcloud.ru/cms-admin")
 

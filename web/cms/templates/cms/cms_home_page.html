@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block title %}{{ page.title }}{% endblock %}
+
+{% block content %}
+<section class="section-card">
+  <h1 class="h2 mb-2">{{ page.title }}</h1>
+  {% if page.intro %}
+    <div class="text-secondary">{{ page.intro|richtext }}</div>
+  {% endif %}
+</section>
+{% endblock %}
