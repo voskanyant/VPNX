@@ -72,6 +72,9 @@ cp .env.example .env
 docker compose up -d --build db web
 ```
 
+Note: `web/staticfiles` is bind-mounted from host to container so nginx alias
+`/srv/apps/vxcloud/app/web/staticfiles/` works after every deploy.
+
 ### Start Bot (cutover step)
 
 ```bash
@@ -82,6 +85,14 @@ docker compose --profile bot up -d bot
 
 ```bash
 docker compose stop bot
+```
+
+### One-command deploy on server
+
+```bash
+cd /srv/apps/vxcloud/app
+chmod +x scripts/ops/deploy-auto.sh
+./scripts/ops/deploy-auto.sh
 ```
 
 ## Directus Content Sync From Git

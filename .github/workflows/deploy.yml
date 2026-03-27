@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-vpnbot
+  group: deploy-vxcloud
   cancel-in-progress: true
 
 jobs:
@@ -24,56 +24,6 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd /opt/vpnbot
-            git pull --ff-only origin main
-            /opt/vpnbot/.venv/bin/pip install -r requirements.txt
-            DATABASE_URL="$(grep -E '^DATABASE_URL=' /opt/vpnbot/.env | sed 's/^DATABASE_URL=//')"
-            if [ -z "${DATABASE_URL}" ]; then
-              echo "DATABASE_URL is missing in /opt/vpnbot/.env"
-              exit 1
-            fi
-            psql "$DATABASE_URL" -f /opt/vpnbot/sql/schema.sql
-            /opt/vpnbot/.venv/bin/python /opt/vpnbot/scripts/sync_directus.py \
-              --env-file /opt/vpnbot/.env \
-              --buttons-file /opt/vpnbot/directus_seed/bot_buttons.json \
-              --content-file /opt/vpnbot/directus_seed/bot_content.json
-
-            read_env_value() {
-              local key="$1"
-              grep -E "^${key}=" /opt/vpnbot/.env | head -n 1 | sed "s/^${key}=//" || true
-            }
-
-            DJANGO_DEBUG="$(read_env_value DJANGO_DEBUG)"
-            DJANGO_ALLOWED_HOSTS="$(read_env_value DJANGO_ALLOWED_HOSTS)"
-            DJANGO_CSRF_TRUSTED_ORIGINS="$(read_env_value DJANGO_CSRF_TRUSTED_ORIGINS)"
-            TIMEZONE="$(read_env_value TIMEZONE)"
-
-            DJANGO_DEBUG="$DJANGO_DEBUG" \
-            DJANGO_ALLOWED_HOSTS="$DJANGO_ALLOWED_HOSTS" \
-            DJANGO_CSRF_TRUSTED_ORIGINS="$DJANGO_CSRF_TRUSTED_ORIGINS" \
-            DATABASE_URL="$DATABASE_URL" \
-            TIMEZONE="$TIMEZONE" \
-            /opt/vpnbot/.venv/bin/python /opt/vpnbot/web/manage.py migrate --settings=vxcloud_site.settings
-
-            DJANGO_DEBUG="$DJANGO_DEBUG" \
-            DJANGO_ALLOWED_HOSTS="$DJANGO_ALLOWED_HOSTS" \
-            DJANGO_CSRF_TRUSTED_ORIGINS="$DJANGO_CSRF_TRUSTED_ORIGINS" \
-            DATABASE_URL="$DATABASE_URL" \
-            TIMEZONE="$TIMEZONE" \
-            /opt/vpnbot/.venv/bin/python /opt/vpnbot/web/manage.py collectstatic --noinput --settings=vxcloud_site.settings
-
-            if systemctl list-unit-files | grep -q '^vpnbot.service'; then
-              systemctl restart vpnbot
-            fi
-
-            if systemctl list-unit-files | grep -q '^vxcloud-web.service'; then
-              systemctl restart vxcloud-web
-            fi
-
-            if systemctl list-unit-files | grep -q '^nginx.service'; then
-              systemctl restart nginx
-            fi
-
-            systemctl --no-pager --full status vpnbot | head -n 20 || true
-            systemctl --no-pager --full status vxcloud-web | head -n 20 || true
-            systemctl --no-pager --full status nginx | head -n 20 || true
+            cd /srv/apps/vxcloud/app
+            chmod +x scripts/ops/deploy-auto.sh
+            ./scripts/ops/deploy-auto.sh
