@@ -153,6 +153,13 @@ class VPNBot:
     def _node_response_text(self, node_key: str) -> str:
         response_key = f"{node_key}_response"
         legacy_key = f"{node_key.removeprefix('menu_')}_response"
+        if node_key == "menu_instructions":
+            default = (
+                "Инструкция по подключению:\n"
+                f"{self._site_url().rstrip('/')}/instructions/\n\n"
+                "Если ссылка не открылась автоматически, нажмите кнопку ниже."
+            )
+            return self._content_text(response_key, self._content_text(legacy_key, default))
         return self._content_text(
             response_key,
             self._content_text(
@@ -164,6 +171,10 @@ class VPNBot:
     def _node_inline_keyboard(self, node_key: str, parent_key: str | None = None) -> InlineKeyboardMarkup | None:
         raw = self._cms_content.get(f"{node_key}_buttons")
         if not raw:
+            if node_key == "menu_instructions":
+                return InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(text="📘 Открыть инструкцию", url=f"{self._site_url().rstrip('/')}/instructions/")]]
+                )
             return None
 
         try:
