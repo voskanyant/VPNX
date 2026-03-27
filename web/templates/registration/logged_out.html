@@ -1,10 +1,14 @@
 {% extends 'base.html' %}
+{% load cms %}
 
-{% block title %}Выход - VXcloud{% endblock %}
+{% cms_text "auth.logout.page_title" "Выход - VXcloud" as logout_page_title %}
+{% block title %}{{ logout_page_title }}{% endblock %}
 
 {% block content %}
 <article class="section-card" style="max-width:560px;">
-  <h1 class="h2 mb-2">Выход выполнен</h1>
-  <p class="mb-0"><a href="/accounts/login/">Войти снова</a></p>
+  {% cms_text "auth.logout.heading" "Выход выполнен" as logout_heading %}
+  {% cms_text "auth.logout.login_again" "Войти снова" as logout_login_again %}
+  <h1 class="h2 mb-2">{{ logout_heading }}</h1>
+  <p class="mb-0"><a href="/accounts/login/">{{ logout_login_again }}</a></p>
 </article>
 {% endblock %}

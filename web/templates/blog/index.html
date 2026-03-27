@@ -1,17 +1,17 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
+{% load cms %}
 
-{% block title %}VXcloud - Инструкции{% endblock %}
+{% cms_text "instructions.page_title" "VXcloud - Инструкции" as instructions_page_title %}
+{% block title %}{{ instructions_page_title }}{% endblock %}
 
 {% block content %}
 <section class="section-card mb-3">
-  <h1 class="h2 mb-2">VXcloud: быстрый прокси (VPN)</h1>
-  <p class="mb-2">
-    VXcloud предоставляет быстрый и легкий прокси (VPN) для стабильного доступа к сайтам,
-    приложениям и мессенджерам.
-  </p>
-  <p class="text-secondary mb-0">
-    Ниже — простые инструкции по подключению на iPhone, Android и других устройствах.
-  </p>
+  {% cms_text "instructions.hero_title" "VXcloud: быстрый прокси (VPN)" as instructions_hero_title %}
+  {% cms_text "instructions.hero_description" "VXcloud предоставляет быстрый и легкий прокси (VPN) для стабильного доступа к сайтам, приложениям и мессенджерам." as instructions_hero_description %}
+  {% cms_text "instructions.hero_note" "Ниже - простые инструкции по подключению на iPhone, Android и других устройствах." as instructions_hero_note %}
+  <h1 class="h2 mb-2">{{ instructions_hero_title }}</h1>
+  <p class="mb-2">{{ instructions_hero_description }}</p>
+  <p class="text-secondary mb-0">{{ instructions_hero_note }}</p>
 </section>
 
 <section class="vstack gap-3">
@@ -23,8 +23,10 @@
     </article>
   {% empty %}
     <article class="section-card">
-      <h2 class="h4">Пока нет публикаций</h2>
-      <p class="mb-0">Добавьте первый пост в админке: <code>/admin</code>.</p>
+      {% cms_text "instructions.empty_title" "Пока нет публикаций" as instructions_empty_title %}
+      {% cms_text "instructions.empty_body" "Добавьте первый пост в админке: /admin." as instructions_empty_body %}
+      <h2 class="h4">{{ instructions_empty_title }}</h2>
+      <p class="mb-0">{{ instructions_empty_body }}</p>
     </article>
   {% endfor %}
 </section>

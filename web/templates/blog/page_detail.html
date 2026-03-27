@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ page.title }} - VXcloud{% endblock %}
+
+{% block content %}
+<article class="section-card">
+  <h1 class="h2 mb-1">{{ page.title }}</h1>
+  {% if page.summary %}
+    <p class="text-secondary mt-2 mb-3">{{ page.summary }}</p>
+  {% endif %}
+  <div class="post-content">{{ page.content|safe }}</div>
+</article>
+{% endblock %}

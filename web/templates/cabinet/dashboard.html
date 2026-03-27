@@ -1,30 +1,46 @@
 {% extends 'base.html' %}
+{% load cms %}
 
-{% block title %}Кабинет - VXcloud{% endblock %}
+{% cms_text "cabinet.dashboard.page_title" "Кабинет - VXcloud" as cabinet_page_title %}
+{% block title %}{{ cabinet_page_title }}{% endblock %}
 
 {% block content %}
 <article class="section-card">
-  <h1 class="h2 mb-3">Личный кабинет</h1>
-  <p class="mb-1">Пользователь: <strong>{{ request.user.username }}</strong></p>
+  {% cms_text "cabinet.dashboard.heading" "Личный кабинет" as cabinet_heading %}
+  {% cms_text "cabinet.dashboard.user_label" "Пользователь:" as cabinet_user_label %}
+  {% cms_text "cabinet.dashboard.telegram_linked_label" "Telegram ID:" as cabinet_telegram_linked_label %}
+  {% cms_text "cabinet.dashboard.telegram_missing" "Telegram не привязан." as cabinet_telegram_missing %}
+  {% cms_text "cabinet.dashboard.telegram_link_action" "Привязать" as cabinet_telegram_link_action %}
+  {% cms_text "cabinet.dashboard.status_label" "Статус:" as cabinet_status_label %}
+  {% cms_text "cabinet.dashboard.status_active" "Активна" as cabinet_status_active %}
+  {% cms_text "cabinet.dashboard.status_expired" "Истекла" as cabinet_status_expired %}
+  {% cms_text "cabinet.dashboard.expires_label" "Действует до:" as cabinet_expires_label %}
+  {% cms_text "cabinet.dashboard.open_config" "Открыть конфиг и QR" as cabinet_open_config %}
+  {% cms_text "cabinet.dashboard.subscription_missing" "Подписка не найдена." as cabinet_subscription_missing %}
+  {% cms_text "cabinet.dashboard.renew_action" "Продлить (создать заказ)" as cabinet_renew_action %}
+  {% cms_text "cabinet.dashboard.link_telegram_action" "Привязать Telegram" as cabinet_link_telegram_action %}
+  {% cms_text "cabinet.dashboard.logout_action" "Выйти" as cabinet_logout_action %}
+  <h1 class="h2 mb-3">{{ cabinet_heading }}</h1>
+  <p class="mb-1">{{ cabinet_user_label }} <strong>{{ request.user.username }}</strong></p>
   {% if linked %}
-    <p class="mb-3">Telegram ID: <code>{{ linked.telegram_id }}</code></p>
+    <p class="mb-3">{{ cabinet_telegram_linked_label }} <code>{{ linked.telegram_id }}</code></p>
   {% else %}
-    <p class="mb-3">Telegram не привязан. <a href="/account/link/">Привязать</a></p>
+    <p class="mb-3">{{ cabinet_telegram_missing }} <a href="/account/link/">{{ cabinet_telegram_link_action }}</a></p>
   {% endif %}
 
   {% if subscription %}
     <hr />
-    <p class="mb-1">Статус: {% if has_active %}<strong class="text-success">Активна</strong>{% else %}<strong class="text-danger">Истекла</strong>{% endif %}</p>
-    <p class="mb-2">Действует до: {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
-    <p><a href="/account/config/">Открыть конфиг и QR</a></p>
+    <p class="mb-1">{{ cabinet_status_label }} {% if has_active %}<strong class="text-success">{{ cabinet_status_active }}</strong>{% else %}<strong class="text-danger">{{ cabinet_status_expired }}</strong>{% endif %}</p>
+    <p class="mb-2">{{ cabinet_expires_label }} {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
+    <p><a href="/account/config/">{{ cabinet_open_config }}</a></p>
   {% else %}
-    <p>Подписка не найдена.</p>
+    <p>{{ cabinet_subscription_missing }}</p>
   {% endif %}
 
   <div class="d-flex gap-2 flex-wrap mt-3">
-    <a class="btn btn-outline-primary" href="/account/renew/">Продлить (создать заказ)</a>
-    <a class="btn btn-outline-secondary" href="/account/link/">Привязать Telegram</a>
-    <a class="btn btn-outline-danger" href="/accounts/logout/">Выйти</a>
+    <a class="btn btn-outline-primary" href="/account/renew/">{{ cabinet_renew_action }}</a>
+    <a class="btn btn-outline-secondary" href="/account/link/">{{ cabinet_link_telegram_action }}</a>
+    <a class="btn btn-outline-danger" href="/accounts/logout/">{{ cabinet_logout_action }}</a>
   </div>
 </article>
 {% endblock %}

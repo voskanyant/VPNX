@@ -640,19 +640,19 @@ class VPNBot:
         await update.message.reply_text(
             self._content_text(
                 "stars_only_notice",
-                "ÐžÐ¿Ð»Ð°Ñ‚Ð° Ð² Ð±Ð¾Ñ‚Ðµ Ð´Ð¾ÑÑ‚ÑƒÐ¿Ð½Ð° Ñ‚Ð¾Ð»ÑŒÐºÐ¾ Ñ‡ÐµÑ€ÐµÐ· Telegram Stars â­\nÐ”Ð»Ñ iPhone Ð¾Ð±Ñ‹Ñ‡Ð½Ð¾ Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐµÑ‚ÑÑ ÑÐ¿Ð¾ÑÐ¾Ð± Ð¾Ð¿Ð»Ð°Ñ‚Ñ‹ Ñ‡ÐµÑ€ÐµÐ· Ð¼Ð¾Ð±Ð¸Ð»ÑŒÐ½Ñ‹Ð¹ Ð±Ð°Ð»Ð°Ð½Ñ ÐœÐ¢Ð¡.",
+                "Оплата в боте доступна только через Telegram Stars ⭐\nДля iPhone обычно используется способ оплаты через мобильный баланс МТС.",
             )
         )
         payload = f"buy:{user_id}:{int(datetime.now(timezone.utc).timestamp())}"
         await self.db.create_order(user_id=user_id, amount_stars=self.settings.plan_price_stars, payload=payload)
         if phone:
             self._pending_profiles[payload] = {"phone": phone, "name": (customer_name or "").strip()}
-        price_label = self._content_text("invoice_price_label", "ÐžÐ¿Ð»Ð°Ñ‚Ð° Ð² Stars")
+        price_label = self._content_text("invoice_price_label", "Оплата в Stars")
         prices = [LabeledPrice(label=price_label, amount=self.settings.plan_price_stars)]
-        title = self._content_text("invoice_title", "ÐžÐ¿Ð»Ð°Ñ‚Ð° VXcloud Ñ‡ÐµÑ€ÐµÐ· Stars")
+        title = self._content_text("invoice_title", "Оплата VXcloud через Stars")
         description = self._content_text(
             "invoice_description",
-            "ÐžÐ¿Ð»Ð°Ñ‚Ð° Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ¸ Ð²Ñ‹Ð¿Ð¾Ð»Ð½ÑÐµÑ‚ÑÑ Ñ‚Ð¾Ð»ÑŒÐºÐ¾ Telegram Stars. Ð”Ð»Ñ iPhone Ñ‡Ð°Ñ‰Ðµ Ð²ÑÐµÐ³Ð¾ â€” Ñ‡ÐµÑ€ÐµÐ· Ð¼Ð¾Ð±Ð¸Ð»ÑŒÐ½Ñ‹Ð¹ Ð±Ð°Ð»Ð°Ð½Ñ ÐœÐ¢Ð¡.",
+            "Оплата подписки выполняется только Telegram Stars. Для iPhone чаще всего — через мобильный баланс МТС.",
         )
         await update.message.reply_invoice(
             title=title,

@@ -1,18 +1,25 @@
 {% extends 'base.html' %}
+{% load cms %}
 
-{% block title %}Конфиг - VXcloud{% endblock %}
+{% cms_text "cabinet.config.page_title" "Конфиг - VXcloud" as cabinet_config_page_title %}
+{% block title %}{{ cabinet_config_page_title }}{% endblock %}
 
 {% block content %}
 <article class="section-card" style="max-width:760px;">
-  <h1 class="h2 mb-2">Конфиг и QR</h1>
-  <p class="text-secondary mb-3">Действует до: {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
+  {% cms_text "cabinet.config.heading" "Конфиг и QR" as cabinet_config_heading %}
+  {% cms_text "cabinet.config.expires_label" "Действует до:" as cabinet_config_expires_label %}
+  {% cms_text "cabinet.config.link_label" "Ссылка конфигурации" as cabinet_config_link_label %}
+  {% cms_text "cabinet.config.copy_action" "Скопировать ссылку" as cabinet_config_copy_action %}
+  {% cms_text "cabinet.config.back_action" "Назад в кабинет" as cabinet_config_back_action %}
+  <h1 class="h2 mb-2">{{ cabinet_config_heading }}</h1>
+  <p class="text-secondary mb-3">{{ cabinet_config_expires_label }} {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
   <img class="img-fluid border rounded p-2 bg-white" style="max-width: 360px;" src="data:image/png;base64,{{ qr_b64 }}" alt="VPN QR" />
 
-  <label class="form-label mt-3" for="cfg">Ссылка конфигурации</label>
+  <label class="form-label mt-3" for="cfg">{{ cabinet_config_link_label }}</label>
   <textarea id="cfg" rows="5" readonly>{{ copy_text }}</textarea>
   <div class="d-flex gap-2 flex-wrap mt-3">
-    <button class="btn" type="button" onclick="copyCfg()">Скопировать ссылку</button>
-    <a class="btn btn-outline-secondary" href="/account/">Назад в кабинет</a>
+    <button class="btn" type="button" onclick="copyCfg()">{{ cabinet_config_copy_action }}</button>
+    <a class="btn btn-outline-secondary" href="/account/">{{ cabinet_config_back_action }}</a>
   </div>
 </article>
 

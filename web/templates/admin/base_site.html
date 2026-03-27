@@ -1,7 +1,10 @@
 {% extends "admin/base.html" %}
-{% load i18n static %}
+{% load i18n static cms %}
 
-{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | VXcloud Admin{% endblock %}
+{% cms_text "admin.site_title" "VXcloud Admin" as admin_site_title %}
+{% cms_text "admin.branding" "Администрирование VXcloud" as admin_branding %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ admin_site_title }}{% endblock %}
 
 {% block extrastyle %}
   {{ block.super }}
@@ -19,5 +22,5 @@
 {% endblock %}
 
 {% block branding %}
-  <div id="site-name"><a href="{% url 'admin:index' %}">Администрирование VXcloud</a></div>
+  <div id="site-name"><a href="{% url 'admin:index' %}">{{ admin_branding }}</a></div>
 {% endblock %}

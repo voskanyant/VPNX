@@ -1,15 +1,21 @@
 {% extends 'base.html' %}
+{% load cms %}
 
-{% block title %}Регистрация - VXcloud{% endblock %}
+{% cms_text "auth.signup.page_title" "Регистрация - VXcloud" as signup_page_title %}
+{% block title %}{{ signup_page_title }}{% endblock %}
 
 {% block content %}
 <article class="section-card" style="max-width:560px;">
-  <h1 class="h2 mb-3">Регистрация</h1>
+  {% cms_text "auth.signup.heading" "Регистрация" as signup_heading %}
+  {% cms_text "auth.signup.submit" "Создать аккаунт" as signup_submit %}
+  {% cms_text "auth.signup.has_account" "Уже есть аккаунт?" as signup_has_account %}
+  {% cms_text "auth.signup.login_action" "Войти" as signup_login_action %}
+  <h1 class="h2 mb-3">{{ signup_heading }}</h1>
   <form method="post" class="vstack gap-3">
     {% csrf_token %}
     {{ form.as_p }}
-    <button type="submit">Создать аккаунт</button>
+    <button type="submit">{{ signup_submit }}</button>
   </form>
-  <p class="mt-3 mb-0">Уже есть аккаунт? <a href="/accounts/login/">Войти</a></p>
+  <p class="mt-3 mb-0">{{ signup_has_account }} <a href="/accounts/login/">{{ signup_login_action }}</a></p>
 </article>
 {% endblock %}

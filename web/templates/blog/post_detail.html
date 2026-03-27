@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
+{% load cms %}
 
 {% block title %}{{ post.title }} - VXcloud{% endblock %}
 
 {% block content %}
 <article class="section-card">
-  <a href="/instructions/" class="btn btn-outline-secondary btn-sm mb-3">&larr; Все статьи</a>
+  {% cms_text "post.back_to_list" "<- Все статьи" as post_back_text %}
+  <a href="/instructions/" class="btn btn-outline-secondary btn-sm mb-3">{{ post_back_text }}</a>
   <h1 class="h2 mb-1">{{ post.title }}</h1>
   <small class="text-secondary">{{ post.published_at|date:'d.m.Y H:i' }}</small>
   <div class="mt-3 post-content">{{ post.content|safe }}</div>

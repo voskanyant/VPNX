@@ -40,11 +40,48 @@ cp .env.example .env
 Fill `.env` values.
 Set `PLAN_PRICE_STARS` (for example `250`).
 Set `MAX_DEVICES_PER_SUB=1` to block shared access from multiple devices on one subscription.
+For production with a domain, set:
+
+- `DJANGO_SECRET_KEY`
+- `DJANGO_DEBUG=0`
+- `DJANGO_ALLOWED_HOSTS` (example `vxcloud.example.com`)
+- `DJANGO_CSRF_TRUSTED_ORIGINS` (example `https://vxcloud.example.com`)
+- `VPN_PUBLIC_HOST` to the same public domain
 
 4. Run:
 
 ```bash
 python -m src.main
+```
+
+## Docker Deploy (Recommended)
+
+The project includes:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `scripts/docker/web-entrypoint.sh`
+- `scripts/docker/bot-entrypoint.sh`
+
+### Start DB + Web (bot disabled)
+
+```bash
+cp .env.example .env
+# set real values in .env (token, domain, POSTGRES_PASSWORD, etc.)
+
+docker compose up -d --build db web
+```
+
+### Start Bot (cutover step)
+
+```bash
+docker compose --profile bot up -d bot
+```
+
+### Stop Bot
+
+```bash
+docker compose stop bot
 ```
 
 ## Directus Content Sync From Git
@@ -206,3 +243,19 @@ After login, users can open:
 
 Note: payment on site is currently a lightweight stub (`/account/renew/`) to create an order record.
 Real card payment requires payment provider webhook integration.
+
+## DNS for New Domain
+
+If your server public IPv4 is `1.2.3.4` and domain is `vxcloud.example.com`, add:
+
+- `A` record: host `@` -> `1.2.3.4` (optional, if you also use root domain)
+- `A` record: host `vxcloud` -> `1.2.3.4`
+
+After DNS propagation:
+
+1. Configure Nginx `server_name vxcloud.example.com;`
+2. Issue TLS certificate (`certbot --nginx -d vxcloud.example.com`)
+3. Set `.env`:
+   - `DJANGO_ALLOWED_HOSTS=vxcloud.example.com`
+   - `DJANGO_CSRF_TRUSTED_ORIGINS=https://vxcloud.example.com`
+   - `VPN_PUBLIC_HOST=vxcloud.example.com`

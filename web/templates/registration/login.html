@@ -1,15 +1,21 @@
 {% extends 'base.html' %}
+{% load cms %}
 
-{% block title %}Вход - VXcloud{% endblock %}
+{% cms_text "auth.login.page_title" "Вход - VXcloud" as login_page_title %}
+{% block title %}{{ login_page_title }}{% endblock %}
 
 {% block content %}
 <article class="section-card" style="max-width:560px;">
-  <h1 class="h2 mb-3">Вход</h1>
+  {% cms_text "auth.login.heading" "Вход" as login_heading %}
+  {% cms_text "auth.login.submit" "Войти" as login_submit %}
+  {% cms_text "auth.login.no_account" "Нет аккаунта?" as login_no_account %}
+  {% cms_text "auth.login.signup_action" "Регистрация" as login_signup_action %}
+  <h1 class="h2 mb-3">{{ login_heading }}</h1>
   <form method="post" class="vstack gap-3">
     {% csrf_token %}
     {{ form.as_p }}
-    <button type="submit">Войти</button>
+    <button type="submit">{{ login_submit }}</button>
   </form>
-  <p class="mt-3 mb-0">Нет аккаунта? <a href="/account/signup/">Регистрация</a></p>
+  <p class="mt-3 mb-0">{{ login_no_account }} <a href="/account/signup/">{{ login_signup_action }}</a></p>
 </article>
 {% endblock %}

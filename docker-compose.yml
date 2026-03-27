@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vxcloud-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vxcloud
+      POSTGRES_USER: vxcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - vxcloud_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vxcloud -d vxcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+    container_name: vxcloud-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://vxcloud:${POSTGRES_PASSWORD}@db:5432/vxcloud
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["/app/scripts/docker/web-entrypoint.sh"]
+    ports:
+      - "127.0.0.1:8088:8088"
+
+  bot:
+    build:
+      context: .
+    container_name: vxcloud-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://vxcloud:${POSTGRES_PASSWORD}@db:5432/vxcloud
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["/app/scripts/docker/bot-entrypoint.sh"]
+    profiles:
+      - bot
+
+volumes:
+  vxcloud_db_data:
+

@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+local_web.err.log
+local_web.out.log
+web/db.sqlite3
+web/staticfiles
+
