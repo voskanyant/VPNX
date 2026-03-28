@@ -48,7 +48,17 @@ async def run() -> None:
                 logging.exception("Reminder loop failed")
             await asyncio.sleep(3600)
 
+    async def single_ip_loop() -> None:
+        interval = max(10, settings.single_ip_check_interval_seconds)
+        while True:
+            try:
+                await bot.single_ip_tick()
+            except Exception:
+                logging.exception("Single-IP loop failed")
+            await asyncio.sleep(interval)
+
     asyncio.create_task(reminder_loop())
+    asyncio.create_task(single_ip_loop())
 
     await app.initialize()
     await app.start()

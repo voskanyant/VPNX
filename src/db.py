@@ -133,6 +133,19 @@ class DB:
         )
         return dict(row) if row else None
 
+    async def list_active_subscriptions(self) -> list[dict[str, Any]]:
+        assert self.pool is not None
+        rows = await self.pool.fetch(
+            """
+            SELECT id, user_id, inbound_id, client_uuid, client_email, expires_at
+            FROM subscriptions
+            WHERE is_active = TRUE
+              AND expires_at > NOW()
+            ORDER BY id
+            """
+        )
+        return [dict(r) for r in rows]
+
     async def get_latest_payment_method(self, user_id: int) -> str | None:
         assert self.pool is not None
         row = await self.pool.fetchrow(

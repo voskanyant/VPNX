@@ -173,6 +173,29 @@ class XUIClient:
         settings = json.dumps({"clients": [client]}, separators=(",", ":"))
         await self._post(f"/panel/api/inbounds/updateClient/{client_uuid}", {"id": inbound_id, "settings": settings})
 
+    async def set_client_enabled(
+        self,
+        inbound_id: int,
+        client_uuid: str,
+        email: str,
+        expiry: datetime,
+        *,
+        enable: bool,
+        limit_ip: int = 0,
+    ) -> None:
+        expiry_ms = int(expiry.timestamp() * 1000)
+        client = {
+            "id": client_uuid,
+            "email": email,
+            "limitIp": limit_ip,
+            "totalGB": 0,
+            "expiryTime": expiry_ms,
+            "enable": bool(enable),
+            "flow": "",
+        }
+        settings = json.dumps({"clients": [client]}, separators=(",", ":"))
+        await self._post(f"/panel/api/inbounds/updateClient/{client_uuid}", {"id": inbound_id, "settings": settings})
+
     @staticmethod
     def parse_reality(inbound_obj: dict[str, Any]) -> InboundRealityInfo:
         stream_settings_raw = inbound_obj.get("streamSettings", "{}")

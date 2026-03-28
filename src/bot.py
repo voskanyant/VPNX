@@ -4,6 +4,7 @@ import asyncio
 import io
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -38,6 +39,9 @@ from .xui_client import XUIClient
 LOGGER = logging.getLogger(__name__)
 STREISAND_APPSTORE_URL = "https://apps.apple.com/us/app/streisand/id6450534064"
 V2BOX_PLAYSTORE_URL = "https://play.google.com/store/search?q=V2Box&c=apps"
+IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+EMAIL_RE = re.compile(r"(?:email|user)[:=]\s*([^\s,\]]+)", re.IGNORECASE)
+BRACKET_RE = re.compile(r"\[([^\[\]\s]+)\]")
 
 
 def _log_payment_event(
@@ -85,6 +89,10 @@ class VPNBot:
         self._cms_lock = asyncio.Lock()
         self._provision_locks: dict[int, asyncio.Lock] = {}
         self._provision_locks_guard = asyncio.Lock()
+        self._xray_log_offset: int = 0
+        self._recent_email_ips: dict[str, dict[str, float]] = {}
+        self._single_ip_block_until: dict[str, float] = {}
+        self._single_ip_notified_blocked: set[str] = set()
 
     def register(self) -> None:
         self.app.add_handler(CommandHandler("start", self.start))
@@ -1445,6 +1453,137 @@ class VPNBot:
         target_width_px = 320
         qr.box_size = max(3, min(8, target_width_px // (modules + 2)))
         return qr.make_image(fill_color="#111111", back_color="white").convert("RGB")
+
+    @staticmethod
+    def _extract_email_and_ip_from_access_line(line: str) -> tuple[str, str] | None:
+        line_lower = line.lower()
+        if "from " not in line_lower:
+            return None
+        from_match = re.search(r"\bfrom\s+((?:\d{1,3}\.){3}\d{1,3})", line, re.IGNORECASE)
+        if not from_match:
+            return None
+        ip = from_match.group(1)
+        email_match = EMAIL_RE.search(line)
+        email = email_match.group(1).strip() if email_match else ""
+        if not email:
+            for candidate in BRACKET_RE.findall(line):
+                if "." in candidate or ":" in candidate:
+                    continue
+                if len(candidate) < 3:
+                    continue
+                email = candidate.strip()
+                break
+        if not email:
+            return None
+        return email, ip
+
+    def _read_new_xray_access_lines(self) -> list[str]:
+        path = self.settings.xray_access_log_path
+        try:
+            if not os.path.exists(path):
+                return []
+            size = os.path.getsize(path)
+            if self._xray_log_offset > size:
+                self._xray_log_offset = 0
+            with open(path, "r", encoding="utf-8", errors="ignore") as fh:
+                fh.seek(self._xray_log_offset)
+                lines = fh.readlines()
+                self._xray_log_offset = fh.tell()
+            return lines
+        except Exception:
+            LOGGER.exception("Failed to read xray access log: %s", path)
+            return []
+
+    async def single_ip_tick(self) -> None:
+        if not self.settings.enforce_single_ip:
+            return
+
+        now = time.time()
+        lines = await asyncio.to_thread(self._read_new_xray_access_lines)
+
+        for line in lines:
+            parsed = self._extract_email_and_ip_from_access_line(line)
+            if not parsed:
+                continue
+            email, ip = parsed
+            email_map = self._recent_email_ips.setdefault(email, {})
+            email_map[ip] = now
+
+        window = max(15, self.settings.single_ip_window_seconds)
+        cutoff = now - window
+        stale_emails: list[str] = []
+        for email, ip_map in self._recent_email_ips.items():
+            stale_ips = [ip for ip, ts in ip_map.items() if ts < cutoff]
+            for ip in stale_ips:
+                ip_map.pop(ip, None)
+            if not ip_map:
+                stale_emails.append(email)
+        for email in stale_emails:
+            self._recent_email_ips.pop(email, None)
+            self._single_ip_notified_blocked.discard(email)
+
+        active_subs = await self.db.list_active_subscriptions()
+        block_seconds = max(30, self.settings.single_ip_block_seconds)
+
+        for sub in active_subs:
+            email = str(sub["client_email"])
+            client_uuid = str(sub["client_uuid"])
+            inbound_id = int(sub["inbound_id"])
+            expires_at = sub["expires_at"]
+            assert isinstance(expires_at, datetime)
+            ip_count = len(self._recent_email_ips.get(email, {}))
+            blocked_until = self._single_ip_block_until.get(email, 0.0)
+
+            if blocked_until > now:
+                # Keep disabled during penalty window.
+                await self.xui.set_client_enabled(
+                    inbound_id,
+                    client_uuid,
+                    email,
+                    expires_at,
+                    enable=False,
+                    limit_ip=self.settings.max_devices_per_sub,
+                )
+                continue
+
+            if ip_count > 1:
+                self._single_ip_block_until[email] = now + block_seconds
+                await self.xui.set_client_enabled(
+                    inbound_id,
+                    client_uuid,
+                    email,
+                    expires_at,
+                    enable=False,
+                    limit_ip=self.settings.max_devices_per_sub,
+                )
+                if email not in self._single_ip_notified_blocked:
+                    self._single_ip_notified_blocked.add(email)
+                    user_id = int(sub["user_id"])
+                    tg_id = await self.db.get_user_telegram_id(user_id)
+                    if tg_id:
+                        try:
+                            await self.app.bot.send_message(
+                                chat_id=tg_id,
+                                text=(
+                                    "Обнаружено одновременное подключение с нескольких IP. "
+                                    f"Доступ временно приостановлен на {block_seconds} сек."
+                                ),
+                            )
+                        except Exception:
+                            LOGGER.exception("Failed to notify user about single-ip block (user_id=%s)", user_id)
+                continue
+
+            if blocked_until and blocked_until <= now:
+                self._single_ip_block_until.pop(email, None)
+                self._single_ip_notified_blocked.discard(email)
+                await self.xui.set_client_enabled(
+                    inbound_id,
+                    client_uuid,
+                    email,
+                    expires_at,
+                    enable=True,
+                    limit_ip=self.settings.max_devices_per_sub,
+                )
 
     async def reminder_tick(self) -> None:
         items = await self.db.due_reminders()

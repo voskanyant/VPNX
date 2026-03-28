@@ -47,6 +47,11 @@ class Settings:
     cms_cache_ttl_seconds: int
     magic_link_shared_secret: str | None
     magic_link_api_timeout_seconds: int
+    enforce_single_ip: bool
+    single_ip_check_interval_seconds: int
+    single_ip_window_seconds: int
+    single_ip_block_seconds: int
+    xray_access_log_path: str
 
 
 def load_settings() -> Settings:
@@ -74,4 +79,9 @@ def load_settings() -> Settings:
         cms_cache_ttl_seconds=int(_get("CMS_CACHE_TTL_SECONDS", "60")),
         magic_link_shared_secret=_get_optional("MAGIC_LINK_SHARED_SECRET"),
         magic_link_api_timeout_seconds=int(_get("MAGIC_LINK_API_TIMEOUT_SECONDS", "5")),
+        enforce_single_ip=_get("ENFORCE_SINGLE_IP", "0").strip() == "1",
+        single_ip_check_interval_seconds=int(_get("SINGLE_IP_CHECK_INTERVAL_SECONDS", "20")),
+        single_ip_window_seconds=int(_get("SINGLE_IP_WINDOW_SECONDS", "90")),
+        single_ip_block_seconds=int(_get("SINGLE_IP_BLOCK_SECONDS", "120")),
+        xray_access_log_path=_get("XRAY_ACCESS_LOG_PATH", "/var/log/xray/access.log"),
     )
