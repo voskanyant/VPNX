@@ -109,8 +109,40 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 LOGIN_REDIRECT_URL = "/account/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
+AUTHENTICATION_BACKENDS = [
+    "cabinet.backends.EmailOrUsernameModelBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+EMAIL_BACKEND = os.getenv("DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST", "")
+EMAIL_PORT = int(os.getenv("DJANGO_EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS", "1") == "1"
+EMAIL_USE_SSL = os.getenv("DJANGO_EMAIL_USE_SSL", "0") == "1"
+DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL", "no-reply@vxcloud.ru")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 WAGTAIL_SITE_NAME = "VXcloud CMS"
 WAGTAILADMIN_BASE_URL = os.getenv("WAGTAILADMIN_BASE_URL", "https://vxcloud.ru/cms-admin")
+
+MAGIC_LINK_SHARED_SECRET = os.getenv("MAGIC_LINK_SHARED_SECRET", "")
+MAGIC_LINK_TTL_SECONDS = int(os.getenv("MAGIC_LINK_TTL_SECONDS", "600"))
+MAGIC_LINK_RATE_LIMIT_PER_MINUTE = int(os.getenv("MAGIC_LINK_RATE_LIMIT_PER_MINUTE", "30"))
+WEBHOOK_RATE_LIMIT_PER_MINUTE = int(os.getenv("WEBHOOK_RATE_LIMIT_PER_MINUTE", "240"))
+ACCOUNT_MAGIC_URL_TEMPLATE = os.getenv(
+    "ACCOUNT_MAGIC_URL_TEMPLATE",
+    "https://vxcloud.ru/auth/tg/{token}",
+)
+
+TELEGRAM_WEBAPP_BOT_TOKEN = os.getenv("TELEGRAM_WEBAPP_BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", ""))
+TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS = int(os.getenv("TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS", "600"))
+
+PAYMENT_PROVIDER = os.getenv("PAYMENT_PROVIDER", "reference")
+PAYMENT_REFERENCE_BASE_URL = os.getenv("PAYMENT_REFERENCE_BASE_URL", "https://pay.vxcloud.ru/mock")
+PAYMENT_REFERENCE_WEBHOOK_SECRET = os.getenv("PAYMENT_REFERENCE_WEBHOOK_SECRET", "")
+ENABLE_CARD_PAYMENTS = os.getenv("ENABLE_CARD_PAYMENTS", "0") == "1"
+CARD_PAYMENT_AMOUNT_MINOR = int(os.getenv("CARD_PAYMENT_AMOUNT_MINOR", "29900"))
+CARD_PAYMENT_CURRENCY = os.getenv("CARD_PAYMENT_CURRENCY", "RUB")
 

@@ -35,9 +35,36 @@ class TelegramLinkToken(models.Model):
         return f"link:{self.code} user={self.user_id}"
 
 
+class WebLoginToken(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    token = models.TextField(unique=True)
+    telegram_id = models.BigIntegerField()
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "web_login_tokens"
+
+
+class PaymentEvent(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    provider = models.TextField()
+    event_id = models.TextField()
+    body = models.JSONField()
+    created_at = models.DateTimeField()
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "payment_events"
+
+
 class BotUser(models.Model):
     id = models.BigAutoField(primary_key=True)
     telegram_id = models.BigIntegerField(unique=True)
+    client_code = models.TextField()
     username = models.TextField(null=True, blank=True)
     first_name = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField()
@@ -73,8 +100,16 @@ class BotOrder(models.Model):
     status = models.TextField()
     telegram_payment_charge_id = models.TextField(null=True, blank=True)
     provider_payment_charge_id = models.TextField(null=True, blank=True)
+    channel = models.TextField(null=True, blank=True)
+    payment_method = models.TextField(null=True, blank=True)
+    amount_minor = models.BigIntegerField(null=True, blank=True)
+    currency_iso = models.TextField(null=True, blank=True)
+    card_provider = models.TextField(null=True, blank=True)
+    card_payment_id = models.TextField(null=True, blank=True)
+    idempotency_key = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField()
     paid_at = models.DateTimeField(null=True, blank=True)
+    notified_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         managed = False

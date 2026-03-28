@@ -1,4 +1,4 @@
-{% load static cms wagtailcore_tags %}
+﻿{% load static cms wagtailcore_tags %}
 <!doctype html>
 <html lang="ru">
 <head>
@@ -14,13 +14,36 @@
     <aside class="sidebar">
       {% cms_text "nav.brand" "VXcloud" as nav_brand %}
       {% cms_text "nav.home" "Главная" as nav_home %}
-      {% cms_text "nav.instructions" "Инструкции" as nav_instructions %}
       {% cms_text "nav.account" "Личный кабинет" as nav_account %}
       <a href="/" class="brand">{{ nav_brand }}</a>
       <nav class="side-nav">
         <a href="/" class="side-link{% if request.path == '/' %} is-active{% endif %}">{{ nav_home }}</a>
         {% for page in wagtail_menu_pages %}
-          <a href="{% pageurl page %}" class="side-link{% if request.path == page.url %} is-active{% endif %}">{{ page.title }}</a>
+          {% with children=page.get_children.live.in_menu.specific %}
+            <div class="side-item{% if children|length %} has-children{% endif %}">
+              <div class="side-item-head">
+                <a href="{% pageurl page %}" class="side-link{% if request.path == page.url %} is-active{% endif %}">{{ page.title }}</a>
+                {% if children|length %}
+                  <button
+                    class="side-toggle"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="submenu-{{ forloop.counter }}"
+                    data-submenu-target="submenu-{{ forloop.counter }}"
+                  >
+                    ▾
+                  </button>
+                {% endif %}
+              </div>
+              {% if children|length %}
+                <div id="submenu-{{ forloop.counter }}" class="side-submenu">
+                  {% for child in children %}
+                    <a href="{% pageurl child %}" class="side-link side-sublink{% if request.path == child.url %} is-active{% endif %}">{{ child.title }}</a>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          {% endwith %}
         {% endfor %}
         <a href="/account/" class="side-link{% if request.path|slice:':9' == '/account/' or request.path|slice:':10' == '/accounts/' %} is-active{% endif %}">{{ nav_account }}</a>
       </nav>
@@ -46,6 +69,49 @@
     document.querySelectorAll('button[type="submit"], button.btn').forEach((el) => {
       el.classList.add('btn', 'btn-primary');
     });
+    document.querySelectorAll('[data-submenu-target]').forEach((btn) => {
+      const submenu = document.getElementById(btn.dataset.submenuTarget);
+      if (!submenu) return;
+      const parentItem = btn.closest('.side-item');
+      if (submenu.querySelector('.side-sublink.is-active')) {
+        submenu.classList.add('is-open');
+        btn.setAttribute('aria-expanded', 'true');
+        if (parentItem) parentItem.classList.add('is-open');
+      }
+      btn.addEventListener('click', () => {
+        const isOpen = submenu.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', String(isOpen));
+        if (parentItem) parentItem.classList.toggle('is-open', isOpen);
+      });
+    });
+
+    async function syncTelegramWebAppSession() {
+      const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+      if (!tg || !tg.initData) return;
+
+      const dedupeKey = "tg_webapp_auth_done:" + tg.initData;
+      if (sessionStorage.getItem(dedupeKey) === "1") return;
+
+      try {
+        const resp = await fetch("/api/auth/telegram/webapp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ initData: tg.initData }),
+        });
+        if (!resp.ok) return;
+        const payload = await resp.json();
+        sessionStorage.setItem(dedupeKey, "1");
+
+        if (window.location.pathname.startsWith("/accounts/login/") && payload && payload.redirect) {
+          window.location.assign(payload.redirect);
+        }
+      } catch (err) {
+        console.debug("telegram webapp auth failed", err);
+      }
+    }
+
+    syncTelegramWebAppSession();
   </script>
 </body>
 </html>

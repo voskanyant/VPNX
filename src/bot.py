@@ -10,6 +10,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable
 from urllib.parse import quote
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import qrcode
@@ -28,6 +30,7 @@ from telegram.ext import (
 from .config import Settings
 from .cms import DirectusCMS
 from .db import DB
+from .domain.subscriptions import activate_subscription
 from .vless import build_vless_url
 from .xui_client import XUIClient
 
@@ -35,6 +38,29 @@ from .xui_client import XUIClient
 LOGGER = logging.getLogger(__name__)
 STREISAND_APPSTORE_URL = "https://apps.apple.com/us/app/streisand/id6450534064"
 V2BOX_PLAYSTORE_URL = "https://play.google.com/store/search?q=V2Box&c=apps"
+
+
+def _log_payment_event(
+    *,
+    order_id: int,
+    client_code: str | None,
+    provider: str,
+    event_id: str | None,
+    provision_state: str,
+) -> None:
+    LOGGER.info(
+        json.dumps(
+            {
+                "event": "payment_flow",
+                "order_id": order_id,
+                "client_code": client_code or "",
+                "provider": provider,
+                "event_id": event_id or "",
+                "provision_state": provision_state,
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 class VPNBot:
@@ -67,6 +93,7 @@ class VPNBot:
         self.app.add_handler(CommandHandler("mysub", self.mysub))
         self.app.add_handler(CommandHandler("myvpn", self.myvpn))
         self.app.add_handler(CommandHandler("renew", self.renew))
+        self.app.add_handler(CommandHandler("reply", self.reply_support))
         self.app.add_handler(CommandHandler("admin_reload", self.admin_reload))
         self.app.add_handler(PreCheckoutQueryHandler(self.precheckout))
         self.app.add_handler(CallbackQueryHandler(self.inline_callback))
@@ -122,6 +149,17 @@ class VPNBot:
     def _format_local_dt(self, dt: datetime) -> str:
         return dt.astimezone(self._display_tz()).strftime("%d/%m/%Y %H:%M")
 
+    @staticmethod
+    def _format_payment_method(method: str | None) -> str:
+        if not method:
+            return "не указан"
+        normalized = method.strip().lower()
+        if normalized == "card":
+            return "карта"
+        if normalized == "stars":
+            return "telegram stars"
+        return normalized
+
     def _menu_buttons(self, has_active_subscription: bool = False) -> list[tuple[str, str]]:
         buy_key = "menu_renew" if has_active_subscription else "menu_buy"
         buy_default = "\U0001f504 \u041f\u0440\u043e\u0434\u043b\u0438\u0442\u044c" if has_active_subscription else "\U0001f4b3 \u041a\u0443\u043f\u0438\u0442\u044c VPN"
@@ -134,6 +172,10 @@ class VPNBot:
                 self._button_label("menu_instructions", "\U0001f4ac \u0418\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f").strip() or "\U0001f4ac \u0418\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f",
             ),
             (
+                "menu_support",
+                self._button_label("menu_support", "\U0001f198 \u041f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0430").strip() or "\U0001f198 \u041f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0430",
+            ),
+            (
                 "menu_site",
                 self._button_label("menu_site", "\U0001f310 VXcloud.ru").strip() or "\U0001f310 VXcloud.ru",
             ),
@@ -142,11 +184,64 @@ class VPNBot:
     def _site_url(self) -> str:
         return self._content_text("site_url", "https://vxcloud.ru").strip() or "https://vxcloud.ru"
 
-    def _account_url(self) -> str:
+    async def _account_url(self, user_id: int | None) -> str:
         explicit = self._content_text("account_page_url", "").strip()
         if explicit:
             return explicit
-        return self._site_url().rstrip("/") + "/account/"
+        site_url = self._site_url().rstrip("/")
+        fallback = f"{site_url}/account/"
+        if user_id is None:
+            return fallback
+
+        shared_secret = (self.settings.magic_link_shared_secret or "").strip()
+        if not shared_secret:
+            return fallback
+
+        endpoint = f"{site_url}/api/auth/magic-link"
+        try:
+            magic_url = await asyncio.to_thread(
+                self._request_magic_link_url,
+                endpoint,
+                shared_secret,
+                user_id,
+                self.settings.magic_link_api_timeout_seconds,
+            )
+            return magic_url or fallback
+        except Exception:
+            LOGGER.exception("Failed to generate magic link for user_id=%s", user_id)
+            return fallback
+
+    @staticmethod
+    def _request_magic_link_url(
+        endpoint: str,
+        shared_secret: str,
+        user_id: int,
+        timeout_seconds: int,
+    ) -> str | None:
+        payload = json.dumps({"telegram_id": user_id}).encode("utf-8")
+        req = Request(
+            endpoint,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-Shared-Secret": shared_secret,
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(req, timeout=max(1, timeout_seconds)) as resp:
+                body = resp.read().decode("utf-8")
+        except (HTTPError, URLError, TimeoutError):
+            return None
+
+        try:
+            parsed = json.loads(body)
+        except json.JSONDecodeError:
+            return None
+        url = parsed.get("url")
+        if isinstance(url, str) and url.strip():
+            return url.strip()
+        return None
 
     def _open_app_url(self, config_url: str) -> str:
         return f"{self._site_url().rstrip('/')}/open-app/?u={quote(config_url, safe='')}"
@@ -227,6 +322,16 @@ class VPNBot:
                                 callback_data=f"msg|{response_key}|{node_key}",
                             )
                         )
+                    else:
+                        action = item.get("action")
+                        if isinstance(action, str) and action.strip():
+                            action_key = action.strip()
+                            row_buttons.append(
+                                InlineKeyboardButton(
+                                    text=text,
+                                    callback_data=f"act|{action_key}|{node_key}",
+                                )
+                            )
                 if row_buttons:
                     rows.append(row_buttons)
 
@@ -380,8 +485,60 @@ class VPNBot:
             context.user_data.pop("buy_wait_phone", None)
             context.user_data.pop("buy_wait_name", None)
             context.user_data.pop("buy_phone", None)
+            context.user_data.pop("support_wait_message", None)
             await update.message.reply_text(
                 self._content_text("cancel_message", "\u041e\u043f\u0435\u0440\u0430\u0446\u0438\u044f \u043e\u0442\u043c\u0435\u043d\u0435\u043d\u0430."),
+                reply_markup=menu_keyboard,
+            )
+            return
+
+        if context.user_data.get("support_wait_message"):
+            context.user_data.pop("support_wait_message", None)
+            text_value = raw_text.strip()
+            if not text_value:
+                await update.message.reply_text(
+                    self._content_text(
+                        "support_empty_message",
+                        "Текст обращения пустой. Нажмите «Поддержка» и попробуйте снова.",
+                    ),
+                    reply_markup=menu_keyboard,
+                )
+                return
+
+            ticket_subject = self._content_text("support_default_subject", "Запрос из Telegram-бота")
+            ticket_id = await self.db.create_ticket(user_id=user_id, subject=ticket_subject)
+            await self.db.add_message(
+                ticket_id=ticket_id,
+                sender_role="user",
+                sender_user_id=user_id,
+                message_text=text_value,
+            )
+
+            if self.settings.telegram_admin_id:
+                try:
+                    client_code = await self.db.get_user_client_code(user_id)
+                    header = self._content_text(
+                        "support_admin_new_ticket_header",
+                        "🆘 Новый тикет поддержки",
+                    )
+                    await self.app.bot.send_message(
+                        chat_id=self.settings.telegram_admin_id,
+                        text=(
+                            f"{header}\n"
+                            f"ticket_id={ticket_id}\n"
+                            f"user_id={user_id}\n"
+                            f"client_code={client_code or '-'}\n\n"
+                            f"{text_value}"
+                        ),
+                    )
+                except Exception:
+                    LOGGER.exception("Failed to notify admin about support ticket_id=%s", ticket_id)
+
+            await update.message.reply_text(
+                self._content_text(
+                    "support_received_message",
+                    "✅ Обращение отправлено в поддержку. Мы ответим вам в ближайшее время.",
+                ).replace("{ticket_id}", str(ticket_id)),
                 reply_markup=menu_keyboard,
             )
             return
@@ -535,6 +692,71 @@ class VPNBot:
         await self._refresh_cms(force=True)
         await update.message.reply_text("CMS content reloaded.")
 
+    async def reply_support(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not update.effective_user or update.effective_user.id != self.settings.telegram_admin_id:
+            await update.message.reply_text("Access denied.")
+            return
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text("Usage: /reply <client_code> <text>")
+            return
+
+        client_code = context.args[0].strip()
+        reply_text = " ".join(context.args[1:]).strip()
+        if not client_code or not reply_text:
+            await update.message.reply_text("Usage: /reply <client_code> <text>")
+            return
+
+        user = await self.db.get_user_by_client_code(client_code)
+        if not user:
+            await update.message.reply_text(f"User not found for client_code={client_code}")
+            return
+
+        user_id = int(user["id"])
+        telegram_id = int(user["telegram_id"])
+        normalized_client_code = str(user.get("client_code") or client_code).upper()
+
+        ticket = await self.db.get_latest_open_ticket_for_user(user_id)
+        if ticket:
+            ticket_id = int(ticket["id"])
+        else:
+            ticket_id = await self.db.create_ticket(
+                user_id=user_id,
+                subject=self._content_text("support_admin_reply_subject", "Ответ поддержки"),
+            )
+
+        await self.db.add_message(
+            ticket_id=ticket_id,
+            sender_role="admin",
+            sender_user_id=None,
+            message_text=reply_text,
+        )
+
+        try:
+            await self.app.bot.send_message(
+                chat_id=telegram_id,
+                text=(
+                    self._content_text(
+                        "support_admin_reply_prefix",
+                        "💬 Ответ поддержки:\n\n{message}",
+                    ).replace("{message}", reply_text)
+                ),
+            )
+        except Exception:
+            LOGGER.exception(
+                "Failed to deliver support reply ticket_id=%s user_id=%s telegram_id=%s",
+                ticket_id,
+                user_id,
+                telegram_id,
+            )
+            await update.message.reply_text(
+                f"Ticket #{ticket_id}: message logged, but failed to deliver to Telegram user {telegram_id}."
+            )
+            return
+
+        await update.message.reply_text(
+            f"Sent to {normalized_client_code} (ticket #{ticket_id})."
+        )
+
     async def inline_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self._refresh_cms()
         query = update.callback_query
@@ -562,6 +784,21 @@ class VPNBot:
                 await query.message.reply_text(response)
             return
 
+        if kind == "act":
+            if target == "support_start":
+                context.user_data["support_wait_message"] = True
+                await query.answer()
+                if query.message is not None:
+                    await query.message.reply_text(
+                        self._content_text(
+                            "support_start_message",
+                            "Опишите проблему одним сообщением. Мы создадим тикет и передадим его в поддержку.",
+                        )
+                    )
+                return
+            await query.answer()
+            return
+
         if kind == "copy":
             link = self._copy_links.get(target)
             await query.answer()
@@ -580,6 +817,7 @@ class VPNBot:
         assert update.message is not None
         user_id = await self._ensure_user(update)
         sub = await self.db.get_active_subscription(user_id)
+        last_payment_method = await self.db.get_latest_payment_method(user_id)
         if not sub:
             paid_order = await self.db.get_latest_paid_order(user_id)
             if paid_order:
@@ -593,7 +831,7 @@ class VPNBot:
                     await asyncio.wait_for(
                         self._run_user_provision(
                             user_id,
-                            lambda: self._create_or_extend_for_user(update, user_id),
+                            lambda: self._activate_order_and_send_config(update, int(paid_order["id"])),
                         ),
                         timeout=45,
                     )
@@ -640,7 +878,16 @@ class VPNBot:
                 if sub_id
                 else None
             )
-            await self._send_config(update, sub["vless_url"], expires_at, sub_url)
+            client_code = await self.db.get_user_client_code(user_id)
+            await self._send_config(
+                update,
+                sub["vless_url"],
+                expires_at,
+                sub_url,
+                client_code=client_code,
+                user_id=user_id,
+                last_payment_method=last_payment_method,
+            )
         else:
             await update.message.reply_text(
                 "ÐŸÐ¾Ð´Ð¿Ð¸ÑÐºÐ°: Ð˜Ð¡Ð¢Ð•ÐšÐ›Ð\n"
@@ -705,8 +952,26 @@ class VPNBot:
             return
 
         charge_id = payment.telegram_payment_charge_id
+        order_id = int(order["id"])
+        user_id = int(order["user_id"])
+        provider = "stars"
+        client_code = await self.db.get_user_client_code(user_id)
+        _log_payment_event(
+            order_id=order_id,
+            client_code=client_code,
+            provider=provider,
+            event_id=charge_id,
+            provision_state="payment_received",
+        )
         if await self.db.is_charge_processed(charge_id):
             # Recover path for duplicate callbacks: try to return config immediately.
+            _log_payment_event(
+                order_id=order_id,
+                client_code=client_code,
+                provider=provider,
+                event_id=charge_id,
+                provision_state="duplicate_charge_ignored",
+            )
             await update.message.reply_text(
                 self._content_text(
                     "payment_already_processed_message",
@@ -717,11 +982,18 @@ class VPNBot:
             return
 
         marked = await self.db.mark_order_paid_if_pending(
-            order_id=int(order["id"]),
+            order_id=order_id,
             telegram_payment_charge_id=charge_id,
             provider_payment_charge_id=payment.provider_payment_charge_id,
         )
         if not marked:
+            _log_payment_event(
+                order_id=order_id,
+                client_code=client_code,
+                provider=provider,
+                event_id=charge_id,
+                provision_state="already_paid_or_processing",
+            )
             await update.message.reply_text(
                 self._content_text(
                     "payment_already_processed_message",
@@ -730,26 +1002,33 @@ class VPNBot:
             )
             await self.mysub(update, context)
             return
+        _log_payment_event(
+            order_id=order_id,
+            client_code=client_code,
+            provider=provider,
+            event_id=charge_id,
+            provision_state="paid_marked",
+        )
 
-        profile = self._pending_profiles.pop(payment.invoice_payload, {})
-        phone = profile.get("phone")
-        customer_name = profile.get("name")
+        self._pending_profiles.pop(payment.invoice_payload, None)
         await update.message.reply_text("ÐžÐ¿Ð»Ð°Ñ‚Ð° Ð¿Ñ€Ð¾ÑˆÐ»Ð° ÑƒÑÐ¿ÐµÑˆÐ½Ð¾. ÐÐºÑ‚Ð¸Ð²Ð¸Ñ€ÑƒÑŽ Ð²Ð°Ñˆ VPN...")
 
         try:
             await asyncio.wait_for(
                 self._run_user_provision(
-                    int(order["user_id"]),
-                    lambda: self._create_or_extend_for_user(
-                        update,
-                        int(order["user_id"]),
-                        phone=phone,
-                        customer_name=customer_name,
-                    ),
+                    user_id,
+                    lambda: self._activate_order_and_send_config(update, order_id),
                 ),
                 timeout=45,
             )
         except Exception:
+            _log_payment_event(
+                order_id=order_id,
+                client_code=client_code,
+                provider=provider,
+                event_id=charge_id,
+                provision_state="provision_failed",
+            )
             LOGGER.exception("Post-payment provisioning failed for user_id=%s order_id=%s", order["user_id"], order["id"])
             await update.message.reply_text(
                 self._content_text(
@@ -769,6 +1048,37 @@ class VPNBot:
                 except Exception:
                     LOGGER.exception("Failed to notify admin about provisioning issue")
 
+    async def _activate_order_and_send_config(self, update: Update, order_id: int) -> None:
+        result = await activate_subscription(
+            order_id,
+            db=self.db,
+            xui=self.xui,
+            settings=self.settings,
+        )
+        client_code = await self.db.get_user_client_code(result.user_id)
+        _log_payment_event(
+            order_id=order_id,
+            client_code=client_code,
+            provider="stars",
+            event_id="",
+            provision_state="provision_ready",
+        )
+        last_payment_method = await self.db.get_latest_payment_method(result.user_id)
+        sub_url = (
+            f"https://{self.settings.vpn_public_host}:{self.settings.xui_sub_port}/sub/{result.xui_sub_id}"
+            if result.xui_sub_id
+            else None
+        )
+        await self._send_config(
+            update,
+            result.vless_url,
+            result.expires_at,
+            sub_url,
+            client_code=client_code,
+            user_id=result.user_id,
+            last_payment_method=last_payment_method,
+        )
+
     async def myvpn(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_id = await self._ensure_user(update)
         sub = await self.db.get_active_subscription(user_id)
@@ -782,7 +1092,17 @@ class VPNBot:
             if sub_id
             else None
         )
-        await self._send_config(update, sub["vless_url"], sub["expires_at"], sub_url)
+        client_code = await self.db.get_user_client_code(user_id)
+        last_payment_method = await self.db.get_latest_payment_method(user_id)
+        await self._send_config(
+            update,
+            sub["vless_url"],
+            sub["expires_at"],
+            sub_url,
+            client_code=client_code,
+            user_id=user_id,
+            last_payment_method=last_payment_method,
+        )
 
     async def _create_trial_for_user(self, update: Update, user_id: int, days: int) -> None:
         now = datetime.now(timezone.utc)
@@ -826,7 +1146,15 @@ class VPNBot:
             if sub_id
             else None
         )
-        await self._send_config(update, vless_url, new_exp, sub_url)
+        last_payment_method = await self.db.get_latest_payment_method(user_id)
+        await self._send_config(
+            update,
+            vless_url,
+            new_exp,
+            sub_url,
+            user_id=user_id,
+            last_payment_method=last_payment_method,
+        )
 
     async def _create_or_extend_for_user(
         self,
@@ -879,7 +1207,15 @@ class VPNBot:
                 if sub_id
                 else None
             )
-            await self._send_config(update, vless_url, new_exp, sub_url)
+            last_payment_method = await self.db.get_latest_payment_method(user_id)
+            await self._send_config(
+                update,
+                vless_url,
+                new_exp,
+                sub_url,
+                user_id=user_id,
+                last_payment_method=last_payment_method,
+            )
             return
 
         base = sub["expires_at"] if sub["expires_at"] > now else now
@@ -911,7 +1247,15 @@ class VPNBot:
             if sub_id
             else None
         )
-        await self._send_config(update, vless_url, new_exp, sub_url)
+        last_payment_method = await self.db.get_latest_payment_method(user_id)
+        await self._send_config(
+            update,
+            vless_url,
+            new_exp,
+            sub_url,
+            user_id=user_id,
+            last_payment_method=last_payment_method,
+        )
 
     async def _send_config(
         self,
@@ -919,16 +1263,21 @@ class VPNBot:
         vless_url: str,
         expires_at: datetime,
         subscription_url: str | None = None,
+        client_code: str | None = None,
+        user_id: int | None = None,
+        last_payment_method: str | None = None,
     ) -> None:
         action_markup: InlineKeyboardMarkup | None = None
         link_for_copy = subscription_url or vless_url
         qr_payload = subscription_url or vless_url
         qr_title = "Subscription QR" if subscription_url else "Direct VLESS QR"
 
+        account_url = await self._account_url(user_id)
+
         buttons: list[list[InlineKeyboardButton]] = [
             [
                 InlineKeyboardButton(
-                    text=self._button_label("open_in_app", "\U0001f680 \u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0432 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0438"),
+                    text=self._button_label("config_button", "⚙️ Конфиг"),
                     url=self._open_app_url(vless_url),
                 ),
                 InlineKeyboardButton(
@@ -937,21 +1286,29 @@ class VPNBot:
                 ),
             ],
         ]
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=self._button_label("pay_card_button", "💳 Оплатить картой"),
+                    url=f"{self._site_url().rstrip('/')}/account/renew/",
+                )
+            ]
+        )
         if subscription_url:
             buttons.insert(0, [InlineKeyboardButton(text="\U0001f517 \u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443", url=subscription_url)])
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=self._button_label("open_account", "\U0001f464 \u041b\u0438\u0447\u043d\u044b\u0439 \u043a\u0430\u0431\u0438\u043d\u0435\u0442 \u043d\u0430 VXcloud"),
-                    url=self._account_url(),
+                    text=self._button_label("open_instructions", "📘 Инструкция"),
+                    callback_data="nav|menu_instructions|_",
                 )
             ]
         )
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=self._button_label("open_instructions", "\U0001f4d8 \u0418\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f"),
-                    callback_data="nav|menu_instructions|_",
+                    text=self._button_label("open_account", "\U0001f464 \u041b\u0438\u0447\u043d\u044b\u0439 \u043a\u0430\u0431\u0438\u043d\u0435\u0442 \u043d\u0430 VXcloud"),
+                    url=account_url,
                 )
             ]
         )
@@ -962,7 +1319,21 @@ class VPNBot:
         qr_img.save(qr_buff, format="PNG")
         qr_buff.seek(0)
 
-        text = f"\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u0430\u043a\u0442\u0438\u0432\u043d\u0430 \u0434\u043e: {self._format_local_dt(expires_at)}"
+        resolved_client_code = client_code or (f"VX-{user_id}" if user_id is not None else "")
+        text = self._content_text(
+            "menu_mysub_response",
+            "\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u0430\u043a\u0442\u0438\u0432\u043d\u0430 \u0434\u043e: {expires_at}\nClient code: {client_code}",
+        )
+        text = (
+            text.replace("{expires_at}", self._format_local_dt(expires_at))
+            .replace("{client_code}", resolved_client_code)
+            .replace("{payment_method}", self._format_payment_method(last_payment_method))
+            .replace("{subscription_url}", subscription_url or "")
+            .replace("{vless_url}", vless_url)
+            .replace("{user_id}", str(user_id) if user_id is not None else "")
+        )
+        if "Способ оплаты:" not in text:
+            text += f"\nСпособ оплаты: {self._format_payment_method(last_payment_method)}"
         if subscription_url:
             text += f"\n\n\u0421\u0441\u044b\u043b\u043a\u0430 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438:\n{subscription_url}"
         copy_link_hint = self._content_text(

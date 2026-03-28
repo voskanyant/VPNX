@@ -180,6 +180,16 @@ def main() -> int:
     parser.add_argument("--buttons-file", default="directus_seed/bot_buttons.json")
     parser.add_argument("--content-file", default="directus_seed/bot_content.json")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--prune-buttons",
+        action="store_true",
+        help="Delete obsolete menu_* rows not present in the seed",
+    )
+    parser.add_argument(
+        "--prune-content",
+        action="store_true",
+        help="Delete obsolete *_response/*_buttons rows not present in the seed",
+    )
     args = parser.parse_args()
 
     env = dict(os.environ)
@@ -218,22 +228,26 @@ def main() -> int:
         value_field="value",
         dry_run=args.dry_run,
     )
-    b_deleted = prune_rows(
-        cfg,
-        cfg.buttons_collection,
-        desired_keys={r["key"] for r in buttons_rows},
-        value_field="label",
-        should_prune_key=lambda k: k.startswith("menu_"),
-        dry_run=args.dry_run,
-    )
-    c_deleted = prune_rows(
-        cfg,
-        cfg.content_collection,
-        desired_keys={r["key"] for r in content_rows},
-        value_field="value",
-        should_prune_key=lambda k: k.endswith("_response") or k.endswith("_buttons"),
-        dry_run=args.dry_run,
-    )
+    b_deleted = 0
+    c_deleted = 0
+    if args.prune_buttons:
+        b_deleted = prune_rows(
+            cfg,
+            cfg.buttons_collection,
+            desired_keys={r["key"] for r in buttons_rows},
+            value_field="label",
+            should_prune_key=lambda k: k.startswith("menu_"),
+            dry_run=args.dry_run,
+        )
+    if args.prune_content:
+        c_deleted = prune_rows(
+            cfg,
+            cfg.content_collection,
+            desired_keys={r["key"] for r in content_rows},
+            value_field="value",
+            should_prune_key=lambda k: k.endswith("_response") or k.endswith("_buttons"),
+            dry_run=args.dry_run,
+        )
 
     mode = "DRY-RUN" if args.dry_run else "APPLIED"
     print(

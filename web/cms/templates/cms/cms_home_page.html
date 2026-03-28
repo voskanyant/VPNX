@@ -21,6 +21,30 @@
     <section class="section-card mb-3">
       <div class="post-content">{{ block.value|richtext }}</div>
     </section>
+  {% elif block.block_type == "content_list" %}
+    <section class="section-card mb-3">
+      {% if block.value.title %}<h3 class="h4 mb-3">{{ block.value.title }}</h3>{% endif %}
+      <ul class="mb-0">
+        {% for item in block.value.items %}
+          <li class="mb-2">{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% elif block.block_type == "quote" %}
+    <section class="section-card mb-3">
+      <blockquote class="mb-0">
+        <p class="mb-2">“{{ block.value.text }}”</p>
+        {% if block.value.author %}<footer class="text-secondary">— {{ block.value.author }}</footer>{% endif %}
+      </blockquote>
+    </section>
+  {% elif block.block_type == "button_group" %}
+    <section class="section-card mb-3">
+      <div class="actions mt-0">
+        {% for btn in block.value %}
+          <a class="btn btn-primary" href="{{ btn.url }}">{{ btn.text }}</a>
+        {% endfor %}
+      </div>
+    </section>
   {% elif block.block_type == "cta" %}
     <section class="section-card mb-3">
       <h3 class="h4 mb-2">{{ block.value.heading }}</h3>

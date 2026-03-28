@@ -7,5 +7,6 @@ urlpatterns = [
     path("", views.account_dashboard, name="account_dashboard"),
     path("link/", views.link_telegram, name="account_link"),
     path("config/", views.account_config, name="account_config"),
+    path("buy/", views.create_order_stub, name="account_buy"),
     path("renew/", views.create_order_stub, name="account_renew"),
 ]

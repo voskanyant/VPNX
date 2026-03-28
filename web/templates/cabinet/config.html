@@ -7,12 +7,20 @@
 {% block content %}
 <article class="section-card" style="max-width:760px;">
   {% cms_text "cabinet.config.heading" "Конфиг и QR" as cabinet_config_heading %}
+  {% cms_text "cabinet.config.client_code_label" "Client code:" as cabinet_config_client_code_label %}
   {% cms_text "cabinet.config.expires_label" "Действует до:" as cabinet_config_expires_label %}
+  {% cms_text "cabinet.config.payment_method_label" "Способ оплаты:" as cabinet_config_payment_method_label %}
   {% cms_text "cabinet.config.link_label" "Ссылка конфигурации" as cabinet_config_link_label %}
   {% cms_text "cabinet.config.copy_action" "Скопировать ссылку" as cabinet_config_copy_action %}
   {% cms_text "cabinet.config.back_action" "Назад в кабинет" as cabinet_config_back_action %}
+
   <h1 class="h2 mb-2">{{ cabinet_config_heading }}</h1>
-  <p class="text-secondary mb-3">{{ cabinet_config_expires_label }} {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
+  {% if subscription.user and subscription.user.client_code %}
+    <p class="mb-1">{{ cabinet_config_client_code_label }} <code>{{ subscription.user.client_code }}</code></p>
+  {% endif %}
+  <p class="text-secondary mb-1">{{ cabinet_config_expires_label }} {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
+  <p class="text-secondary mb-3">{{ cabinet_config_payment_method_label }} <strong>{{ last_payment_method }}</strong></p>
+
   <img class="img-fluid border rounded p-2 bg-white" style="max-width: 360px;" src="data:image/png;base64,{{ qr_b64 }}" alt="VPN QR" />
 
   <label class="form-label mt-3" for="cfg">{{ cabinet_config_link_label }}</label>

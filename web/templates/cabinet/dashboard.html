@@ -14,12 +14,17 @@
   {% cms_text "cabinet.dashboard.status_label" "Статус:" as cabinet_status_label %}
   {% cms_text "cabinet.dashboard.status_active" "Активна" as cabinet_status_active %}
   {% cms_text "cabinet.dashboard.status_expired" "Истекла" as cabinet_status_expired %}
+  {% cms_text "cabinet.dashboard.client_code_label" "Client code:" as cabinet_client_code_label %}
   {% cms_text "cabinet.dashboard.expires_label" "Действует до:" as cabinet_expires_label %}
-  {% cms_text "cabinet.dashboard.open_config" "Открыть конфиг и QR" as cabinet_open_config %}
+  {% cms_text "cabinet.dashboard.payment_method_label" "Способ оплаты:" as cabinet_payment_method_label %}
+  {% cms_text "cabinet.dashboard.open_config" "Конфиг" as cabinet_open_config %}
+  {% cms_text "cabinet.dashboard.pay_card_action" "Оплатить картой" as cabinet_pay_card_action %}
+  {% cms_text "cabinet.dashboard.instructions_action" "Инструкция" as cabinet_instructions_action %}
   {% cms_text "cabinet.dashboard.subscription_missing" "Подписка не найдена." as cabinet_subscription_missing %}
   {% cms_text "cabinet.dashboard.renew_action" "Продлить (создать заказ)" as cabinet_renew_action %}
   {% cms_text "cabinet.dashboard.link_telegram_action" "Привязать Telegram" as cabinet_link_telegram_action %}
   {% cms_text "cabinet.dashboard.logout_action" "Выйти" as cabinet_logout_action %}
+
   <h1 class="h2 mb-3">{{ cabinet_heading }}</h1>
   <p class="mb-1">{{ cabinet_user_label }} <strong>{{ request.user.username }}</strong></p>
   {% if linked %}
@@ -31,8 +36,16 @@
   {% if subscription %}
     <hr />
     <p class="mb-1">{{ cabinet_status_label }} {% if has_active %}<strong class="text-success">{{ cabinet_status_active }}</strong>{% else %}<strong class="text-danger">{{ cabinet_status_expired }}</strong>{% endif %}</p>
-    <p class="mb-2">{{ cabinet_expires_label }} {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
-    <p><a href="/account/config/">{{ cabinet_open_config }}</a></p>
+    {% if bot_user and bot_user.client_code %}
+      <p class="mb-1">{{ cabinet_client_code_label }} <code>{{ bot_user.client_code }}</code></p>
+    {% endif %}
+    <p class="mb-1">{{ cabinet_expires_label }} {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
+    <p class="mb-2">{{ cabinet_payment_method_label }} <strong>{{ last_payment_method }}</strong></p>
+    <div class="d-flex gap-2 flex-wrap mt-3 mb-1">
+      <a class="btn btn-outline-primary" href="/account/config/">{{ cabinet_open_config }}</a>
+      <a class="btn btn-outline-primary" href="/account/renew/">{{ cabinet_pay_card_action }}</a>
+      <a class="btn btn-outline-secondary" href="/instructions/">{{ cabinet_instructions_action }}</a>
+    </div>
   {% else %}
     <p>{{ cabinet_subscription_missing }}</p>
   {% endif %}

@@ -1,28 +1,170 @@
 ﻿from __future__ import annotations
 
 import base64
+import asyncio
+import hashlib
+import hmac
 import io
+import json
+import logging
 import os
 import secrets
 import string
+import sys
+import threading
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
+from urllib.parse import parse_qsl
 from urllib.parse import unquote
+from urllib.parse import urlencode
+from urllib.request import Request
+from urllib.request import urlopen
 
 import qrcode
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
+from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.cache import cache
+from django.db import IntegrityError
+from django.db import transaction
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpRequest, HttpResponse
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
-from .forms import SignUpForm
-from .models import BotOrder, BotSubscription, BotUser, LinkedAccount, TelegramLinkToken
+from .forms import EmailAuthenticationForm, SignUpForm
+from .models import BotOrder, BotSubscription, BotUser, LinkedAccount, PaymentEvent, TelegramLinkToken, WebLoginToken
+from payments.providers import get_payment_provider
 
 
 ALLOWED_DEEPLINK_SCHEMES = ("vless://", "vmess://", "trojan://", "ss://", "hysteria2://", "tuic://")
+PAYMENT_SUCCESS_STATUSES = {"success", "succeeded", "paid", "approved"}
+LOGGER = logging.getLogger(__name__)
+WEB_ORDER_SESSION_KEY = "web_order_checkout_state_v1"
+
+
+def _log_payment_event(
+    *,
+    order_id: int | None,
+    client_code: str | None,
+    provider: str | None,
+    event_id: str | None,
+    provision_state: str,
+    paid_to_ready_ms: int | None = None,
+) -> None:
+    payload: dict[str, object] = {
+        "event": "payment_flow",
+        "order_id": int(order_id) if order_id is not None else 0,
+        "client_code": client_code or "",
+        "provider": provider or "",
+        "event_id": event_id or "",
+        "provision_state": provision_state,
+    }
+    if paid_to_ready_ms is not None:
+        payload["paid_to_ready_ms"] = paid_to_ready_ms
+    LOGGER.info(json.dumps(payload, ensure_ascii=False))
+
+
+class EmailLoginView(LoginView):
+    authentication_form = EmailAuthenticationForm
+    template_name = "registration/login.html"
+
+
+def _format_payment_method(method: str | None, currency: str | None = None) -> str:
+    normalized = (method or "").strip().lower()
+    if not normalized:
+        if (currency or "").upper() == "XTR":
+            return "Telegram Stars"
+        return "Не указан"
+    if normalized == "card":
+        return "Карта"
+    if normalized == "stars":
+        return "Telegram Stars"
+    return normalized
+
+
+def _get_subscription_snapshot_for_bot_user(bot_user: BotUser | None) -> tuple[BotSubscription | None, bool, str]:
+    if not bot_user:
+        return None, False, "Не указан"
+
+    now = timezone.now()
+    subscription = (
+        BotSubscription.objects.filter(user_id=bot_user.id)
+        .order_by("-expires_at", "-id")
+        .first()
+    )
+    has_active = bool(subscription and subscription.is_active and subscription.expires_at > now)
+    latest_order = (
+        BotOrder.objects.filter(user_id=bot_user.id, status__in=["paid", "activating", "activated"])
+        .order_by("-paid_at", "-id")
+        .first()
+    )
+    payment_method = _format_payment_method(
+        getattr(latest_order, "payment_method", None) if latest_order else None,
+        getattr(latest_order, "currency", None) if latest_order else None,
+    )
+    return subscription, has_active, payment_method
+
+
+def _new_web_idempotency_key() -> str:
+    return uuid.uuid4().hex
+
+
+def _load_web_order_session_state(request: HttpRequest, *, user_id: int) -> dict[str, str]:
+    raw_state = request.session.get(WEB_ORDER_SESSION_KEY)
+    if not isinstance(raw_state, dict):
+        return {"user_id": str(user_id), "idempotency_key": _new_web_idempotency_key()}
+    if str(raw_state.get("user_id", "")) != str(user_id):
+        return {"user_id": str(user_id), "idempotency_key": _new_web_idempotency_key()}
+    idempotency_key = str(raw_state.get("idempotency_key", "")).strip()
+    if not idempotency_key:
+        raw_state["idempotency_key"] = _new_web_idempotency_key()
+    return {
+        "user_id": str(user_id),
+        "idempotency_key": str(raw_state.get("idempotency_key")),
+        "order_id": str(raw_state.get("order_id", "")),
+        "pay_url": str(raw_state.get("pay_url", "")),
+    }
+
+
+def _save_web_order_session_state(
+    request: HttpRequest,
+    *,
+    user_id: int,
+    idempotency_key: str,
+    order_id: int | None = None,
+    pay_url: str | None = None,
+) -> None:
+    state: dict[str, str] = {
+        "user_id": str(user_id),
+        "idempotency_key": idempotency_key,
+    }
+    if order_id is not None:
+        state["order_id"] = str(order_id)
+    if pay_url:
+        state["pay_url"] = pay_url
+    request.session[WEB_ORDER_SESSION_KEY] = state
+    request.session.modified = True
+
+
+def _reference_checkout_url_from_order(order: BotOrder) -> str | None:
+    if not order.card_payment_id:
+        return None
+    base_url = str(getattr(settings, "PAYMENT_REFERENCE_BASE_URL", "https://pay.vxcloud.ru/mock")).rstrip("/")
+    query = urlencode(
+        {
+            "payment_id": order.card_payment_id,
+            "order_id": order.id,
+            "amount_minor": order.amount_minor or 0,
+            "currency": order.currency_iso or order.currency or "RUB",
+        }
+    )
+    return f"{base_url}/checkout?{query}"
 
 
 def signup_view(request: HttpRequest) -> HttpResponse:
@@ -32,11 +174,12 @@ def signup_view(request: HttpRequest) -> HttpResponse:
     form = SignUpForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         username = form.cleaned_data["username"].strip()
+        email = form.cleaned_data["email"].strip().lower()
         password = form.cleaned_data["password"]
         if User.objects.filter(username=username).exists():
             form.add_error("username", "Пользователь с таким логином уже существует")
         else:
-            user = User.objects.create_user(username=username, password=password)
+            user = User.objects.create_user(username=username, email=email, password=password)
             auth_user = authenticate(request, username=username, password=password)
             if auth_user:
                 login(request, auth_user)
@@ -50,14 +193,10 @@ def signup_view(request: HttpRequest) -> HttpResponse:
 def account_dashboard(request: HttpRequest) -> HttpResponse:
     linked = LinkedAccount.objects.filter(user=request.user).first()
     bot_user = None
-    sub = None
     if linked:
         bot_user = BotUser.objects.filter(telegram_id=linked.telegram_id).first()
-        if bot_user:
-            sub = BotSubscription.objects.filter(user_id=bot_user.id).order_by("-id").first()
-
+    sub, has_active, last_payment_method = _get_subscription_snapshot_for_bot_user(bot_user)
     now = timezone.now()
-    has_active = bool(sub and sub.is_active and sub.expires_at > now)
     return render(
         request,
         "cabinet/dashboard.html",
@@ -66,6 +205,7 @@ def account_dashboard(request: HttpRequest) -> HttpResponse:
             "bot_user": bot_user,
             "subscription": sub,
             "has_active": has_active,
+            "last_payment_method": last_payment_method,
             "now": now,
         },
     )
@@ -130,7 +270,7 @@ def account_config(request: HttpRequest) -> HttpResponse:
         messages.error(request, "Пользователь бота не найден")
         return redirect("account_link")
 
-    sub = BotSubscription.objects.filter(user_id=bot_user.id).order_by("-id").first()
+    sub, has_active, last_payment_method = _get_subscription_snapshot_for_bot_user(bot_user)
     if not sub:
         messages.error(request, "Подписка не найдена")
         return redirect("account_dashboard")
@@ -146,6 +286,8 @@ def account_config(request: HttpRequest) -> HttpResponse:
         "cabinet/config.html",
         {
             "subscription": sub,
+            "has_active": has_active,
+            "last_payment_method": last_payment_method,
             "qr_b64": qr_b64,
             "copy_text": qr_data,
         },
@@ -164,21 +306,133 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
         messages.error(request, "Пользователь бота не найден")
         return redirect("account_link")
 
-    amount = int(os.getenv("PLAN_PRICE_STARS", "10"))
-    payload = f"web-buy:{bot_user.id}:{int(datetime.now().timestamp())}:{uuid.uuid4().hex[:6]}"
-    BotOrder.objects.create(
+    now = timezone.now()
+    session_state = _load_web_order_session_state(request, user_id=bot_user.id)
+    idempotency_key = str(session_state.get("idempotency_key") or "").strip() or _new_web_idempotency_key()
+
+    existing_pending = (
+        BotOrder.objects.filter(
+            user_id=bot_user.id,
+            status="pending",
+            idempotency_key=idempotency_key,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if existing_pending:
+        if settings.ENABLE_CARD_PAYMENTS:
+            pay_url = str(session_state.get("pay_url") or "").strip()
+            if not pay_url and str(settings.PAYMENT_PROVIDER).lower() == "reference":
+                pay_url = _reference_checkout_url_from_order(existing_pending) or ""
+            if not pay_url:
+                provider_name = str(settings.PAYMENT_PROVIDER).lower()
+                provider = get_payment_provider(provider_name=provider_name)
+                try:
+                    create_result = provider.create_payment(
+                        {
+                            "id": int(existing_pending.id),
+                            "user_id": int(bot_user.id),
+                            "amount_minor": int(existing_pending.amount_minor or settings.CARD_PAYMENT_AMOUNT_MINOR),
+                            "currency_iso": str(existing_pending.currency_iso or settings.CARD_PAYMENT_CURRENCY).upper(),
+                            "idempotency_key": idempotency_key,
+                        }
+                    )
+                    existing_pending.card_payment_id = create_result.payment_id
+                    existing_pending.save(update_fields=["card_payment_id"])
+                    pay_url = create_result.pay_url
+                except Exception:
+                    messages.error(request, "Не удалось восстановить ссылку оплаты. Попробуйте снова через 1-2 минуты.")
+                    return redirect("account_dashboard")
+            if pay_url:
+                _save_web_order_session_state(
+                    request,
+                    user_id=bot_user.id,
+                    idempotency_key=idempotency_key,
+                    order_id=int(existing_pending.id),
+                    pay_url=pay_url,
+                )
+                messages.info(request, "Используем уже созданный ожидающий платеж.")
+                return redirect(pay_url)
+        else:
+            messages.info(request, "У вас уже есть ожидающий заказ. Завершите его в Telegram-боте.")
+            return redirect("account_dashboard")
+
+    used_non_pending = BotOrder.objects.filter(user_id=bot_user.id, idempotency_key=idempotency_key).exclude(status="pending").exists()
+    if used_non_pending:
+        idempotency_key = _new_web_idempotency_key()
+        _save_web_order_session_state(request, user_id=bot_user.id, idempotency_key=idempotency_key)
+
+    if not settings.ENABLE_CARD_PAYMENTS:
+        amount = int(os.getenv("PLAN_PRICE_STARS", "10"))
+        payload = f"web-buy:{bot_user.id}:{int(datetime.now().timestamp())}:{uuid.uuid4().hex[:6]}"
+        order = BotOrder.objects.create(
+            user_id=bot_user.id,
+            amount_stars=amount,
+            currency="XTR",
+            payload=payload,
+            status="pending",
+            channel="web",
+            payment_method="stars",
+            idempotency_key=idempotency_key,
+            created_at=now,
+        )
+        _save_web_order_session_state(
+            request,
+            user_id=bot_user.id,
+            idempotency_key=idempotency_key,
+            order_id=int(order.id),
+        )
+        messages.success(
+            request,
+            "Заявка на оплату создана. Сейчас оплата на сайте не подключена: завершите оплату через Telegram-бота.",
+        )
+        return redirect("account_dashboard")
+
+    payload = f"web-card:{bot_user.id}:{int(datetime.now().timestamp())}:{uuid.uuid4().hex[:6]}"
+    amount_minor = int(settings.CARD_PAYMENT_AMOUNT_MINOR)
+    currency_iso = str(settings.CARD_PAYMENT_CURRENCY).upper()
+    provider_name = str(settings.PAYMENT_PROVIDER).lower()
+
+    order = BotOrder.objects.create(
         user_id=bot_user.id,
-        amount_stars=amount,
-        currency="XTR",
+        amount_stars=0,
+        currency=currency_iso,
         payload=payload,
         status="pending",
-        created_at=timezone.now(),
+        channel="web",
+        payment_method="card",
+        amount_minor=amount_minor,
+        currency_iso=currency_iso,
+        card_provider=provider_name,
+        idempotency_key=idempotency_key,
+        created_at=now,
     )
-    messages.success(
+
+    provider = get_payment_provider(provider_name=provider_name)
+    try:
+        create_result = provider.create_payment(
+            {
+                "id": order.id,
+                "user_id": bot_user.id,
+                "amount_minor": amount_minor,
+                "currency_iso": currency_iso,
+                "idempotency_key": idempotency_key,
+            }
+        )
+    except Exception:
+        messages.error(request, "Не удалось создать платеж. Попробуйте снова через 1-2 минуты.")
+        return redirect("account_dashboard")
+
+    order.card_payment_id = create_result.payment_id
+    order.save(update_fields=["card_payment_id"])
+    _save_web_order_session_state(
         request,
-        "Заявка на оплату создана. Сейчас оплата на сайте не подключена: завершите оплату через Telegram-бота.",
+        user_id=bot_user.id,
+        idempotency_key=idempotency_key,
+        order_id=int(order.id),
+        pay_url=create_result.pay_url,
     )
-    return redirect("account_dashboard")
+    return redirect(create_result.pay_url)
 
 
 def open_app_link(request: HttpRequest) -> HttpResponse:
@@ -187,3 +441,449 @@ def open_app_link(request: HttpRequest) -> HttpResponse:
     if not any(deeplink.startswith(prefix) for prefix in ALLOWED_DEEPLINK_SCHEMES):
         deeplink = ""
     return render(request, "cabinet/open_app.html", {"deeplink": deeplink})
+
+
+def tg_magic_login(request: HttpRequest, token: str) -> HttpResponse:
+    if request.method != "GET":
+        return HttpResponse(status=405)
+
+    now = timezone.now()
+    with transaction.atomic():
+        login_token = (
+            WebLoginToken.objects.select_for_update()
+            .filter(token=token)
+            .first()
+        )
+        if not login_token:
+            return HttpResponse("Invalid token", status=404)
+        if login_token.consumed_at is not None:
+            return HttpResponse("Token already used", status=410)
+        if login_token.expires_at <= now:
+            return HttpResponse("Token expired", status=410)
+
+        linked = LinkedAccount.objects.select_related("user").filter(telegram_id=login_token.telegram_id).first()
+        if linked:
+            user = linked.user
+        else:
+            user = _create_user_for_telegram(login_token.telegram_id)
+            LinkedAccount.objects.create(user=user, telegram_id=login_token.telegram_id)
+
+        login_token.consumed_at = now
+        login_token.save(update_fields=["consumed_at"])
+
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    return redirect("/account/")
+
+
+def _create_user_for_telegram(telegram_id: int) -> User:
+    base_username = f"tg_{telegram_id}"
+    username = base_username
+    suffix = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{base_username}_{suffix}"
+        suffix += 1
+
+    user = User(username=username)
+    user.set_unusable_password()
+    user.save()
+    return user
+
+
+@csrf_exempt
+def create_magic_link(request: HttpRequest) -> HttpResponse:
+    if request.method != "POST":
+        return HttpResponse(status=405)
+
+    configured_secret = settings.MAGIC_LINK_SHARED_SECRET.strip()
+    incoming_secret = (request.headers.get("X-Shared-Secret") or "").strip()
+    if not configured_secret or incoming_secret != configured_secret:
+        return JsonResponse({"error": "forbidden"}, status=403)
+
+    if _is_magic_link_rate_limited(request):
+        return JsonResponse({"error": "rate_limited"}, status=429)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"error": "invalid_json"}, status=400)
+
+    telegram_id_raw = payload.get("telegram_id")
+    try:
+        telegram_id = int(telegram_id_raw)
+    except Exception:
+        return JsonResponse({"error": "invalid_telegram_id"}, status=400)
+
+    now = timezone.now()
+    expires_at = now + timedelta(seconds=max(60, settings.MAGIC_LINK_TTL_SECONDS))
+    token = _generate_magic_token()
+    WebLoginToken.objects.create(
+        token=token,
+        telegram_id=telegram_id,
+        expires_at=expires_at,
+        consumed_at=None,
+        created_at=now,
+    )
+
+    url = settings.ACCOUNT_MAGIC_URL_TEMPLATE.format(token=token)
+    return JsonResponse({"url": url})
+
+
+@csrf_exempt
+def telegram_webapp_auth(request: HttpRequest) -> HttpResponse:
+    if request.method != "POST":
+        return HttpResponse(status=405)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"error": "invalid_json"}, status=400)
+
+    init_data = str(payload.get("initData", "") or "").strip()
+    if not init_data:
+        return JsonResponse({"error": "missing_init_data"}, status=400)
+
+    bot_token = settings.TELEGRAM_WEBAPP_BOT_TOKEN.strip()
+    if not bot_token:
+        return JsonResponse({"error": "server_not_configured"}, status=500)
+
+    try:
+        parsed_pairs = parse_qsl(init_data, keep_blank_values=True, strict_parsing=True)
+    except ValueError:
+        return JsonResponse({"error": "invalid_init_data_format"}, status=400)
+
+    parsed: dict[str, str] = {}
+    for k, v in parsed_pairs:
+        if k in parsed:
+            return JsonResponse({"error": "duplicate_init_data_key"}, status=400)
+        parsed[k] = v
+
+    received_hash = str(parsed.pop("hash", "")).strip().lower()
+    if not received_hash:
+        return JsonResponse({"error": "missing_hash"}, status=400)
+    if len(received_hash) != 64 or any(ch not in "0123456789abcdef" for ch in received_hash):
+        return JsonResponse({"error": "invalid_hash_format"}, status=400)
+
+    auth_date_raw = parsed.get("auth_date", "")
+    try:
+        auth_date = int(auth_date_raw)
+    except Exception:
+        return JsonResponse({"error": "invalid_auth_date"}, status=400)
+
+    now_ts = int(timezone.now().timestamp())
+    max_age = max(30, int(settings.TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS))
+    if auth_date > now_ts + 30 or (now_ts - auth_date) > max_age:
+        return JsonResponse({"error": "auth_data_expired"}, status=401)
+
+    data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
+    secret_key = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
+    expected_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected_hash, received_hash):
+        return JsonResponse({"error": "invalid_signature"}, status=401)
+
+    user_raw = parsed.get("user")
+    if not user_raw:
+        return JsonResponse({"error": "missing_user"}, status=400)
+
+    try:
+        user_data = json.loads(user_raw)
+        telegram_id = int(user_data["id"])
+    except Exception:
+        return JsonResponse({"error": "invalid_user_payload"}, status=400)
+
+    linked = LinkedAccount.objects.select_related("user").filter(telegram_id=telegram_id).first()
+    if linked:
+        user = linked.user
+    else:
+        user = _create_user_for_telegram(telegram_id)
+        LinkedAccount.objects.create(user=user, telegram_id=telegram_id)
+
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    return JsonResponse({"ok": True, "redirect": "/account/"})
+
+
+def _generate_magic_token() -> str:
+    while True:
+        token = secrets.token_urlsafe(32)
+        if not WebLoginToken.objects.filter(token=token).exists():
+            return token
+
+
+def _is_rate_limited(request: HttpRequest, *, key_prefix: str, limit_per_minute: int, suffix: str = "") -> bool:
+    limit = max(1, int(limit_per_minute))
+    ip = (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "unknown").split(",")[0].strip()
+    key = f"{key_prefix}:{ip}"
+    if suffix:
+        key = f"{key}:{suffix}"
+    count = cache.get(key, 0)
+    if count >= limit:
+        return True
+    if count == 0:
+        cache.set(key, 1, timeout=60)
+    else:
+        try:
+            cache.incr(key)
+        except ValueError:
+            cache.set(key, count + 1, timeout=60)
+    return False
+
+
+def _is_magic_link_rate_limited(request: HttpRequest) -> bool:
+    return _is_rate_limited(
+        request,
+        key_prefix="magic_link_rl",
+        limit_per_minute=settings.MAGIC_LINK_RATE_LIMIT_PER_MINUTE,
+    )
+
+
+def _is_webhook_rate_limited(request: HttpRequest, provider: str) -> bool:
+    return _is_rate_limited(
+        request,
+        key_prefix="webhook_rl",
+        limit_per_minute=settings.WEBHOOK_RATE_LIMIT_PER_MINUTE,
+        suffix=provider,
+    )
+
+
+@csrf_exempt
+def payment_webhook(request: HttpRequest, provider: str) -> HttpResponse:
+    if request.method != "POST":
+        return HttpResponse(status=405)
+
+    provider_name = (provider or "").strip().lower()
+    if not provider_name:
+        return JsonResponse({"error": "invalid_provider"}, status=400)
+    if _is_webhook_rate_limited(request, provider_name):
+        _log_payment_event(
+            order_id=None,
+            client_code=None,
+            provider=provider_name,
+            event_id=None,
+            provision_state="webhook_rate_limited",
+        )
+        return JsonResponse({"error": "rate_limited"}, status=429)
+
+    try:
+        payment_provider = get_payment_provider(provider_name=provider_name)
+        webhook = payment_provider.verify_webhook(request)
+    except Exception:
+        _log_payment_event(
+            order_id=None,
+            client_code=None,
+            provider=provider_name,
+            event_id=None,
+            provision_state="webhook_invalid",
+        )
+        return JsonResponse({"error": "invalid_webhook"}, status=400)
+
+    if webhook.event_id and _payment_event_exists(provider_name, webhook.event_id):
+        _log_payment_event(
+            order_id=None,
+            client_code=None,
+            provider=provider_name,
+            event_id=webhook.event_id,
+            provision_state="webhook_duplicate",
+        )
+        return JsonResponse({"ok": True, "duplicate": True}, status=200)
+
+    now = timezone.now()
+    order_id_for_activation: int | None = None
+    payload = dict(webhook.provider_payload or {})
+    if not payload:
+        payload = {"raw_body": (request.body or b"").decode("utf-8", errors="replace")}
+
+    with transaction.atomic():
+        try:
+            PaymentEvent.objects.create(
+                provider=provider_name,
+                event_id=webhook.event_id,
+                body=payload,
+                created_at=now,
+                processed_at=None,
+            )
+        except IntegrityError:
+            _log_payment_event(
+                order_id=None,
+                client_code=None,
+                provider=provider_name,
+                event_id=webhook.event_id,
+                provision_state="webhook_duplicate",
+            )
+            return JsonResponse({"ok": True, "duplicate": True}, status=200)
+
+        status = str(webhook.status or "").strip().lower()
+        if status in PAYMENT_SUCCESS_STATUSES:
+            order = (
+                BotOrder.objects.select_for_update()
+                .filter(card_payment_id=webhook.payment_id)
+                .first()
+            )
+            if order and str(order.status).lower() == "pending":
+                order.status = "paid"
+                order.paid_at = now
+                order.provider_payment_charge_id = webhook.payment_id
+                order.save(update_fields=["status", "paid_at", "provider_payment_charge_id"])
+                order_id_for_activation = int(order.id)
+                _log_payment_event(
+                    order_id=order_id_for_activation,
+                    client_code=getattr(order.user, "client_code", None),
+                    provider=provider_name,
+                    event_id=webhook.event_id,
+                    provision_state="paid_marked",
+                )
+            elif order:
+                _log_payment_event(
+                    order_id=int(order.id),
+                    client_code=getattr(order.user, "client_code", None),
+                    provider=provider_name,
+                    event_id=webhook.event_id,
+                    provision_state="already_paid_or_processing",
+                )
+            else:
+                _log_payment_event(
+                    order_id=None,
+                    client_code=None,
+                    provider=provider_name,
+                    event_id=webhook.event_id,
+                    provision_state="order_not_found",
+                )
+        else:
+            _log_payment_event(
+                order_id=None,
+                client_code=None,
+                provider=provider_name,
+                event_id=webhook.event_id,
+                provision_state=f"webhook_ignored_status_{status or 'unknown'}",
+            )
+
+        PaymentEvent.objects.filter(provider=provider_name, event_id=webhook.event_id).update(processed_at=now)
+
+    if order_id_for_activation is not None:
+        _log_payment_event(
+            order_id=order_id_for_activation,
+            client_code=None,
+            provider=provider_name,
+            event_id=webhook.event_id,
+            provision_state="activation_worker_spawned",
+        )
+        _spawn_activation_worker(order_id_for_activation)
+
+    return JsonResponse({"ok": True}, status=200)
+
+
+def _payment_event_exists(provider: str, event_id: str) -> bool:
+    return PaymentEvent.objects.filter(provider=provider, event_id=event_id).exists()
+
+
+def _spawn_activation_worker(order_id: int) -> None:
+    thread = threading.Thread(
+        target=_run_activation_worker_sync,
+        args=(order_id,),
+        daemon=True,
+        name=f"activate-order-{order_id}",
+    )
+    thread.start()
+
+
+def _run_activation_worker_sync(order_id: int) -> None:
+    try:
+        asyncio.run(_activate_order_async(order_id))
+    except Exception:
+        LOGGER.exception("Failed to run activation worker for order_id=%s", order_id)
+
+
+async def _activate_order_async(order_id: int) -> None:
+    project_root = Path(__file__).resolve().parents[2]
+    project_root_str = str(project_root)
+    if project_root_str not in sys.path:
+        sys.path.append(project_root_str)
+
+    from src.config import load_settings
+    from src.db import DB
+    from src.domain.subscriptions import activate_subscription
+    from src.xui_client import XUIClient
+
+    app_settings = load_settings()
+    db = DB(app_settings.database_url)
+    xui = XUIClient(app_settings.xui_base_url, app_settings.xui_username, app_settings.xui_password)
+    try:
+        await db.connect()
+        await xui.start()
+        order = await db.get_order_by_id(order_id)
+        provider = str((order or {}).get("card_provider") or (order or {}).get("payment_method") or "card")
+        event_id = str((order or {}).get("provider_payment_charge_id") or "")
+        user_id = int((order or {}).get("user_id") or 0)
+        client_code = await db.get_user_client_code(user_id) if user_id else None
+        _log_payment_event(
+            order_id=order_id,
+            client_code=client_code,
+            provider=provider,
+            event_id=event_id,
+            provision_state="activation_started",
+        )
+        result = await activate_subscription(order_id, db=db, xui=xui, settings=app_settings)
+        paid_to_ready_ms: int | None = None
+        paid_at = (order or {}).get("paid_at")
+        if isinstance(paid_at, datetime):
+            paid_to_ready_ms = max(0, int((timezone.now() - paid_at).total_seconds() * 1000))
+        _log_payment_event(
+            order_id=order_id,
+            client_code=client_code,
+            provider=provider,
+            event_id=event_id,
+            provision_state="provision_ready",
+            paid_to_ready_ms=paid_to_ready_ms,
+        )
+        await _notify_user_after_card_activation(
+            db=db,
+            order_id=order_id,
+            telegram_bot_token=app_settings.telegram_bot_token,
+            user_id=result.user_id,
+        )
+    except Exception:
+        _log_payment_event(
+            order_id=order_id,
+            client_code=None,
+            provider="card",
+            event_id="",
+            provision_state="provision_failed",
+        )
+        raise
+    finally:
+        await xui.close()
+        await db.close()
+
+
+async def _notify_user_after_card_activation(
+    *,
+    db,
+    order_id: int,
+    telegram_bot_token: str,
+    user_id: int,
+) -> None:
+    if not telegram_bot_token:
+        return
+
+    telegram_id = await db.get_user_telegram_id(user_id)
+    if telegram_id is None:
+        return
+
+    is_first_notification = await db.mark_order_notified_if_pending(order_id)
+    if not is_first_notification:
+        return
+
+    message_text = "Оплата получена, подписка активирована"
+    await asyncio.to_thread(
+        _send_telegram_message_sync,
+        telegram_bot_token,
+        telegram_id,
+        message_text,
+    )
+
+
+def _send_telegram_message_sync(token: str, chat_id: int, text: str) -> None:
+    api_url = f"https://api.telegram.org/bot{token}/sendMessage"
+    body = urlencode({"chat_id": str(chat_id), "text": text}).encode("utf-8")
+    request = Request(api_url, data=body, method="POST")
+    request.add_header("Content-Type", "application/x-www-form-urlencoded")
+    with urlopen(request, timeout=10):
+        return

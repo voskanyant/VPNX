@@ -24,6 +24,36 @@ class CMSHomePage(Page):
             ),
             ("rich_text", blocks.RichTextBlock(required=False)),
             (
+                "content_list",
+                blocks.StructBlock(
+                    [
+                        ("title", blocks.CharBlock(required=False)),
+                        ("items", blocks.ListBlock(blocks.CharBlock(required=True), required=True)),
+                    ]
+                ),
+            ),
+            (
+                "quote",
+                blocks.StructBlock(
+                    [
+                        ("text", blocks.TextBlock(required=True)),
+                        ("author", blocks.CharBlock(required=False)),
+                    ]
+                ),
+            ),
+            (
+                "button_group",
+                blocks.ListBlock(
+                    blocks.StructBlock(
+                        [
+                            ("text", blocks.CharBlock(required=True)),
+                            ("url", blocks.URLBlock(required=True)),
+                        ]
+                    ),
+                    required=False,
+                ),
+            ),
+            (
                 "cta",
                 blocks.StructBlock(
                     [
@@ -85,6 +115,36 @@ class CMSContentPage(Page):
             ),
             ("rich_text", blocks.RichTextBlock(required=False)),
             (
+                "content_list",
+                blocks.StructBlock(
+                    [
+                        ("title", blocks.CharBlock(required=False)),
+                        ("items", blocks.ListBlock(blocks.CharBlock(required=True), required=True)),
+                    ]
+                ),
+            ),
+            (
+                "quote",
+                blocks.StructBlock(
+                    [
+                        ("text", blocks.TextBlock(required=True)),
+                        ("author", blocks.CharBlock(required=False)),
+                    ]
+                ),
+            ),
+            (
+                "button_group",
+                blocks.ListBlock(
+                    blocks.StructBlock(
+                        [
+                            ("text", blocks.CharBlock(required=True)),
+                            ("url", blocks.URLBlock(required=True)),
+                        ]
+                    ),
+                    required=False,
+                ),
+            ),
+            (
                 "cta",
                 blocks.StructBlock(
                     [
@@ -126,3 +186,36 @@ class CMSContentPage(Page):
         FieldPanel("body"),
         FieldPanel("sections"),
     ]
+
+    def get_context(self, request, *args, **kwargs):
+        context = super().get_context(request, *args, **kwargs)
+
+        context["is_blog_index"] = self.slug == "blog"
+        context["blog_categories"] = []
+        context["post_items"] = []
+
+        if context["is_blog_index"]:
+            context["blog_categories"] = (
+                self.get_children().live().in_menu().specific().order_by("title")
+            )
+            context["post_items"] = (
+                CMSContentPage.objects.live()
+                .descendant_of(self)
+                .exclude(id=self.id)
+                .filter(depth__gte=self.depth + 2)
+                .filter(numchild=0)
+                .specific()
+                .order_by("-first_published_at", "-latest_revision_created_at")
+            )
+            return context
+
+        if self.get_children().live().exists():
+            context["post_items"] = (
+                self.get_children()
+                .live()
+                .filter(numchild=0)
+                .specific()
+                .order_by("-first_published_at", "-latest_revision_created_at")
+            )
+
+        return context

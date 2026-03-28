@@ -45,6 +45,8 @@ class Settings:
     cms_content_collection: str
     cms_button_collection: str
     cms_cache_ttl_seconds: int
+    magic_link_shared_secret: str | None
+    magic_link_api_timeout_seconds: int
 
 
 def load_settings() -> Settings:
@@ -70,4 +72,6 @@ def load_settings() -> Settings:
         cms_content_collection=_get("CMS_CONTENT_COLLECTION", "bot_content"),
         cms_button_collection=_get("CMS_BUTTON_COLLECTION", "bot_buttons"),
         cms_cache_ttl_seconds=int(_get("CMS_CACHE_TTL_SECONDS", "60")),
+        magic_link_shared_secret=_get_optional("MAGIC_LINK_SHARED_SECRET"),
+        magic_link_api_timeout_seconds=int(_get("MAGIC_LINK_API_TIMEOUT_SECONDS", "5")),
     )
