@@ -35,6 +35,7 @@ MIGRATIONS=(
   "sql/migrations/20260328_create_support_tables.sql"
   "sql/migrations/20260328_create_web_login_tokens.sql"
   "sql/migrations/20260328_add_orders_notified_at.sql"
+  "sql/migrations/20260328_add_orders_payment_idempotency_guards.sql"
 )
 
 set_env_var() {
@@ -85,4 +86,3 @@ echo "[5/5] Final healthcheck..."
 healthcheck
 docker compose --env-file "$ENV_FILE" ps
 echo "Done."
-

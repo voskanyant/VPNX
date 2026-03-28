@@ -310,11 +310,13 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
     session_state = _load_web_order_session_state(request, user_id=bot_user.id)
     idempotency_key = str(session_state.get("idempotency_key") or "").strip() or _new_web_idempotency_key()
 
+    pending_method = "card" if settings.ENABLE_CARD_PAYMENTS else "stars"
     existing_pending = (
         BotOrder.objects.filter(
             user_id=bot_user.id,
             status="pending",
-            idempotency_key=idempotency_key,
+            channel="web",
+            payment_method=pending_method,
         )
         .order_by("-id")
         .first()
@@ -393,20 +395,47 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
     currency_iso = str(settings.CARD_PAYMENT_CURRENCY).upper()
     provider_name = str(settings.PAYMENT_PROVIDER).lower()
 
-    order = BotOrder.objects.create(
-        user_id=bot_user.id,
-        amount_stars=0,
-        currency=currency_iso,
-        payload=payload,
-        status="pending",
-        channel="web",
-        payment_method="card",
-        amount_minor=amount_minor,
-        currency_iso=currency_iso,
-        card_provider=provider_name,
-        idempotency_key=idempotency_key,
-        created_at=now,
-    )
+    try:
+        order = BotOrder.objects.create(
+            user_id=bot_user.id,
+            amount_stars=0,
+            currency=currency_iso,
+            payload=payload,
+            status="pending",
+            channel="web",
+            payment_method="card",
+            amount_minor=amount_minor,
+            currency_iso=currency_iso,
+            card_provider=provider_name,
+            idempotency_key=idempotency_key,
+            created_at=now,
+        )
+    except IntegrityError:
+        # Another request likely created the same pending order or reused idempotency key.
+        existing_pending = (
+            BotOrder.objects.filter(
+                user_id=bot_user.id,
+                status="pending",
+                channel="web",
+                payment_method="card",
+            )
+            .order_by("-id")
+            .first()
+        )
+        if existing_pending:
+            pay_url = _reference_checkout_url_from_order(existing_pending) or ""
+            if pay_url:
+                _save_web_order_session_state(
+                    request,
+                    user_id=bot_user.id,
+                    idempotency_key=str(existing_pending.idempotency_key or idempotency_key),
+                    order_id=int(existing_pending.id),
+                    pay_url=pay_url,
+                )
+                messages.info(request, "Оплата уже создаётся. Открываем существующий платеж.")
+                return redirect(pay_url)
+        messages.error(request, "Не удалось создать платеж. Попробуйте снова через 1-2 минуты.")
+        return redirect("account_dashboard")
 
     provider = get_payment_provider(provider_name=provider_name)
     try:
