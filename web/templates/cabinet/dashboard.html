@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% load cms %}
 
 {% cms_text "cabinet.dashboard.page_title" "Кабинет - VXcloud" as cabinet_page_title %}
@@ -18,8 +18,11 @@
   {% cms_text "cabinet.dashboard.expires_label" "Действует до:" as cabinet_expires_label %}
   {% cms_text "cabinet.dashboard.payment_method_label" "Способ оплаты:" as cabinet_payment_method_label %}
   {% cms_text "cabinet.dashboard.open_config" "Конфиг" as cabinet_open_config %}
-  {% cms_text "cabinet.dashboard.pay_card_action" "Оплатить картой" as cabinet_pay_card_action %}
+  {% cms_text "cabinet.dashboard.open_selected_config" "Открыть" as cabinet_open_selected_config %}
+  {% cms_text "cabinet.dashboard.buy_new_action" "Купить новый конфиг" as cabinet_buy_new_action %}
+  {% cms_text "cabinet.dashboard.renew_action_short" "Продлить текущий" as cabinet_renew_action_short %}
   {% cms_text "cabinet.dashboard.instructions_action" "Инструкция" as cabinet_instructions_action %}
+  {% cms_text "cabinet.dashboard.configs_label" "Ваши конфиги" as cabinet_configs_label %}
   {% cms_text "cabinet.dashboard.subscription_missing" "Подписка не найдена." as cabinet_subscription_missing %}
   {% cms_text "cabinet.dashboard.renew_action" "Продлить (создать заказ)" as cabinet_renew_action %}
   {% cms_text "cabinet.dashboard.link_telegram_action" "Привязать Telegram" as cabinet_link_telegram_action %}
@@ -41,16 +44,40 @@
     {% endif %}
     <p class="mb-1">{{ cabinet_expires_label }} {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
     <p class="mb-2">{{ cabinet_payment_method_label }} <strong>{{ last_payment_method }}</strong></p>
-    <div class="d-flex gap-2 flex-wrap mt-3 mb-1">
+    <div class="d-flex gap-2 flex-wrap mt-3 mb-3">
       <a class="btn btn-outline-primary" href="/account/config/">{{ cabinet_open_config }}</a>
-      <a class="btn btn-outline-primary" href="/account/renew/">{{ cabinet_pay_card_action }}</a>
+      <a class="btn btn-outline-primary" href="/account/buy/">{{ cabinet_buy_new_action }}</a>
+      <a class="btn btn-outline-primary" href="/account/renew/">{{ cabinet_renew_action_short }}</a>
       <a class="btn btn-outline-secondary" href="/instructions/">{{ cabinet_instructions_action }}</a>
     </div>
   {% else %}
     <p>{{ cabinet_subscription_missing }}</p>
   {% endif %}
 
+  {% if subscriptions %}
+    <h3 class="h5 mt-2 mb-2">{{ cabinet_configs_label }}</h3>
+    <div class="d-flex flex-column gap-2">
+      {% for sub_item in subscriptions %}
+        <div class="section-card" style="padding:12px 14px;">
+          <div class="d-flex gap-2 flex-wrap justify-content-between align-items-center">
+            <div>
+              <strong>#{{ sub_item.id }}</strong>
+              {% if sub_item.is_active and sub_item.expires_at > now %}
+                <span class="text-success">Активна</span>
+              {% else %}
+                <span class="text-danger">Истекла</span>
+              {% endif %}
+              <div class="text-secondary">до {{ sub_item.expires_at|date:'d.m.Y H:i' }}</div>
+            </div>
+            <a class="btn btn-outline-primary btn-sm" href="/account/config/{{ sub_item.id }}/">{{ cabinet_open_selected_config }}</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   <div class="d-flex gap-2 flex-wrap mt-3">
+    <a class="btn btn-outline-primary" href="/account/buy/">{{ cabinet_buy_new_action }}</a>
     <a class="btn btn-outline-primary" href="/account/renew/">{{ cabinet_renew_action }}</a>
     <a class="btn btn-outline-secondary" href="/account/link/">{{ cabinet_link_telegram_action }}</a>
     <a class="btn btn-outline-danger" href="/accounts/logout/">{{ cabinet_logout_action }}</a>

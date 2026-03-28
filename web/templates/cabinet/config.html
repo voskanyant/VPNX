@@ -1,11 +1,11 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% load cms %}
 
 {% cms_text "cabinet.config.page_title" "Конфиг - VXcloud" as cabinet_config_page_title %}
 {% block title %}{{ cabinet_config_page_title }}{% endblock %}
 
 {% block content %}
-<article class="section-card" style="max-width:760px;">
+<article class="section-card" style="max-width:860px;">
   {% cms_text "cabinet.config.heading" "Конфиг и QR" as cabinet_config_heading %}
   {% cms_text "cabinet.config.client_code_label" "Client code:" as cabinet_config_client_code_label %}
   {% cms_text "cabinet.config.expires_label" "Действует до:" as cabinet_config_expires_label %}
@@ -13,13 +13,27 @@
   {% cms_text "cabinet.config.link_label" "Ссылка конфигурации" as cabinet_config_link_label %}
   {% cms_text "cabinet.config.copy_action" "Скопировать ссылку" as cabinet_config_copy_action %}
   {% cms_text "cabinet.config.back_action" "Назад в кабинет" as cabinet_config_back_action %}
+  {% cms_text "cabinet.config.all_configs" "Все конфиги" as cabinet_config_all_configs %}
 
-  <h1 class="h2 mb-2">{{ cabinet_config_heading }}</h1>
+  <h1 class="h2 mb-2">{{ cabinet_config_heading }} #{{ subscription.id }}</h1>
   {% if subscription.user and subscription.user.client_code %}
     <p class="mb-1">{{ cabinet_config_client_code_label }} <code>{{ subscription.user.client_code }}</code></p>
   {% endif %}
   <p class="text-secondary mb-1">{{ cabinet_config_expires_label }} {{ subscription.expires_at|date:'d.m.Y H:i' }}</p>
   <p class="text-secondary mb-3">{{ cabinet_config_payment_method_label }} <strong>{{ last_payment_method }}</strong></p>
+
+  {% if subscriptions %}
+    <div class="mb-3">
+      <label class="form-label" for="config-switch">{{ cabinet_config_all_configs }}</label>
+      <select id="config-switch" class="form-select" onchange="if(this.value){window.location.href=this.value;}">
+        {% for sub_item in subscriptions %}
+          <option value="/account/config/{{ sub_item.id }}/" {% if sub_item.id == subscription.id %}selected{% endif %}>
+            #{{ sub_item.id }} — {{ sub_item.expires_at|date:'d.m.Y H:i' }} {% if sub_item.is_active %}(active){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+  {% endif %}
 
   <img class="img-fluid border rounded p-2 bg-white" style="max-width: 360px;" src="data:image/png;base64,{{ qr_b64 }}" alt="VPN QR" />
 
@@ -37,7 +51,7 @@ function copyCfg() {
   box.select();
   box.setSelectionRange(0, 99999);
   navigator.clipboard.writeText(box.value).then(() => {
-    alert('Ссылка скопирована. Откройте Streisand, нажмите + и Import from Clipboard.');
+    alert('Ссылка скопирована. Откройте клиент и импортируйте из буфера обмена.');
   });
 }
 </script>

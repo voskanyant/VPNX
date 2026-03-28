@@ -111,6 +111,15 @@ def _get_subscription_snapshot_for_bot_user(bot_user: BotUser | None) -> tuple[B
     return subscription, has_active, payment_method
 
 
+def _list_subscriptions_for_bot_user(bot_user: BotUser | None) -> list[BotSubscription]:
+    if not bot_user:
+        return []
+    return list(
+        BotSubscription.objects.filter(user_id=bot_user.id)
+        .order_by("-is_active", "-expires_at", "-id")
+    )
+
+
 def _new_web_idempotency_key() -> str:
     return uuid.uuid4().hex
 
@@ -196,6 +205,7 @@ def account_dashboard(request: HttpRequest) -> HttpResponse:
     if linked:
         bot_user = BotUser.objects.filter(telegram_id=linked.telegram_id).first()
     sub, has_active, last_payment_method = _get_subscription_snapshot_for_bot_user(bot_user)
+    subscriptions = _list_subscriptions_for_bot_user(bot_user)
     now = timezone.now()
     return render(
         request,
@@ -204,6 +214,7 @@ def account_dashboard(request: HttpRequest) -> HttpResponse:
             "linked": linked,
             "bot_user": bot_user,
             "subscription": sub,
+            "subscriptions": subscriptions,
             "has_active": has_active,
             "last_payment_method": last_payment_method,
             "now": now,
@@ -259,7 +270,7 @@ def _generate_link_code(length: int = 12) -> str:
 
 
 @login_required
-def account_config(request: HttpRequest) -> HttpResponse:
+def account_config(request: HttpRequest, subscription_id: int | None = None) -> HttpResponse:
     linked = LinkedAccount.objects.filter(user=request.user).first()
     if not linked:
         messages.error(request, "Сначала привяжите Telegram ID")
@@ -271,6 +282,14 @@ def account_config(request: HttpRequest) -> HttpResponse:
         return redirect("account_link")
 
     sub, has_active, last_payment_method = _get_subscription_snapshot_for_bot_user(bot_user)
+    subscriptions = _list_subscriptions_for_bot_user(bot_user)
+    if subscription_id is not None:
+        selected = next((s for s in subscriptions if int(s.id) == int(subscription_id)), None)
+        if selected is None:
+            messages.error(request, "Конфиг не найден")
+            return redirect("account_dashboard")
+        sub = selected
+        has_active = bool(sub.is_active and sub.expires_at > timezone.now())
     if not sub:
         messages.error(request, "Подписка не найдена")
         return redirect("account_dashboard")
@@ -286,6 +305,7 @@ def account_config(request: HttpRequest) -> HttpResponse:
         "cabinet/config.html",
         {
             "subscription": sub,
+            "subscriptions": subscriptions,
             "has_active": has_active,
             "last_payment_method": last_payment_method,
             "qr_b64": qr_b64,
@@ -307,6 +327,8 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
         return redirect("account_link")
 
     now = timezone.now()
+    is_buy_route = request.resolver_match and request.resolver_match.url_name == "account_buy"
+    flow_mode = "buynew" if is_buy_route else "renew"
     session_state = _load_web_order_session_state(request, user_id=bot_user.id)
     idempotency_key = str(session_state.get("idempotency_key") or "").strip() or _new_web_idempotency_key()
 
@@ -317,6 +339,7 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
             status="pending",
             channel="web",
             payment_method=pending_method,
+            payload__startswith=(f"web-newcfg:{bot_user.id}:" if flow_mode == "buynew" else f"web-renew:{bot_user.id}:"),
         )
         .order_by("-id")
         .first()
@@ -366,7 +389,8 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
 
     if not settings.ENABLE_CARD_PAYMENTS:
         amount = int(os.getenv("PLAN_PRICE_STARS", "10"))
-        payload = f"web-buy:{bot_user.id}:{int(datetime.now().timestamp())}:{uuid.uuid4().hex[:6]}"
+        payload_prefix = "web-newcfg" if flow_mode == "buynew" else "web-renew"
+        payload = f"{payload_prefix}:{bot_user.id}:{int(datetime.now().timestamp())}:{uuid.uuid4().hex[:6]}"
         order = BotOrder.objects.create(
             user_id=bot_user.id,
             amount_stars=amount,
@@ -390,7 +414,8 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
         )
         return redirect("account_dashboard")
 
-    payload = f"web-card:{bot_user.id}:{int(datetime.now().timestamp())}:{uuid.uuid4().hex[:6]}"
+    payload_prefix = "web-newcfg" if flow_mode == "buynew" else "web-renew"
+    payload = f"{payload_prefix}:{bot_user.id}:{int(datetime.now().timestamp())}:{uuid.uuid4().hex[:6]}"
     amount_minor = int(settings.CARD_PAYMENT_AMOUNT_MINOR)
     currency_iso = str(settings.CARD_PAYMENT_CURRENCY).upper()
     provider_name = str(settings.PAYMENT_PROVIDER).lower()

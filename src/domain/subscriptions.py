@@ -74,6 +74,8 @@ async def activate_subscription(
         raise RuntimeError(f"Order not found: {order_id}")
 
     user_id = int(order["user_id"])
+    payload_value = str(order.get("payload") or "")
+    force_new_config = payload_value.startswith("buynew:") or payload_value.startswith("web-newcfg:")
     client_code = await db.get_user_client_code(user_id)
     provider = _payment_provider_for_order(order)
     event_id = _event_id_for_order(order)
@@ -117,7 +119,7 @@ async def activate_subscription(
         reality = xui.parse_reality(inbound)
         inbound_port = int(inbound["port"])
 
-        current_sub = await db.get_active_subscription(user_id)
+        current_sub = None if force_new_config else await db.get_active_subscription(user_id)
         created = False
 
         if current_sub is None:

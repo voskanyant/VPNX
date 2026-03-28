@@ -169,11 +169,9 @@ class VPNBot:
         return normalized
 
     def _menu_buttons(self, has_active_subscription: bool = False) -> list[tuple[str, str]]:
-        buy_key = "menu_renew" if has_active_subscription else "menu_buy"
-        buy_default = "\U0001f504 \u041f\u0440\u043e\u0434\u043b\u0438\u0442\u044c" if has_active_subscription else "\U0001f4b3 \u041a\u0443\u043f\u0438\u0442\u044c VPN"
-        return [
+        buttons: list[tuple[str, str]] = [
             ("menu_trial", self._button_label("menu_trial", "\U0001f381 \u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e 7\u0434").strip() or "\U0001f381 \u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e 7\u0434"),
-            (buy_key, self._button_label(buy_key, buy_default).strip() or buy_default),
+            ("menu_buy", self._button_label("menu_buy", "\U0001f4b3 \u041a\u0443\u043f\u0438\u0442\u044c \u043d\u043e\u0432\u044b\u0439 \u043a\u043e\u043d\u0444\u0438\u0433").strip() or "\U0001f4b3 \u041a\u0443\u043f\u0438\u0442\u044c \u043d\u043e\u0432\u044b\u0439 \u043a\u043e\u043d\u0444\u0438\u0433"),
             ("menu_mysub", self._button_label("menu_mysub", "\U0001f4ca \u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430").strip() or "\U0001f4ca \u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430"),
             (
                 "menu_instructions",
@@ -188,6 +186,9 @@ class VPNBot:
                 self._button_label("menu_site", "\U0001f310 VXcloud.ru").strip() or "\U0001f310 VXcloud.ru",
             ),
         ]
+        if has_active_subscription:
+            buttons.insert(2, ("menu_renew", self._button_label("menu_renew", "\U0001f504 \u041f\u0440\u043e\u0434\u043b\u0438\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0438\u0439").strip() or "\U0001f504 \u041f\u0440\u043e\u0434\u043b\u0438\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0438\u0439"))
+        return buttons
 
     def _site_url(self) -> str:
         return self._content_text("site_url", "https://vxcloud.ru").strip() or "https://vxcloud.ru"
@@ -688,7 +689,7 @@ class VPNBot:
 
     async def renew(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_id = await self._ensure_user(update)
-        await self._send_stars_invoice(update, user_id)
+        await self._send_stars_invoice(update, user_id, mode="renew")
 
     async def admin_reload(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if self.cms is None:
@@ -994,6 +995,7 @@ class VPNBot:
         user_id: int,
         phone: str | None = None,
         customer_name: str | None = None,
+        mode: str = "buynew",
     ) -> None:
         await self._refresh_cms()
         await update.message.reply_text(
@@ -1002,7 +1004,8 @@ class VPNBot:
                 "Оплата в боте доступна только через Telegram Stars ⭐\nДля iPhone обычно используется способ оплаты через мобильный баланс МТС.",
             )
         )
-        payload = f"buy:{user_id}:{int(datetime.now(timezone.utc).timestamp())}"
+        mode_prefix = "renew" if mode == "renew" else "buynew"
+        payload = f"{mode_prefix}:{user_id}:{int(datetime.now(timezone.utc).timestamp())}"
         await self.db.create_order(user_id=user_id, amount_stars=self.settings.plan_price_stars, payload=payload)
         if phone:
             self._pending_profiles[payload] = {"phone": phone, "name": (customer_name or "").strip()}
