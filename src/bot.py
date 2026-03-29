@@ -130,11 +130,26 @@ class VPNBot:
 
     def _content_text(self, key: str, default: str) -> str:
         value = self._cms_content.get(key)
-        return value if value else default
+        if not value:
+            return default
+        normalized = value.strip()
+        if not normalized:
+            return default
+        # Guard against mojibake/placeholder content like "?????"
+        if normalized.count("?") >= max(4, len(normalized) // 4):
+            return default
+        return value
 
     def _button_label(self, key: str, default: str) -> str:
         value = self._cms_buttons.get(key)
-        return value if value else default
+        if not value:
+            return default
+        normalized = value.strip()
+        if not normalized:
+            return default
+        if normalized.count("?") >= max(2, len(normalized) // 3):
+            return default
+        return value
 
     async def _has_active_subscription(self, user_id: int) -> bool:
         return await self.db.get_active_subscription(user_id) is not None
@@ -159,14 +174,14 @@ class VPNBot:
         if normalized == "card":
             return "карта"
         if normalized == "stars":
-            return "telegram stars"
+            return "звёзды Telegram"
         return normalized
 
     def _menu_buttons(self, has_active_subscription: bool = False) -> list[tuple[str, str]]:
         buttons: list[tuple[str, str]] = [
             ("menu_trial", self._button_label("menu_trial", "\U0001f381 \u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e 7\u0434").strip() or "\U0001f381 \u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e 7\u0434"),
-            ("menu_buy", self._button_label("menu_buy", "\U0001f4b3 \u041a\u0443\u043f\u0438\u0442\u044c \u043d\u043e\u0432\u044b\u0439 \u043a\u043e\u043d\u0444\u0438\u0433").strip() or "\U0001f4b3 \u041a\u0443\u043f\u0438\u0442\u044c \u043d\u043e\u0432\u044b\u0439 \u043a\u043e\u043d\u0444\u0438\u0433"),
-            ("menu_mysub", self._button_label("menu_mysub", "\U0001f4ca \u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430").strip() or "\U0001f4ca \u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430"),
+            ("menu_buy", self._button_label("menu_buy", "⭐ Купить доступ").strip() or "⭐ Купить доступ"),
+            ("menu_mysub", self._button_label("menu_mysub", "\U0001f4ca \u041c\u043e\u0439 \u0434\u043e\u0441\u0442\u0443\u043f").strip() or "\U0001f4ca \u041c\u043e\u0439 \u0434\u043e\u0441\u0442\u0443\u043f"),
             (
                 "menu_instructions",
                 self._button_label("menu_instructions", "\U0001f4ac \u0418\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f").strip() or "\U0001f4ac \u0418\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f",
@@ -177,11 +192,11 @@ class VPNBot:
             ),
             (
                 "menu_site",
-                self._button_label("menu_site", "\U0001f310 VXcloud.ru").strip() or "\U0001f310 VXcloud.ru",
+                self._button_label("menu_site", "🌐 Личный кабинет").strip() or "🌐 Личный кабинет",
             ),
         ]
         if has_active_subscription:
-            buttons.insert(2, ("menu_renew", self._button_label("menu_renew", "\U0001f504 \u041f\u0440\u043e\u0434\u043b\u0438\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0438\u0439").strip() or "\U0001f504 \u041f\u0440\u043e\u0434\u043b\u0438\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0438\u0439"))
+            buttons.insert(2, ("menu_renew", self._button_label("menu_renew", "🔄 Продлить").strip() or "🔄 Продлить"))
         return buttons
 
     def _site_url(self) -> str:
@@ -260,11 +275,48 @@ class VPNBot:
         legacy_key = f"{node_key.removeprefix('menu_')}_response"
         if node_key == "menu_instructions":
             default = (
-                "Короткая инструкция:\n"
-                "1) Установите приложение\n"
-                "2) Нажмите «Моя подписка» и скопируйте ссылку\n"
-                "3) Импортируйте ссылку в приложение\n\n"
-                "Выберите платформу кнопками ниже."
+                "Как подключиться\n\n"
+                "Чтобы всё заработало, нужно сделать два шага:\n\n"
+                "1. Установить приложение\n"
+                "2. Оплатить доступ\n\n"
+                "Мы покажем всё по шагам ниже."
+            )
+            return self._content_text(response_key, self._content_text(legacy_key, default))
+        if node_key == "instructions_install":
+            default = (
+                "Как установить приложение\n\n"
+                "Если вы используете iPhone в России, нужного приложения может не быть в App Store.\n\n"
+                "Это нормально — просто нужно временно сменить регион.\n\n"
+                "Сначала:\n"
+                "• смените регион App Store (на любую другую страну)\n\n"
+                "Затем:\n"
+                "• установите приложение для подключения\n\n"
+                "После установки:\n"
+                "• можно вернуть регион обратно на Россию\n\n"
+                "Ниже есть подробная инструкция и видео — мы покажем всё по шагам."
+            )
+            return self._content_text(response_key, self._content_text(legacy_key, default))
+        if node_key == "instructions_stars":
+            default = (
+                "Как оплатить через Telegram Stars\n\n"
+                "Оплата проходит прямо в Telegram.\n\n"
+                "Если вы используете iPhone в России:\n\n"
+                "• привяжите номер МТС к вашему Apple ID\n"
+                "• после этого оплата будет списываться с баланса телефона\n\n"
+                "Далее просто нажмите оплату в боте — Telegram сам предложит купить Stars.\n\n"
+                "После оплаты доступ сразу заработает."
+            )
+            return self._content_text(response_key, self._content_text(legacy_key, default))
+        if node_key == "site_about":
+            default = (
+                "Что можно делать на сайте\n\n"
+                "В личном кабинете вы можете:\n\n"
+                "• увидеть все свои устройства\n"
+                "• открыть доступ для подключения\n"
+                "• показать QR-код\n"
+                "• оплатить новый доступ или продление картой\n"
+                "• открыть подробные инструкции и видео\n\n"
+                "Сайт и бот работают вместе — ваши данные будут одинаковыми везде."
             )
             return self._content_text(response_key, self._content_text(legacy_key, default))
         return self._content_text(
@@ -276,14 +328,46 @@ class VPNBot:
         )
 
     def _node_inline_keyboard(self, node_key: str, parent_key: str | None = None) -> InlineKeyboardMarkup | None:
+        if node_key == "menu_instructions":
+            return InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton(text="📱 Установить приложение", callback_data="nav|instructions_install|menu_instructions")],
+                    [InlineKeyboardButton(text="⭐ Оплатить Stars", callback_data="nav|instructions_stars|menu_instructions")],
+                    [
+                        InlineKeyboardButton(text="📊 Мой доступ", callback_data="act|start_mysub|_"),
+                        InlineKeyboardButton(text="📷 QR-код", callback_data="act|start_mysub|_"),
+                    ],
+                    [InlineKeyboardButton(text="🆘 Поддержка", callback_data="act|support_hub|_")],
+                ]
+            )
+        if node_key == "instructions_install":
+            install_help_url = f"{self._site_url().rstrip('/')}/help/install"
+            return InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton(text="📖 Подробная инструкция", url=install_help_url)],
+                    [InlineKeyboardButton(text="🎬 Видео-инструкция", url=install_help_url)],
+                    [InlineKeyboardButton(text="⬅️ Назад", callback_data="nav|menu_instructions|_")],
+                ]
+            )
+        if node_key == "instructions_stars":
+            stars_help_url = f"{self._site_url().rstrip('/')}/help/stars"
+            return InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton(text="⭐ Купить доступ", callback_data="act|buy_new|_")],
+                    [InlineKeyboardButton(text="📖 Подробная инструкция", url=stars_help_url)],
+                    [InlineKeyboardButton(text="🆘 Поддержка", callback_data="act|support_hub|_")],
+                    [InlineKeyboardButton(text="⬅️ Назад", callback_data="nav|menu_instructions|_")],
+                ]
+            )
+
         raw = self._cms_content.get(f"{node_key}_buttons")
         if not raw:
             if node_key == "menu_instructions":
                 return InlineKeyboardMarkup(
                     [
-                        [InlineKeyboardButton(text="🍏 iOS (Streisand)", url=STREISAND_APPSTORE_URL)],
-                        [InlineKeyboardButton(text="🤖 Android (V2Box)", url=V2BOX_PLAYSTORE_URL)],
-                        [InlineKeyboardButton(text="💻 Сайт VXcloud", url=f"{self._site_url().rstrip('/')}")],
+                        [InlineKeyboardButton(text="🍏 Айфон", url=STREISAND_APPSTORE_URL)],
+                        [InlineKeyboardButton(text="🤖 Андроид", url=V2BOX_PLAYSTORE_URL)],
+                        [InlineKeyboardButton(text="🌐 Личный кабинет", url=f"{self._site_url().rstrip('/')}")],
                     ]
                 )
             return None
@@ -345,7 +429,7 @@ class VPNBot:
                     rows.append(row_buttons)
 
         if parent_key:
-            rows.append([InlineKeyboardButton(text="â¬…ï¸ Back", callback_data=f"nav|{parent_key}|_")])
+            rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data=f"nav|{parent_key}|_")])
 
         if not rows:
             return None
@@ -356,11 +440,11 @@ class VPNBot:
             [
                 [
                     InlineKeyboardButton(text="🎁 Попробовать 7 дней", callback_data="act|start_trial|_"),
-                    InlineKeyboardButton(text="💳 Купить доступ", callback_data="act|buy_new|_"),
+                    InlineKeyboardButton(text="⭐ Купить доступ", callback_data="act|buy_new|_"),
                 ],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
-                    InlineKeyboardButton(text="🌐 Открыть сайт", url=self._site_url().rstrip("/")),
+                    InlineKeyboardButton(text="🌐 Личный кабинет", url=self._site_url().rstrip("/")),
                 ],
             ]
         )
@@ -390,7 +474,7 @@ class VPNBot:
                 [InlineKeyboardButton(text="🎁 Активировать 7 дней", callback_data="act|trial_activate|_")],
                 [
                     InlineKeyboardButton(text="💬 Как это работает", callback_data="nav|menu_instructions|_"),
-                    InlineKeyboardButton(text="🔙 Назад", callback_data="act|start_back|_"),
+                    InlineKeyboardButton(text="⬅️ Назад", callback_data="act|start_back|_"),
                 ],
             ]
         )
@@ -398,10 +482,10 @@ class VPNBot:
     def _trial_used_markup(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="💳 Купить доступ", callback_data="act|buy_new|_")],
+                [InlineKeyboardButton(text="⭐ Купить доступ", callback_data="act|buy_new|_")],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
-                    InlineKeyboardButton(text="🔙 Назад", callback_data="act|start_back|_"),
+                    InlineKeyboardButton(text="⬅️ Назад", callback_data="act|start_back|_"),
                 ],
             ]
         )
@@ -410,12 +494,12 @@ class VPNBot:
         return InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton(text="📲 Открыть доступ", callback_data=f"act|cfg_open:{subscription_id}|_"),
-                    InlineKeyboardButton(text="📷 Показать QR", callback_data=f"act|cfg_qr:{subscription_id}|_"),
+                    InlineKeyboardButton(text="🚀 Открыть", callback_data=f"act|cfg_open:{subscription_id}|_"),
+                    InlineKeyboardButton(text="📷 QR-код", callback_data=f"act|cfg_qr:{subscription_id}|_"),
                 ],
                 [
                     InlineKeyboardButton(text="💬 Инструкция", callback_data="nav|menu_instructions|_"),
-                    InlineKeyboardButton(text="📦 Моя подписка", callback_data="act|start_mysub|_"),
+                    InlineKeyboardButton(text="📊 Мой доступ", callback_data="act|start_mysub|_"),
                 ],
             ]
         )
@@ -423,11 +507,11 @@ class VPNBot:
     def _buy_offer_markup(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="⭐ Оплатить через Stars", callback_data="act|buy_stars_info|_")],
+                [InlineKeyboardButton(text="⭐ Оплатить звёздами", callback_data="act|buy_stars_info|_")],
                 [InlineKeyboardButton(text="💳 Оплатить картой", callback_data="act|buy_card|_")],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
-                    InlineKeyboardButton(text="🔙 Назад", callback_data="act|start_back|_"),
+                    InlineKeyboardButton(text="⬅️ Назад", callback_data="act|start_back|_"),
                 ],
             ]
         )
@@ -438,7 +522,7 @@ class VPNBot:
                 [InlineKeyboardButton(text="⭐ Продолжить через Stars", callback_data="act|buy_stars_continue|_")],
                 [
                     InlineKeyboardButton(text="💳 Оплатить картой", callback_data="act|buy_card|_"),
-                    InlineKeyboardButton(text="🔙 Назад", callback_data="act|buy_back|_"),
+                    InlineKeyboardButton(text="⬅️ Назад", callback_data="act|buy_back|_"),
                 ],
             ]
         )
@@ -447,7 +531,7 @@ class VPNBot:
         return InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton(text="💳 Перейти к оплате", url=pay_url)],
-                [InlineKeyboardButton(text="🔙 Назад", callback_data="act|buy_back|_")],
+                [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|buy_back|_")],
             ]
         )
 
@@ -463,11 +547,11 @@ class VPNBot:
         return InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton(text="📲 Открыть доступ", callback_data=f"act|cfg_open:{subscription_id}|_"),
-                    InlineKeyboardButton(text="📷 Показать QR", callback_data=f"act|cfg_qr:{subscription_id}|_"),
+                    InlineKeyboardButton(text="🚀 Открыть", callback_data=f"act|cfg_open:{subscription_id}|_"),
+                    InlineKeyboardButton(text="📷 QR-код", callback_data=f"act|cfg_qr:{subscription_id}|_"),
                 ],
                 [
-                    InlineKeyboardButton(text="📦 Моя подписка", callback_data="act|start_mysub|_"),
+                    InlineKeyboardButton(text="📊 Мой доступ", callback_data="act|start_mysub|_"),
                     InlineKeyboardButton(text="🌐 Личный кабинет", url=account_url),
                 ],
             ]
@@ -491,10 +575,43 @@ class VPNBot:
             ]
         )
 
+    def _support_hub_markup(self) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="✍️ Написать в поддержку", callback_data="act|support_start|_")],
+                [
+                    InlineKeyboardButton(text="📦 Моя подписка", callback_data="act|start_mysub|_"),
+                    InlineKeyboardButton(text="⬅️ Назад", callback_data="act|start_back|_"),
+                ],
+            ]
+        )
+
+    def _support_sent_markup(self) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="📦 Моя подписка", callback_data="act|start_mysub|_")],
+                [InlineKeyboardButton(text="⬅️ В меню", callback_data="act|start_back|_")],
+            ]
+        )
+
+    async def _show_support_hub(self, message: Message, user_id: int) -> None:
+        client_code = await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"
+        await message.reply_text(
+            "Поддержка VXcloud\n\n"
+            "Если что-то не работает или возник вопрос, напишите нам.\n\n"
+            "Лучше всего коротко указать:\n"
+            "• что именно не получается\n"
+            "• на каком устройстве\n"
+            "• что уже пробовали сделать\n\n"
+            "Ваш ID:\n"
+            f"{client_code}",
+            reply_markup=self._support_hub_markup(),
+        )
+
     def _renew_no_active_markup(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="💳 Купить новый конфиг", callback_data="act|buy_new|_")],
+                [InlineKeyboardButton(text="⭐ Купить доступ", callback_data="act|buy_new|_")],
                 [
                     InlineKeyboardButton(text="🎁 Бесплатно 7д", callback_data="act|start_trial|_"),
                     InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_"),
@@ -506,11 +623,11 @@ class VPNBot:
         return InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton(text="🚀 Открыть в приложении", callback_data=f"act|cfg_open:{subscription_id}|_"),
+                    InlineKeyboardButton(text="🚀 Открыть", callback_data=f"act|cfg_open:{subscription_id}|_"),
                     InlineKeyboardButton(text="📷 QR-код", callback_data=f"act|cfg_qr:{subscription_id}|_"),
                 ],
                 [
-                    InlineKeyboardButton(text="📦 Моя подписка", callback_data="act|start_mysub|_"),
+                    InlineKeyboardButton(text="📊 Мой доступ", callback_data="act|start_mysub|_"),
                     InlineKeyboardButton(text="🌐 Личный кабинет", url=account_url),
                 ],
             ]
@@ -563,9 +680,9 @@ class VPNBot:
 
     async def _show_renew_stars_info(self, message: Message) -> None:
         await message.reply_text(
-            "Оплата через Telegram Stars\n\n"
+            "Оплата через звёзды Telegram\n\n"
             "Оплата проходит внутри Telegram.\n\n"
-            "Если вы используете iPhone в России, Stars обычно покупаются через App Store.\n"
+            "Если вы используете iPhone в России, звёзды обычно покупаются через App Store.\n"
             "Для этого может понадобиться номер МТС и оплата с баланса телефона.\n\n"
             "Если вам это неудобно, можно выбрать оплату картой на сайте.",
             reply_markup=self._renew_stars_info_markup(),
@@ -593,9 +710,9 @@ class VPNBot:
 
     async def _show_buy_stars_info(self, message: Message) -> None:
         await message.reply_text(
-            "Оплата через Telegram Stars\n\n"
+            "Оплата через звёзды Telegram\n\n"
             "Оплата проходит внутри Telegram.\n\n"
-            "Если вы используете iPhone в России, Stars обычно покупаются через App Store.\n"
+            "Если вы используете iPhone в России, звёзды обычно покупаются через App Store.\n"
             "Для этого может понадобиться номер МТС и оплата с баланса телефона.\n\n"
             "Если вам это неудобно, можно выбрать оплату картой на сайте.",
             reply_markup=self._buy_stars_info_markup(),
@@ -638,7 +755,7 @@ class VPNBot:
                 await message.reply_text(
                     self._content_text(
                         "recovering_subscription_message",
-                        "ÐÐ°Ð¹Ð´ÐµÐ½ Ð¾Ð¿Ð»Ð°Ñ‡ÐµÐ½Ð½Ñ‹Ð¹ Ð·Ð°ÐºÐ°Ð·. ÐŸÑ€Ð¾Ð±ÑƒÑŽ Ð²Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð¸Ñ‚ÑŒ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÑƒ...",
+                        "Найден оплаченный заказ. Пробую восстановить доступ...",
                     )
                 )
                 try:
@@ -659,7 +776,7 @@ class VPNBot:
                     await message.reply_text(
                         self._content_text(
                             "recover_failed_message",
-                            "ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð°Ð²Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¸Ñ‡ÐµÑÐºÐ¸ Ð²Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð¸Ñ‚ÑŒ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÑƒ. ÐŸÐ¾Ð´Ð´ÐµÑ€Ð¶ÐºÐ° ÑƒÐ¶Ðµ ÑƒÐ²ÐµÐ´Ð¾Ð¼Ð»ÐµÐ½Ð°, Ð¿Ð¾Ð¶Ð°Ð»ÑƒÐ¹ÑÑ‚Ð° Ð¿Ð¾Ð´Ð¾Ð¶Ð´Ð¸Ñ‚Ðµ.",
+                            "Не удалось автоматически восстановить доступ. Поддержка уже уведомлена, пожалуйста подождите.",
                         )
                     )
                     if self.settings.telegram_admin_id:
@@ -667,7 +784,7 @@ class VPNBot:
                             await self.app.bot.send_message(
                                 chat_id=self.settings.telegram_admin_id,
                                 text=(
-                                    "âš ï¸ ÐžÑˆÐ¸Ð±ÐºÐ° Ð²Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð»ÐµÐ½Ð¸Ñ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ¸.\n"
+                                    "⚠️ Ошибка восстановления доступа.\n"
                                     f"user_id={user_id} paid_order_id={paid_order.get('id')}"
                                 ),
                             )
@@ -856,7 +973,7 @@ class VPNBot:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=self._button_label("buy_new_config_button", "➕ Купить новый конфиг"),
+                    text=self._button_label("buy_new_config_button", "⭐ Купить доступ"),
                     callback_data="act|buy_new|_",
                 )
             ]
@@ -871,7 +988,7 @@ class VPNBot:
                     InlineKeyboardButton(text="📷 QR-код", callback_data=f"act|cfg_qr:{subscription_id}|_"),
                 ],
                 [
-                    InlineKeyboardButton(text="🚀 Открыть в приложении", url=open_app_url),
+                    InlineKeyboardButton(text="🚀 Открыть", url=open_app_url),
                     InlineKeyboardButton(text="🔄 Продлить", callback_data=f"act|cfg_renew:{subscription_id}|_"),
                 ],
                 [
@@ -912,7 +1029,7 @@ class VPNBot:
                 await update.message.reply_text(
                     self._content_text(
                         "link_success_message",
-                        "Ð“Ð¾Ñ‚Ð¾Ð²Ð¾! Telegram ÑƒÑÐ¿ÐµÑˆÐ½Ð¾ Ð¿Ñ€Ð¸Ð²ÑÐ·Ð°Ð½ Ðº Ð²Ð°ÑˆÐµÐ¼Ñƒ Ð°ÐºÐºÐ°ÑƒÐ½Ñ‚Ñƒ Ð½Ð° ÑÐ°Ð¹Ñ‚Ðµ.",
+                        "Готово! Telegram успешно привязан к вашему аккаунту на сайте.",
                     ),
                     reply_markup=await self._menu_keyboard_for_user(user_id),
                 )
@@ -921,7 +1038,7 @@ class VPNBot:
                 await update.message.reply_text(
                     self._content_text(
                         "link_used_message",
-                        "Ð­Ñ‚Ð¾Ñ‚ ÐºÐ¾Ð´ ÑƒÐ¶Ðµ Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ð½. Ð¡Ð³ÐµÐ½ÐµÑ€Ð¸Ñ€ÑƒÐ¹Ñ‚Ðµ Ð½Ð¾Ð²Ñ‹Ð¹ ÐºÐ¾Ð´ Ð½Ð° ÑÐ°Ð¹Ñ‚Ðµ.",
+                        "Этот код уже использован. Сгенерируйте новый код на сайте.",
                     ),
                     reply_markup=await self._menu_keyboard_for_user(user_id),
                 )
@@ -930,7 +1047,7 @@ class VPNBot:
                 await update.message.reply_text(
                     self._content_text(
                         "link_expired_message",
-                        "ÐšÐ¾Ð´ Ð¿Ñ€Ð¸Ð²ÑÐ·ÐºÐ¸ Ð¸ÑÑ‚ÐµÐº. Ð¡Ð³ÐµÐ½ÐµÑ€Ð¸Ñ€ÑƒÐ¹Ñ‚Ðµ Ð½Ð¾Ð²Ñ‹Ð¹ ÐºÐ¾Ð´ Ð½Ð° ÑÐ°Ð¹Ñ‚Ðµ.",
+                        "Срок действия кода истёк. Сгенерируйте новый код на сайте.",
                     ),
                     reply_markup=await self._menu_keyboard_for_user(user_id),
                 )
@@ -938,7 +1055,7 @@ class VPNBot:
             await update.message.reply_text(
                 self._content_text(
                     "link_invalid_message",
-                    "ÐÐµÐ²ÐµÑ€Ð½Ñ‹Ð¹ ÐºÐ¾Ð´ Ð¿Ñ€Ð¸Ð²ÑÐ·ÐºÐ¸. ÐŸÑ€Ð¾Ð²ÐµÑ€ÑŒÑ‚Ðµ ÐºÐ¾Ð´ Ð¸ Ð¿Ð¾Ð¿Ñ€Ð¾Ð±ÑƒÐ¹Ñ‚Ðµ ÑÐ½Ð¾Ð²Ð°.",
+                    "Неверный код привязки. Проверьте код и попробуйте снова.",
                 ),
                 reply_markup=await self._menu_keyboard_for_user(user_id),
             )
@@ -990,6 +1107,18 @@ class VPNBot:
             if self.settings.telegram_admin_id:
                 try:
                     client_code = await self.db.get_user_client_code(user_id)
+                    active_sub = await self.db.get_active_subscription(user_id)
+                    status_text = "без активного доступа"
+                    expiry_text = "—"
+                    if active_sub:
+                        status_text = "активен"
+                        expires_at = active_sub.get("expires_at")
+                        if isinstance(expires_at, datetime):
+                            expiry_text = self._format_local_dt(expires_at)
+                    if update.effective_user and update.effective_user.username:
+                        username_text = f"@{update.effective_user.username}"
+                    else:
+                        username_text = "—"
                     header = self._content_text(
                         "support_admin_new_ticket_header",
                         "🆘 Новый тикет поддержки",
@@ -997,10 +1126,13 @@ class VPNBot:
                     await self.app.bot.send_message(
                         chat_id=self.settings.telegram_admin_id,
                         text=(
-                            f"{header}\n"
-                            f"ticket_id={ticket_id}\n"
-                            f"user_id={user_id}\n"
-                            f"client_code={client_code or '-'}\n\n"
+                            f"{header}\n\n"
+                            "[SUPPORT]\n\n"
+                            f"ID: {client_code or '-'}\n"
+                            f"Пользователь: {username_text}\n"
+                            f"Статус: {status_text}\n"
+                            f"Действует до: {expiry_text}\n\n"
+                            "Сообщение:\n"
                             f"{text_value}"
                         ),
                     )
@@ -1010,9 +1142,11 @@ class VPNBot:
             await update.message.reply_text(
                 self._content_text(
                     "support_received_message",
-                    "✅ Обращение отправлено в поддержку. Мы ответим вам в ближайшее время.",
-                ).replace("{ticket_id}", str(ticket_id)),
-                reply_markup=menu_keyboard,
+                    "Сообщение отправлено\n\nМы получили ваш запрос и ответим сюда в Telegram.\n\nВаш ID:\n{client_code}",
+                )
+                .replace("{ticket_id}", str(ticket_id))
+                .replace("{client_code}", await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"),
+                reply_markup=self._support_sent_markup(),
             )
             return
 
@@ -1071,6 +1205,9 @@ class VPNBot:
         if selected_menu_key == "menu_instructions":
             await self._send_menu_node(update, selected_menu_key)
             return
+        if selected_menu_key == "menu_support":
+            await self._show_support_hub(update.message, user_id)
+            return
         if selected_menu_key == "menu_site":
             return
 
@@ -1107,13 +1244,13 @@ class VPNBot:
 
     async def admin_reload(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if self.cms is None:
-            await update.message.reply_text("CMS is not configured.")
+            await update.message.reply_text("CMS не настроен.")
             return
         if not update.effective_user or update.effective_user.id != self.settings.telegram_admin_id:
-            await update.message.reply_text("Access denied.")
+            await update.message.reply_text("Доступ запрещён.")
             return
         await self._refresh_cms(force=True)
-        await update.message.reply_text("CMS content reloaded.")
+        await update.message.reply_text("Контент CMS обновлён.")
 
     def _is_admin(self, update: Update) -> bool:
         user = update.effective_user
@@ -1138,7 +1275,7 @@ class VPNBot:
     async def admin_tickets(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_admin(update):
             assert update.message is not None
-            await update.message.reply_text("Access denied.")
+            await update.message.reply_text("Доступ запрещён.")
             return
         assert update.message is not None
 
@@ -1164,13 +1301,13 @@ class VPNBot:
     async def admin_ticket(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_admin(update):
             assert update.message is not None
-            await update.message.reply_text("Access denied.")
+            await update.message.reply_text("Доступ запрещён.")
             return
         assert update.message is not None
 
         ticket_id = self._parse_ticket_id(context.args)
         if ticket_id is None:
-            await update.message.reply_text("Usage: /ticket <id>")
+            await update.message.reply_text("Использование: /ticket <id>")
             return
 
         ticket = await self.db.get_ticket_for_admin(ticket_id)
@@ -1182,7 +1319,7 @@ class VPNBot:
         header = (
             f"Тикет #{ticket_id}\n"
             f"Статус: {ticket.get('status')}\n"
-            f"Client code: {ticket.get('client_code') or '-'}"
+            f"ID: {ticket.get('client_code') or '-'}"
         )
         if not messages:
             await update.message.reply_text(f"{header}\n\nСообщений пока нет.")
@@ -1201,17 +1338,17 @@ class VPNBot:
     async def admin_reply_ticket(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_admin(update):
             assert update.message is not None
-            await update.message.reply_text("Access denied.")
+            await update.message.reply_text("Доступ запрещён.")
             return
         assert update.message is not None
 
         ticket_id = self._parse_ticket_id(context.args)
         if ticket_id is None or len(context.args) < 2:
-            await update.message.reply_text("Usage: /reply_ticket <id> <text>")
+            await update.message.reply_text("Использование: /reply_ticket <id> <text>")
             return
         reply_text = " ".join(context.args[1:]).strip()
         if not reply_text:
-            await update.message.reply_text("Usage: /reply_ticket <id> <text>")
+            await update.message.reply_text("Использование: /reply_ticket <id> <text>")
             return
 
         ticket = await self.db.get_ticket_for_admin(ticket_id)
@@ -1255,18 +1392,19 @@ class VPNBot:
             )
             return
 
-        await update.message.reply_text(f"Ответ отправлен (ticket #{ticket_id}).")
+        await update.message.reply_text(f"Ответ отправлен (тикет #{ticket_id}).")
+
 
     async def admin_close_ticket(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_admin(update):
             assert update.message is not None
-            await update.message.reply_text("Access denied.")
+            await update.message.reply_text("Доступ запрещён.")
             return
         assert update.message is not None
 
         ticket_id = self._parse_ticket_id(context.args)
         if ticket_id is None:
-            await update.message.reply_text("Usage: /close <id>")
+            await update.message.reply_text("Использование: /close <id>")
             return
 
         ticket = await self.db.get_ticket_for_admin(ticket_id)
@@ -1282,21 +1420,21 @@ class VPNBot:
 
     async def reply_support(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_admin(update):
-            await update.message.reply_text("Access denied.")
+            await update.message.reply_text("Доступ запрещён.")
             return
         if not context.args or len(context.args) < 2:
-            await update.message.reply_text("Usage: /reply <client_code> <text>")
+            await update.message.reply_text("Использование: /reply <client_code> <text>")
             return
 
         client_code = context.args[0].strip()
         reply_text = " ".join(context.args[1:]).strip()
         if not client_code or not reply_text:
-            await update.message.reply_text("Usage: /reply <client_code> <text>")
+            await update.message.reply_text("Использование: /reply <client_code> <text>")
             return
 
         user = await self.db.get_user_by_client_code(client_code)
         if not user:
-            await update.message.reply_text(f"User not found for client_code={client_code}")
+            await update.message.reply_text(f"Пользователь с ID {client_code} не найден.")
             return
 
         user_id = int(user["id"])
@@ -1337,12 +1475,12 @@ class VPNBot:
                 telegram_id,
             )
             await update.message.reply_text(
-                f"Ticket #{ticket_id}: message logged, but failed to deliver to Telegram user {telegram_id}."
+                f"Тикет #{ticket_id}: ответ сохранён, но не удалось доставить сообщение пользователю."
             )
             return
 
         await update.message.reply_text(
-            f"Sent to {normalized_client_code} (ticket #{ticket_id})."
+            f"Отправлено пользователю {normalized_client_code} (тикет #{ticket_id})."
         )
 
     async def inline_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1466,6 +1604,12 @@ class VPNBot:
                     user_id = await self._ensure_user(update)
                     await self._send_mysub_for_message(query.message, user_id, context)
                 return
+            if target == "support_hub":
+                await query.answer()
+                if query.message is not None:
+                    user_id = await self._ensure_user(update)
+                    await self._show_support_hub(query.message, user_id)
+                return
             if target == "support_start":
                 context.user_data["support_wait_message"] = True
                 await query.answer()
@@ -1473,7 +1617,7 @@ class VPNBot:
                     await query.message.reply_text(
                         self._content_text(
                             "support_start_message",
-                            "Опишите проблему одним сообщением. Мы создадим тикет и передадим его в поддержку.",
+                            "Напишите сообщение одним сообщением в этот чат.\n\nМы получим его вместе с вашим ID и данными по доступу.",
                         )
                     )
                 return
@@ -1545,7 +1689,7 @@ class VPNBot:
                     client_code=(await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"),
                 )
                 qr_payload = sub_url or vless_url
-                qr_img = self._build_styled_qr(qr_payload, "Subscription QR")
+                qr_img = self._build_styled_qr(qr_payload, "QR доступа")
                 qr_buff = io.BytesIO()
                 qr_img.save(qr_buff, format="PNG")
                 qr_buff.seek(0)
@@ -1625,9 +1769,9 @@ class VPNBot:
             await query.answer()
             if query.message is not None:
                 if link:
-                    await query.message.reply_text(f"\u0421\u043a\u043e\u043f\u0438\u0440\u0443\u0439\u0442\u0435 \u0441\u0441\u044b\u043b\u043a\u0443 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438:\\n{link}")
+                    await query.message.reply_text(f"Скопируйте ссылку доступа:\n{link}")
                 else:
-                    await query.message.reply_text("\u0421\u0441\u044b\u043b\u043a\u0430 \u0443\u0441\u0442\u0430\u0440\u0435\u043b\u0430. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \xab\u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430\xbb \u0435\u0449\u0435 \u0440\u0430\u0437.")
+                    await query.message.reply_text("Ссылка устарела. Нажмите «📊 Мой доступ» ещё раз.")
             return
 
         await query.answer()
@@ -1734,7 +1878,7 @@ class VPNBot:
         await message.reply_text(
             self._content_text(
                 "stars_only_notice",
-                "Оплата в боте доступна только через Telegram Stars ⭐\nДля iPhone обычно используется способ оплаты через мобильный баланс МТС.",
+                "Оплата в боте доступна только через звёзды Telegram ⭐\nДля iPhone обычно используется способ оплаты через мобильный баланс МТС.",
             )
         )
         mode_prefix = "renew" if mode == "renew" else "buynew"
@@ -1747,12 +1891,12 @@ class VPNBot:
         await self.db.create_order(user_id=user_id, amount_stars=self.settings.plan_price_stars, payload=payload)
         if phone:
             self._pending_profiles[payload] = {"phone": phone, "name": (customer_name or "").strip()}
-        price_label = self._content_text("invoice_price_label", "Оплата в Stars")
+        price_label = self._content_text("invoice_price_label", "Оплата звёздами")
         prices = [LabeledPrice(label=price_label, amount=self.settings.plan_price_stars)]
-        title = self._content_text("invoice_title", "Оплата VXcloud через Stars")
+        title = self._content_text("invoice_title", "Оплата VXcloud через звёзды")
         description = self._content_text(
             "invoice_description",
-            "Оплата подписки выполняется только Telegram Stars. Для iPhone чаще всего — через мобильный баланс МТС.",
+            "Оплата доступа в боте выполняется только через звёзды Telegram. Для iPhone чаще всего — через мобильный баланс МТС.",
         )
         await message.reply_invoice(
             title=title,
@@ -1767,13 +1911,13 @@ class VPNBot:
         query = update.pre_checkout_query
         order = await self.db.get_order_by_payload(query.invoice_payload)
         if not order:
-            await query.answer(ok=False, error_message="Ð—Ð°ÐºÐ°Ð· Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½. ÐŸÐ¾Ð¿Ñ€Ð¾Ð±ÑƒÐ¹Ñ‚Ðµ ÑÐ½Ð¾Ð²Ð°.")
+            await query.answer(ok=False, error_message="Заказ не найден. Попробуйте снова.")
             return
         if order["status"] != "pending":
-            await query.answer(ok=False, error_message="Ð—Ð°ÐºÐ°Ð· ÑƒÐ¶Ðµ Ð¾Ð±Ñ€Ð°Ð±Ð¾Ñ‚Ð°Ð½.")
+            await query.answer(ok=False, error_message="Заказ уже обработан.")
             return
         if int(query.total_amount) != int(order["amount_stars"]):
-            await query.answer(ok=False, error_message="Ð¡ÑƒÐ¼Ð¼Ð° Ð½Ðµ ÑÐ¾Ð²Ð¿Ð°Ð´Ð°ÐµÑ‚. ÐŸÐ¾Ð¿Ñ€Ð¾Ð±ÑƒÐ¹Ñ‚Ðµ ÑÐ½Ð¾Ð²Ð°.")
+            await query.answer(ok=False, error_message="Сумма не совпадает. Попробуйте снова.")
             return
         await query.answer(ok=True)
 
@@ -1783,7 +1927,7 @@ class VPNBot:
         payment = update.message.successful_payment
         order = await self.db.get_order_by_payload(payment.invoice_payload)
         if not order:
-            await update.message.reply_text("ÐžÐ¿Ð»Ð°Ñ‚Ð° Ð¿Ð¾Ð»ÑƒÑ‡ÐµÐ½Ð°, Ð½Ð¾ Ð·Ð°ÐºÐ°Ð· Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½. ÐžÐ±Ñ€Ð°Ñ‚Ð¸Ñ‚ÐµÑÑŒ Ð² Ð¿Ð¾Ð´Ð´ÐµÑ€Ð¶ÐºÑƒ.")
+            await update.message.reply_text("Оплата получена, но заказ не найден. Обратитесь в поддержку.")
             return
 
         charge_id = payment.telegram_payment_charge_id
@@ -1810,7 +1954,7 @@ class VPNBot:
             await update.message.reply_text(
                 self._content_text(
                     "payment_already_processed_message",
-                    "ÐŸÐ»Ð°Ñ‚ÐµÐ¶ ÑƒÐ¶Ðµ Ð¾Ð±Ñ€Ð°Ð±Ð¾Ñ‚Ð°Ð½. ÐžÑ‚Ð¿Ñ€Ð°Ð²Ð»ÑÑŽ Ð²Ð°ÑˆÑƒ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÑƒ...",
+                    "Платёж уже обработан. Отправляю ваш доступ...",
                 )
             )
             await self.mysub(update, context)
@@ -1832,7 +1976,7 @@ class VPNBot:
             await update.message.reply_text(
                 self._content_text(
                     "payment_already_processed_message",
-                    "Платеж уже обработан. Отправляю вашу подписку...",
+                    "Платёж уже обработан. Отправляю ваш доступ...",
                 )
             )
             await self.mysub(update, context)
@@ -1908,7 +2052,7 @@ class VPNBot:
             await update.message.reply_text(
                 self._content_text(
                     "provision_delay_message",
-                    "ÐŸÐ»Ð°Ñ‚ÐµÐ¶ Ð¿Ð¾Ð»ÑƒÑ‡ÐµÐ½, Ð½Ð¾ Ð°ÐºÑ‚Ð¸Ð²Ð°Ñ†Ð¸Ñ Ð·Ð°Ð´ÐµÑ€Ð¶Ð¸Ð²Ð°ÐµÑ‚ÑÑ. ÐÐ°Ð¶Ð¼Ð¸Ñ‚Ðµ Â«ÐœÐ¾Ñ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ°Â» Ñ‡ÐµÑ€ÐµÐ· 10-20 ÑÐµÐºÑƒÐ½Ð´. Ð•ÑÐ»Ð¸ Ð½Ðµ Ð¿Ð¾ÑÐ²Ð¸Ñ‚ÑÑ, Ð½Ð°Ð¿Ð¸ÑˆÐ¸Ñ‚Ðµ Ð² Ð¿Ð¾Ð´Ð´ÐµÑ€Ð¶ÐºÑƒ.",
+                    "Платёж получен, но активация задерживается. Нажмите «📊 Мой доступ» через 10-20 секунд. Если доступ не появится, напишите в поддержку.",
                 )
             )
             if self.settings.telegram_admin_id:
@@ -1916,7 +2060,7 @@ class VPNBot:
                     await self.app.bot.send_message(
                         chat_id=self.settings.telegram_admin_id,
                         text=(
-                            "âš ï¸ ÐžÑˆÐ¸Ð±ÐºÐ° Ð°ÐºÑ‚Ð¸Ð²Ð°Ñ†Ð¸Ð¸ Ð¿Ð¾ÑÐ»Ðµ Ð¾Ð¿Ð»Ð°Ñ‚Ñ‹.\n"
+                            "⚠️ Ошибка активации после оплаты.\n"
                             f"user_id={order['user_id']} order_id={order['id']}"
                         ),
                     )
@@ -1966,7 +2110,7 @@ class VPNBot:
         user_id = await self._ensure_user(update)
         sub = await self.db.get_active_subscription(user_id)
         if not sub:
-            await update.message.reply_text("ÐŸÐ¾Ð´Ð¿Ð¸ÑÐºÐ° Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ð°. Ð˜ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐ¹Ñ‚Ðµ /buy.")
+            await update.message.reply_text("Доступ не найден. Используйте «⭐ Купить доступ».")
             return
         client_uuid = str(sub["client_uuid"])
         sub_id = await self.xui.get_client_sub_id(self.settings.xui_inbound_id, client_uuid)
@@ -2160,18 +2304,18 @@ class VPNBot:
         action_markup: InlineKeyboardMarkup | None = None
         link_for_copy = subscription_url or vless_url
         qr_payload = subscription_url or vless_url
-        qr_title = "Subscription QR" if subscription_url else "Direct VLESS QR"
+        qr_title = "QR доступа" if subscription_url else "QR подключения"
 
         account_url = await self._account_url(user_id)
 
         buttons: list[list[InlineKeyboardButton]] = [
             [
                 InlineKeyboardButton(
-                    text=self._button_label("config_button", "⚙️ Конфиг"),
+                    text=self._button_label("config_button", "🚀 Открыть"),
                     url=self._open_app_url(vless_url),
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f4cb \u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u0441\u044b\u043b\u043a\u0443",
+                    text="📋 Скопировать",
                     api_kwargs={"copy_text": {"text": link_for_copy}},
                 ),
             ],
@@ -2185,11 +2329,11 @@ class VPNBot:
             ]
         )
         if subscription_url:
-            buttons.insert(0, [InlineKeyboardButton(text="\U0001f517 \u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443", url=subscription_url)])
+            buttons.insert(0, [InlineKeyboardButton(text="🚀 Открыть", url=subscription_url)])
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=self._button_label("open_instructions", "📘 Инструкция"),
+                    text=self._button_label("open_instructions", "💬 Инструкция"),
                     callback_data="nav|menu_instructions|_",
                 )
             ]
@@ -2197,7 +2341,7 @@ class VPNBot:
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=self._button_label("open_account", "\U0001f464 \u041b\u0438\u0447\u043d\u044b\u0439 \u043a\u0430\u0431\u0438\u043d\u0435\u0442 \u043d\u0430 VXcloud"),
+                    text=self._button_label("open_account", "🌐 Личный кабинет"),
                     url=account_url,
                 )
             ]
@@ -2212,7 +2356,7 @@ class VPNBot:
         resolved_client_code = client_code or (f"VX-{user_id}" if user_id is not None else "")
         text = self._content_text(
             "menu_mysub_response",
-            "\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u0430\u043a\u0442\u0438\u0432\u043d\u0430 \u0434\u043e: {expires_at}\nClient code: {client_code}",
+            "Доступ активен до: {expires_at}\nID: {client_code}",
         )
         text = (
             text.replace("{expires_at}", self._format_local_dt(expires_at))
@@ -2225,14 +2369,14 @@ class VPNBot:
         if "Способ оплаты:" not in text:
             text += f"\nСпособ оплаты: {self._format_payment_method(last_payment_method)}"
         if subscription_url:
-            text += f"\n\n\u0421\u0441\u044b\u043b\u043a\u0430 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438:\n{subscription_url}"
+            text += f"\n\nСсылка доступа:\n{subscription_url}"
         copy_link_hint = self._content_text(
             "copy_link_hint",
-            "Нажмите «Скопировать ссылку», затем откройте Streisand, нажмите + и выберите Import from Clipboard.",
+            "Нажмите «Скопировать», затем откройте приложение, нажмите + и выберите импорт из буфера обмена.",
         ).replace("\\n", "\n").replace("/n", "\n")
         single_device_warning = self._content_text(
             "single_device_warning",
-            "⚠️ Один конфиг нельзя использовать одновременно на двух устройствах.",
+            "⚠️ Один доступ нельзя использовать одновременно на двух устройствах.",
         ).replace("\\n", "\n").replace("/n", "\n")
         text += "\n\n" + copy_link_hint
         text += "\n\n" + single_device_warning
@@ -2395,13 +2539,13 @@ class VPNBot:
             tg_id = int(item["telegram_id"])
             sub_id = int(item["id"])
             if expires_at <= now:
-                msg = "Ð’Ð°ÑˆÐ° Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ° VXcloud Ð¸ÑÑ‚ÐµÐºÐ»Ð°. Ð˜ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐ¹Ñ‚Ðµ /buy Ð´Ð»Ñ Ð¿Ñ€Ð¾Ð´Ð»ÐµÐ½Ð¸Ñ."
+                msg = "Ваш доступ VXcloud истёк. Используйте /buy для продления."
                 tag = "expired"
             elif expires_at <= now + timedelta(days=1):
-                msg = f"ÐÐ°Ð¿Ð¾Ð¼Ð¸Ð½Ð°Ð½Ð¸Ðµ: Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ° VXcloud Ð¸ÑÑ‚ÐµÐºÐ°ÐµÑ‚ Ð¼ÐµÐ½ÐµÐµ Ñ‡ÐµÐ¼ Ñ‡ÐµÑ€ÐµÐ· 24 Ñ‡Ð°ÑÐ° ({self._format_local_dt(expires_at)})."
+                msg = f"Напоминание: доступ VXcloud истекает менее чем через 24 часа ({self._format_local_dt(expires_at)})."
                 tag = "1d"
             else:
-                msg = f"ÐÐ°Ð¿Ð¾Ð¼Ð¸Ð½Ð°Ð½Ð¸Ðµ: Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ° VXcloud Ð¸ÑÑ‚ÐµÐºÐ°ÐµÑ‚ Ð¼ÐµÐ½ÐµÐµ Ñ‡ÐµÐ¼ Ñ‡ÐµÑ€ÐµÐ· 3 Ð´Ð½Ñ ({self._format_local_dt(expires_at)})."
+                msg = f"Напоминание: доступ VXcloud истекает менее чем через 3 дня ({self._format_local_dt(expires_at)})."
                 tag = "3d"
 
             try:
