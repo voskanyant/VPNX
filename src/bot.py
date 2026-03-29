@@ -420,6 +420,81 @@ class VPNBot:
             ]
         )
 
+    def _buy_offer_markup(self) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="⭐ Оплатить через Stars", callback_data="act|buy_stars_info|_")],
+                [InlineKeyboardButton(text="💳 Оплатить картой", callback_data="act|buy_card|_")],
+                [
+                    InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
+                    InlineKeyboardButton(text="🔙 Назад", callback_data="act|start_back|_"),
+                ],
+            ]
+        )
+
+    def _buy_stars_info_markup(self) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="⭐ Продолжить через Stars", callback_data="act|buy_stars_continue|_")],
+                [
+                    InlineKeyboardButton(text="💳 Оплатить картой", callback_data="act|buy_card|_"),
+                    InlineKeyboardButton(text="🔙 Назад", callback_data="act|buy_back|_"),
+                ],
+            ]
+        )
+
+    def _buy_card_markup(self, pay_url: str) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="💳 Перейти к оплате", url=pay_url)],
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="act|buy_back|_")],
+            ]
+        )
+
+    def _post_payment_ready_markup(self, subscription_id: int, account_url: str) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(text="📲 Открыть доступ", callback_data=f"act|cfg_open:{subscription_id}|_"),
+                    InlineKeyboardButton(text="📷 Показать QR", callback_data=f"act|cfg_qr:{subscription_id}|_"),
+                ],
+                [
+                    InlineKeyboardButton(text="📦 Моя подписка", callback_data="act|start_mysub|_"),
+                    InlineKeyboardButton(text="🌐 Личный кабинет", url=account_url),
+                ],
+            ]
+        )
+
+    async def _show_buy_offer(self, message: Message, user_id: int) -> None:
+        await message.reply_text(
+            "Оформление доступа\n\n"
+            "Здесь вы можете купить новый доступ для подключения.\n\n"
+            "Это подойдёт, если вы:\n"
+            "• подключаете ещё одно устройство\n"
+            "• хотите отдельный доступ\n"
+            "• уже использовали пробный период\n\n"
+            "После оплаты вы сразу получите ссылку для подключения и QR-код.",
+            reply_markup=self._buy_offer_markup(),
+        )
+
+    async def _show_buy_stars_info(self, message: Message) -> None:
+        await message.reply_text(
+            "Оплата через Telegram Stars\n\n"
+            "Оплата проходит внутри Telegram.\n\n"
+            "Если вы используете iPhone в России, Stars обычно покупаются через App Store.\n"
+            "Для этого может понадобиться номер МТС и оплата с баланса телефона.\n\n"
+            "Если вам это неудобно, можно выбрать оплату картой на сайте.",
+            reply_markup=self._buy_stars_info_markup(),
+        )
+
+    async def _show_buy_card_info(self, message: Message) -> None:
+        pay_url = f"{self._site_url().rstrip('/')}/account/renew/"
+        await message.reply_text(
+            "Сейчас откроется страница оплаты на сайте.\n\n"
+            "После успешной оплаты доступ появится и на сайте, и в боте.",
+            reply_markup=self._buy_card_markup(pay_url),
+        )
+
     async def _show_trial_offer(self, message: Message, user_id: int) -> None:
         if await self.db.has_any_subscription(user_id):
             await message.reply_text(
@@ -897,7 +972,11 @@ class VPNBot:
 
     async def buy(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self._refresh_cms()
-        await self._start_buy_flow(update, context)
+        message = update.message or (update.callback_query.message if update.callback_query else None)
+        if message is None:
+            return
+        user_id = await self._ensure_user(update)
+        await self._show_buy_offer(message, user_id)
 
     async def trial(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self._refresh_cms()
@@ -1196,6 +1275,33 @@ class VPNBot:
                     user_id = await self._ensure_user(update)
                     await self._show_trial_offer(query.message, user_id)
                 return
+            if target == "buy_new":
+                await query.answer()
+                if query.message is not None:
+                    user_id = await self._ensure_user(update)
+                    await self._show_buy_offer(query.message, user_id)
+                return
+            if target == "buy_stars_info":
+                await query.answer()
+                if query.message is not None:
+                    await self._show_buy_stars_info(query.message)
+                return
+            if target == "buy_stars_continue":
+                await query.answer()
+                if query.message is not None:
+                    await self._start_buy_flow(update, context)
+                return
+            if target == "buy_card":
+                await query.answer()
+                if query.message is not None:
+                    await self._show_buy_card_info(query.message)
+                return
+            if target == "buy_back":
+                await query.answer()
+                if query.message is not None:
+                    user_id = await self._ensure_user(update)
+                    await self._show_buy_offer(query.message, user_id)
+                return
             if target == "trial_activate":
                 await query.answer()
                 if query.message is not None:
@@ -1235,11 +1341,6 @@ class VPNBot:
                             "Опишите проблему одним сообщением. Мы создадим тикет и передадим его в поддержку.",
                         )
                     )
-                return
-            if target == "buy_new":
-                await query.answer()
-                if query.message is not None:
-                    await self._start_buy_flow(update, context)
                 return
             if target == "cfg_back":
                 user_id = await self._ensure_user(update)
@@ -1616,10 +1717,23 @@ class VPNBot:
             await asyncio.wait_for(
                 self._run_user_provision(
                     user_id,
-                    lambda: self._activate_order_and_send_config(update, order_id),
+                    lambda: self._activate_order_and_send_config(update, order_id, send_config=False),
                 ),
                 timeout=45,
             )
+            subscriptions = await self.db.list_subscriptions(user_id)
+            if subscriptions:
+                active_id = int(subscriptions[0]["id"])
+                account_url = await self._account_url(user_id)
+                await update.message.reply_text(
+                    "Оплата получена\n\n"
+                    "Новый доступ готов.\n\n"
+                    "Ниже вы можете сразу открыть его, показать QR-код\n"
+                    "или перейти к своим данным.",
+                    reply_markup=self._post_payment_ready_markup(active_id, account_url),
+                )
+            else:
+                await self.mysub(update, context)
         except Exception:
             _log_payment_event(
                 order_id=order_id,
@@ -1647,7 +1761,13 @@ class VPNBot:
                 except Exception:
                     LOGGER.exception("Failed to notify admin about provisioning issue")
 
-    async def _activate_order_and_send_config(self, update: Update | None, order_id: int, message: Message | None = None) -> None:
+    async def _activate_order_and_send_config(
+        self,
+        update: Update | None,
+        order_id: int,
+        message: Message | None = None,
+        send_config: bool = True,
+    ) -> None:
         result = await activate_subscription(
             order_id,
             db=self.db,
@@ -1668,16 +1788,17 @@ class VPNBot:
             if result.xui_sub_id
             else None
         )
-        await self._send_config(
-            update,
-            result.vless_url,
-            result.expires_at,
-            sub_url,
-            client_code=client_code,
-            user_id=result.user_id,
-            last_payment_method=last_payment_method,
-            message=message,
-        )
+        if send_config:
+            await self._send_config(
+                update,
+                result.vless_url,
+                result.expires_at,
+                sub_url,
+                client_code=client_code,
+                user_id=result.user_id,
+                last_payment_method=last_payment_method,
+                message=message,
+            )
 
     async def myvpn(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_id = await self._ensure_user(update)
