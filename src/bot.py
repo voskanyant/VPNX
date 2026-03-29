@@ -648,7 +648,7 @@ class VPNBot:
         client_email = str(sub.get("client_email") or "").strip()
         if client_email:
             return client_email
-        return f"Config #{sub.get('id')}"
+        return f"Устройство #{sub.get('id')}"
 
     @staticmethod
     def _subscription_status(sub: dict[str, object], now: datetime) -> str:
@@ -702,13 +702,13 @@ class VPNBot:
         now = datetime.now(timezone.utc)
         item_template = self._content_text(
             "my_configs_item_template",
-            "{index}. {name}\n   До: {expires_at}\n   Статус: {status}",
+            "{index}. {name}\nДействует до: {expires_at}\nСтатус: {status}",
         )
         items: list[str] = []
         if not subscriptions:
             return self._content_text(
                 "my_configs_empty_message",
-                "📚 Мои конфиги\nClient code: {client_code}\n\nКонфигов пока нет.",
+                "Ваш доступ VXcloud\n\nID: {client_code}\n\nВаши устройства:\n\nСписок устройств пока пуст.",
             ).replace("{client_code}", client_code)
 
         for idx, sub in enumerate(subscriptions, start=1):
@@ -724,7 +724,7 @@ class VPNBot:
 
         return self._content_text(
             "my_configs_list_template",
-            "📚 Мои конфиги\nClient code: {client_code}\n\n{items}",
+            "Ваш доступ VXcloud\n\nID: {client_code}\n\nВаши устройства:\n\n{items}",
         ).replace("{client_code}", client_code).replace("{items}", "\n".join(items))
 
     def _configs_list_markup(self, subscriptions: list[dict[str, object]]) -> InlineKeyboardMarkup:
@@ -753,34 +753,32 @@ class VPNBot:
         return InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton(text="📋 Copy", callback_data=f"act|cfg_copy:{subscription_id}|_"),
-                    InlineKeyboardButton(text="🧾 QR", callback_data=f"act|cfg_qr:{subscription_id}|_"),
+                    InlineKeyboardButton(text="📋 Скопировать", callback_data=f"act|cfg_copy:{subscription_id}|_"),
+                    InlineKeyboardButton(text="📷 QR-код", callback_data=f"act|cfg_qr:{subscription_id}|_"),
                 ],
                 [
-                    InlineKeyboardButton(text="🚀 Open in app", url=open_app_url),
-                    InlineKeyboardButton(text="🔄 Renew", callback_data=f"act|cfg_renew:{subscription_id}|_"),
+                    InlineKeyboardButton(text="🚀 Открыть в приложении", url=open_app_url),
+                    InlineKeyboardButton(text="🔄 Продлить", callback_data=f"act|cfg_renew:{subscription_id}|_"),
                 ],
                 [
-                    InlineKeyboardButton(text="✏️ Rename", callback_data=f"act|cfg_rename:{subscription_id}|_"),
-                    InlineKeyboardButton(text="⛔ Revoke", callback_data=f"act|cfg_revoke:{subscription_id}|_"),
+                    InlineKeyboardButton(text="✏️ Переименовать", callback_data=f"act|cfg_rename:{subscription_id}|_"),
+                    InlineKeyboardButton(text="❌ Отключить", callback_data=f"act|cfg_revoke:{subscription_id}|_"),
                 ],
-                [InlineKeyboardButton(text="⬅️ Back", callback_data="act|cfg_back|_")],
+                [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|cfg_back|_")],
             ]
         )
 
     async def _config_card_text(self, user_id: int, sub: dict[str, object], *, client_code: str) -> tuple[str, str, str | None]:
         vless_url, sub_url = await self._resolve_subscription_links(user_id, sub)
-        last_payment_method = await self.db.get_latest_payment_method(user_id)
         expires_at = sub.get("expires_at")
         expires_text = self._format_local_dt(expires_at) if isinstance(expires_at, datetime) else "—"
         status_text = self._subscription_status(sub, datetime.now(timezone.utc))
         text = (
-            f"⚙️ {self._subscription_name(sub)}\n"
-            f"ID: {sub['id']}\n"
-            f"Client code: {client_code}\n"
+            f"Устройство: {self._subscription_name(sub)}\n\n"
+            f"ID: {client_code}\n\n"
             f"Статус: {status_text}\n"
             f"Действует до: {expires_text}\n"
-            f"Способ оплаты: {self._format_payment_method(last_payment_method)}"
+            "\nВы можете подключиться или управлять доступом ниже."
         )
         return text, vless_url, sub_url
 
@@ -918,7 +916,7 @@ class VPNBot:
                 subscription_id = int(rename_sub_id_raw)
             except (TypeError, ValueError):
                 await update.message.reply_text(
-                    "Не удалось определить конфиг для переименования.",
+                    "Не удалось определить устройство для переименования.",
                     reply_markup=menu_keyboard,
                 )
                 return
@@ -929,12 +927,12 @@ class VPNBot:
             )
             if not renamed:
                 await update.message.reply_text(
-                    "Не удалось переименовать конфиг.",
+                    "Не удалось переименовать устройство.",
                     reply_markup=menu_keyboard,
                 )
                 return
             await update.message.reply_text(
-                f"Имя конфига обновлено: {new_name[:80]}",
+                f"Имя устройства обновлено: {new_name[:80]}",
                 reply_markup=menu_keyboard,
             )
             await self.mysub(update, context)
@@ -1357,11 +1355,11 @@ class VPNBot:
                 try:
                     subscription_id = int(target.split(":", 1)[1])
                 except (IndexError, ValueError):
-                    await query.answer("Некорректный конфиг", show_alert=True)
+                    await query.answer("Некорректное устройство", show_alert=True)
                     return
                 sub = await self.db.get_subscription(user_id, subscription_id)
                 if not sub:
-                    await query.answer("Конфиг не найден", show_alert=True)
+                    await query.answer("Устройство не найдено", show_alert=True)
                     return
                 context.user_data["selected_subscription_id"] = subscription_id
                 client_code = await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"
@@ -1378,11 +1376,11 @@ class VPNBot:
                 try:
                     subscription_id = int(target.split(":", 1)[1])
                 except (IndexError, ValueError):
-                    await query.answer("Некорректный конфиг", show_alert=True)
+                    await query.answer("Некорректное устройство", show_alert=True)
                     return
                 sub = await self.db.get_subscription(user_id, subscription_id)
                 if not sub:
-                    await query.answer("Конфиг не найден", show_alert=True)
+                    await query.answer("Устройство не найдено", show_alert=True)
                     return
                 _, vless_url, sub_url = await self._config_card_text(
                     user_id,
@@ -1398,11 +1396,11 @@ class VPNBot:
                 try:
                     subscription_id = int(target.split(":", 1)[1])
                 except (IndexError, ValueError):
-                    await query.answer("Некорректный конфиг", show_alert=True)
+                    await query.answer("Некорректное устройство", show_alert=True)
                     return
                 sub = await self.db.get_subscription(user_id, subscription_id)
                 if not sub:
-                    await query.answer("Конфиг не найден", show_alert=True)
+                    await query.answer("Устройство не найдено", show_alert=True)
                     return
                 text, vless_url, sub_url = await self._config_card_text(
                     user_id,
@@ -1423,11 +1421,11 @@ class VPNBot:
                 try:
                     subscription_id = int(target.split(":", 1)[1])
                 except (IndexError, ValueError):
-                    await query.answer("Некорректный конфиг", show_alert=True)
+                    await query.answer("Некорректное устройство", show_alert=True)
                     return
                 sub = await self.db.get_subscription(user_id, subscription_id)
                 if not sub:
-                    await query.answer("Конфиг не найден", show_alert=True)
+                    await query.answer("Устройство не найдено", show_alert=True)
                     return
                 context.user_data["selected_subscription_id"] = subscription_id
                 await query.answer()
@@ -1443,23 +1441,23 @@ class VPNBot:
                 try:
                     subscription_id = int(target.split(":", 1)[1])
                 except (IndexError, ValueError):
-                    await query.answer("Некорректный конфиг", show_alert=True)
+                    await query.answer("Некорректное устройство", show_alert=True)
                     return
                 context.user_data["rename_wait_subscription_id"] = subscription_id
                 await query.answer()
                 if query.message is not None:
-                    await query.message.reply_text("Отправьте новое имя конфига одним сообщением.")
+                    await query.message.reply_text("Отправьте новое имя устройства одним сообщением.")
                 return
             if target.startswith("cfg_revoke:"):
                 user_id = await self._ensure_user(update)
                 try:
                     subscription_id = int(target.split(":", 1)[1])
                 except (IndexError, ValueError):
-                    await query.answer("Некорректный конфиг", show_alert=True)
+                    await query.answer("Некорректное устройство", show_alert=True)
                     return
                 sub = await self.db.get_subscription(user_id, subscription_id)
                 if not sub:
-                    await query.answer("Конфиг не найден", show_alert=True)
+                    await query.answer("Устройство не найдено", show_alert=True)
                     return
                 revoked = await self.db.revoke_subscription(user_id, subscription_id)
                 if revoked:
@@ -1474,7 +1472,7 @@ class VPNBot:
                         )
                     except Exception:
                         LOGGER.exception("Failed to disable revoked config in x-ui subscription_id=%s", subscription_id)
-                await query.answer("Конфиг отозван" if revoked else "Не удалось отозвать конфиг")
+                await query.answer("Устройство отключено" if revoked else "Не удалось отключить устройство")
                 subscriptions = await self.db.list_subscriptions(user_id)
                 client_code = await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"
                 await query.edit_message_text(
