@@ -451,6 +451,14 @@ class VPNBot:
             ]
         )
 
+    def _renew_card_markup(self, pay_url: str) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="💳 Перейти к оплате", url=pay_url)],
+                [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_")],
+            ]
+        )
+
     def _post_payment_ready_markup(self, subscription_id: int, account_url: str) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
@@ -463,6 +471,112 @@ class VPNBot:
                     InlineKeyboardButton(text="🌐 Личный кабинет", url=account_url),
                 ],
             ]
+        )
+
+    def _renew_offer_markup(self) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="⭐ Продлить через Stars", callback_data="act|renew_stars_info|_")],
+                [InlineKeyboardButton(text="💳 Продлить картой", callback_data="act|renew_card|_")],
+                [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_")],
+            ]
+        )
+
+    def _renew_stars_info_markup(self) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="⭐ Продолжить через Stars", callback_data="act|renew_stars_continue|_")],
+                [InlineKeyboardButton(text="💳 Продлить картой", callback_data="act|renew_card|_")],
+                [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_")],
+            ]
+        )
+
+    def _renew_no_active_markup(self) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="💳 Купить новый конфиг", callback_data="act|buy_new|_")],
+                [
+                    InlineKeyboardButton(text="🎁 Бесплатно 7д", callback_data="act|start_trial|_"),
+                    InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_"),
+                ],
+            ]
+        )
+
+    def _renew_success_markup(self, subscription_id: int, account_url: str) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(text="🚀 Открыть в приложении", callback_data=f"act|cfg_open:{subscription_id}|_"),
+                    InlineKeyboardButton(text="📷 QR-код", callback_data=f"act|cfg_qr:{subscription_id}|_"),
+                ],
+                [
+                    InlineKeyboardButton(text="📦 Моя подписка", callback_data="act|start_mysub|_"),
+                    InlineKeyboardButton(text="🌐 Личный кабинет", url=account_url),
+                ],
+            ]
+        )
+
+    async def _resolve_renew_target(
+        self, user_id: int, context: ContextTypes.DEFAULT_TYPE
+    ) -> tuple[int | None, dict[str, object] | None]:
+        selected_id = context.user_data.get("selected_subscription_id")
+        if isinstance(selected_id, str) and selected_id.isdigit():
+            selected_id = int(selected_id)
+        if isinstance(selected_id, int):
+            selected_sub = await self.db.get_subscription(user_id, selected_id)
+            if selected_sub:
+                return selected_id, selected_sub
+
+        active_sub = await self.db.get_active_subscription(user_id)
+        if not active_sub:
+            return None, None
+        target_id = int(active_sub["id"])
+        context.user_data["selected_subscription_id"] = target_id
+        return target_id, active_sub
+
+    async def _show_renew_offer(
+        self,
+        message: Message,
+        user_id: int,
+        context: ContextTypes.DEFAULT_TYPE,
+    ) -> None:
+        target_subscription_id, target_sub = await self._resolve_renew_target(user_id, context)
+        if not target_subscription_id or not target_sub:
+            await message.reply_text(
+                "Сейчас у вас нет активного доступа для продления.\n\n"
+                "Вы можете оформить новый доступ.",
+                reply_markup=self._renew_no_active_markup(),
+            )
+            return
+
+        expires_at = target_sub.get("expires_at")
+        expires_text = self._format_local_dt(expires_at) if isinstance(expires_at, datetime) else "—"
+        await message.reply_text(
+            "Продление доступа\n\n"
+            "Здесь вы можете продлить текущий доступ, чтобы продолжить пользоваться без перерыва.\n\n"
+            "Текущее устройство:\n"
+            f"{self._subscription_name(target_sub)}\n\n"
+            "Действует до:\n"
+            f"{expires_text}",
+            reply_markup=self._renew_offer_markup(),
+        )
+
+    async def _show_renew_stars_info(self, message: Message) -> None:
+        await message.reply_text(
+            "Оплата через Telegram Stars\n\n"
+            "Оплата проходит внутри Telegram.\n\n"
+            "Если вы используете iPhone в России, Stars обычно покупаются через App Store.\n"
+            "Для этого может понадобиться номер МТС и оплата с баланса телефона.\n\n"
+            "Если вам это неудобно, можно выбрать оплату картой на сайте.",
+            reply_markup=self._renew_stars_info_markup(),
+        )
+
+    async def _show_renew_card_info(self, message: Message) -> None:
+        pay_url = f"{self._site_url().rstrip('/')}/account/renew/"
+        await message.reply_text(
+            "Сейчас откроется страница оплаты на сайте.\n\n"
+            "После успешной оплаты доступ появится и на сайте, и в боте.",
+            reply_markup=self._renew_card_markup(pay_url),
         )
 
     async def _show_buy_offer(self, message: Message, user_id: int) -> None:
@@ -986,18 +1100,10 @@ class VPNBot:
 
     async def renew(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_id = await self._ensure_user(update)
-        selected_id = context.user_data.get("selected_subscription_id")
-        target_subscription_id: int | None = None
-        if isinstance(selected_id, int):
-            target_subscription_id = selected_id
-        elif isinstance(selected_id, str) and selected_id.isdigit():
-            target_subscription_id = int(selected_id)
-        else:
-            active_sub = await self.db.get_active_subscription(user_id)
-            if active_sub:
-                target_subscription_id = int(active_sub["id"])
-                context.user_data["selected_subscription_id"] = target_subscription_id
-        await self._send_stars_invoice(update, user_id, mode="renew", target_subscription_id=target_subscription_id)
+        message = update.message or (update.callback_query.message if update.callback_query else None)
+        if message is None:
+            return
+        await self._show_renew_offer(message, user_id, context)
 
     async def admin_reload(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if self.cms is None:
@@ -1299,6 +1405,37 @@ class VPNBot:
                 if query.message is not None:
                     user_id = await self._ensure_user(update)
                     await self._show_buy_offer(query.message, user_id)
+                return
+            if target == "renew_stars_info":
+                await query.answer()
+                if query.message is not None:
+                    await self._show_renew_stars_info(query.message)
+                return
+            if target == "renew_stars_continue":
+                await query.answer()
+                if query.message is not None:
+                    user_id = await self._ensure_user(update)
+                    target_subscription_id, _ = await self._resolve_renew_target(user_id, context)
+                    if not target_subscription_id:
+                        await self._show_renew_offer(query.message, user_id, context)
+                        return
+                    await self._send_stars_invoice_for_message(
+                        query.message,
+                        user_id=user_id,
+                        mode="renew",
+                        target_subscription_id=target_subscription_id,
+                    )
+                return
+            if target == "renew_card":
+                await query.answer()
+                if query.message is not None:
+                    await self._show_renew_card_info(query.message)
+                return
+            if target == "renew_back":
+                await query.answer()
+                if query.message is not None:
+                    user_id = await self._ensure_user(update)
+                    await self._send_start_screen(query.message, user_id)
                 return
             if target == "trial_activate":
                 await query.answer()
@@ -1709,7 +1846,16 @@ class VPNBot:
         )
 
         self._pending_profiles.pop(payment.invoice_payload, None)
-        await update.message.reply_text("ÐžÐ¿Ð»Ð°Ñ‚Ð° Ð¿Ñ€Ð¾ÑˆÐ»Ð° ÑƒÑÐ¿ÐµÑˆÐ½Ð¾. ÐÐºÑ‚Ð¸Ð²Ð¸Ñ€ÑƒÑŽ Ð²Ð°Ñˆ VPN...")
+        await update.message.reply_text("Оплата получена. Подготавливаю доступ...")
+        payload = str(order.get("payload") or "")
+        is_renew = payload.startswith("renew:")
+        renew_subscription_id: int | None = None
+        if is_renew:
+            parts = payload.split(":")
+            if len(parts) >= 3 and parts[2].isdigit():
+                parsed_id = int(parts[2])
+                if parsed_id > 0:
+                    renew_subscription_id = parsed_id
 
         try:
             await asyncio.wait_for(
@@ -1720,18 +1866,36 @@ class VPNBot:
                 timeout=45,
             )
             subscriptions = await self.db.list_subscriptions(user_id)
-            if subscriptions:
-                active_id = int(subscriptions[0]["id"])
-                account_url = await self._account_url(user_id)
+            if not subscriptions:
+                await self.mysub(update, context)
+                return
+
+            account_url = await self._account_url(user_id)
+            target_id = int(subscriptions[0]["id"])
+            target_exp = subscriptions[0].get("expires_at")
+            if is_renew:
+                if renew_subscription_id:
+                    selected = await self.db.get_subscription(user_id, renew_subscription_id)
+                    if selected:
+                        target_id = renew_subscription_id
+                        target_exp = selected.get("expires_at")
+                expiry_text = self._format_local_dt(target_exp) if isinstance(target_exp, datetime) else "—"
+                await update.message.reply_text(
+                    "Доступ продлён\n\n"
+                    "Теперь он действует до:\n"
+                    f"{expiry_text}\n\n"
+                    "Ниже вы можете открыть доступ, показать QR-код\n"
+                    "или перейти к своим устройствам.",
+                    reply_markup=self._renew_success_markup(target_id, account_url),
+                )
+            else:
                 await update.message.reply_text(
                     "Оплата получена\n\n"
                     "Новый доступ готов.\n\n"
                     "Ниже вы можете сразу открыть его, показать QR-код\n"
                     "или перейти к своим данным.",
-                    reply_markup=self._post_payment_ready_markup(active_id, account_url),
+                    reply_markup=self._post_payment_ready_markup(target_id, account_url),
                 )
-            else:
-                await self.mysub(update, context)
         except Exception:
             _log_payment_event(
                 order_id=order_id,
