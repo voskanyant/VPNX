@@ -110,7 +110,6 @@ class VPNBot:
         self.app.add_handler(PreCheckoutQueryHandler(self.precheckout))
         self.app.add_handler(CallbackQueryHandler(self.inline_callback))
         self.app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, self.successful_payment))
-        self.app.add_handler(MessageHandler(filters.CONTACT, self.handle_contact))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.menu_click))
 
     def _menu_keyboard(self, has_active_subscription: bool = False) -> ReplyKeyboardMarkup:
@@ -128,15 +127,6 @@ class VPNBot:
         if row:
             rows.append(row)
         return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
-
-    def _contact_keyboard(self) -> ReplyKeyboardMarkup:
-        share_label = self._button_label("contact_share", "\u041f\u043e\u0434\u0435\u043b\u0438\u0442\u044c\u0441\u044f \u043d\u043e\u043c\u0435\u0440\u043e\u043c")
-        cancel_label = self._button_label("contact_cancel", "\u041e\u0442\u043c\u0435\u043d\u0430")
-        return ReplyKeyboardMarkup(
-            [[KeyboardButton(share_label, request_contact=True)], [KeyboardButton(cancel_label)]],
-            resize_keyboard=True,
-            one_time_keyboard=True,
-        )
 
     def _content_text(self, key: str, default: str) -> str:
         value = self._cms_content.get(key)
@@ -456,17 +446,15 @@ class VPNBot:
             return "истек" if expires_at <= now else "неактивен"
         return "активен" if expires_at > now else "истек"
 
-    async def _start_buy_flow(self, message: Message, context: ContextTypes.DEFAULT_TYPE) -> None:
-        context.user_data["buy_wait_phone"] = True
+    async def _start_buy_flow(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        context.user_data.pop("buy_wait_phone", None)
         context.user_data.pop("buy_wait_name", None)
         context.user_data.pop("buy_phone", None)
-        await message.reply_text(
-            self._content_text(
-                "buy_intro_message",
-                "Поделитесь номером телефона, затем отправьте имя и я выставлю счет.",
-            ),
-            reply_markup=self._contact_keyboard(),
-        )
+        user_id = await self._ensure_user(update)
+        message = update.message or (update.callback_query.message if update.callback_query else None)
+        if message is None:
+            return
+        await self._send_stars_invoice_for_message(message, user_id=user_id, mode="buynew")
 
     async def _resolve_subscription_links(self, user_id: int, sub: dict[str, object]) -> tuple[str, str | None]:
         vless_url = str(sub["vless_url"])
@@ -744,32 +732,6 @@ class VPNBot:
             await self.mysub(update, context)
             return
 
-        if context.user_data.get("buy_wait_name"):
-            phone = context.user_data.get("buy_phone")
-            if not phone:
-                context.user_data.pop("buy_wait_name", None)
-                await update.message.reply_text(
-                    self._content_text("phone_missing_message", "\u041d\u043e\u043c\u0435\u0440 \u043d\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u00ab\u041a\u0443\u043f\u0438\u0442\u044c VPN\u00bb \u0435\u0449\u0435 \u0440\u0430\u0437."),
-                    reply_markup=menu_keyboard,
-                )
-                return
-            customer_name = raw_text[:64]
-            context.user_data.pop("buy_wait_name", None)
-            context.user_data.pop("buy_phone", None)
-            await update.message.reply_text(
-                self._content_text("sending_invoice_message", "\u0412\u044b\u0441\u044b\u043b\u0430\u044e \u0441\u0447\u0435\u0442..."),
-                reply_markup=menu_keyboard,
-            )
-            await self._send_stars_invoice(update, user_id, phone=phone, customer_name=customer_name)
-            return
-
-        if context.user_data.get("buy_wait_phone"):
-            await update.message.reply_text(
-                self._content_text("share_contact_hint_message", "\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443 \u0438 \u043f\u043e\u0434\u0435\u043b\u0438\u0442\u0435\u0441\u044c \u043a\u043e\u043d\u0442\u0430\u043a\u0442\u043e\u043c."),
-                reply_markup=self._contact_keyboard(),
-            )
-            return
-
         menu_buttons = self._menu_buttons(has_active_subscription=await self._has_active_subscription(user_id))
         label_to_key = {label.strip().lower(): key for key, label in menu_buttons}
         selected_menu_key = label_to_key.get(text)
@@ -802,9 +764,7 @@ class VPNBot:
 
     async def buy(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self._refresh_cms()
-        await self._ensure_user(update)
-        assert update.message is not None
-        await self._start_buy_flow(update.message, context)
+        await self._start_buy_flow(update, context)
 
     async def trial(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self._refresh_cms()
@@ -828,47 +788,6 @@ class VPNBot:
         await self._run_user_provision(
             user_id,
             lambda: self._create_trial_for_user(update, user_id=user_id, days=7),
-        )
-
-    async def handle_contact(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await self._refresh_cms()
-        if not context.user_data.get("buy_wait_phone"):
-            return
-
-        assert update.effective_user is not None
-        contact = update.message.contact
-        if contact is None:
-            await update.message.reply_text(
-                self._content_text("contact_missing_message", "ÐšÐ¾Ð½Ñ‚Ð°ÐºÑ‚ Ð½Ðµ Ð¿Ð¾Ð»ÑƒÑ‡ÐµÐ½. ÐŸÐ¾Ð²Ñ‚Ð¾Ñ€Ð¸Ñ‚Ðµ."),
-                reply_markup=self._contact_keyboard(),
-            )
-            return
-        if contact.user_id and contact.user_id != update.effective_user.id:
-            await update.message.reply_text(
-                self._content_text("contact_self_only_message", "ÐŸÐ¾Ð´ÐµÐ»Ð¸Ñ‚ÐµÑÑŒ ÑÐ²Ð¾Ð¸Ð¼ Ð½Ð¾Ð¼ÐµÑ€Ð¾Ð¼."),
-                reply_markup=self._contact_keyboard(),
-            )
-            return
-
-        try:
-            normalized_phone = self._normalize_phone(contact.phone_number)
-        except ValueError:
-            await update.message.reply_text(
-                self._content_text("phone_invalid_message", "ÐÐµÐ²ÐµÑ€Ð½Ñ‹Ð¹ Ñ„Ð¾Ñ€Ð¼Ð°Ñ‚ Ð½Ð¾Ð¼ÐµÑ€Ð°. ÐŸÐ¾Ð²Ñ‚Ð¾Ñ€Ð¸Ñ‚Ðµ."),
-                reply_markup=self._contact_keyboard(),
-            )
-            return
-
-        context.user_data["buy_wait_phone"] = False
-        context.user_data["buy_wait_name"] = True
-        context.user_data["buy_phone"] = normalized_phone
-        phone_saved_template = self._content_text(
-            "phone_saved_message",
-            "ÐÐ¾Ð¼ÐµÑ€ ÑÐ¾Ñ…Ñ€Ð°Ð½ÐµÐ½: {phone}\nÐ¢ÐµÐ¿ÐµÑ€ÑŒ Ð¾Ñ‚Ð¿Ñ€Ð°Ð²ÑŒÑ‚Ðµ Ð²Ð°ÑˆÐµ Ð¸Ð¼Ñ.",
-        )
-        await update.message.reply_text(
-            phone_saved_template.replace("{phone}", normalized_phone),
-            reply_markup=await self._menu_keyboard_for_user(await self._ensure_user(update)),
         )
 
     async def renew(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1168,7 +1087,7 @@ class VPNBot:
             if target == "buy_new":
                 await query.answer()
                 if query.message is not None:
-                    await self._start_buy_flow(query.message, context)
+                    await self._start_buy_flow(update, context)
                 return
             if target == "cfg_back":
                 user_id = await self._ensure_user(update)
