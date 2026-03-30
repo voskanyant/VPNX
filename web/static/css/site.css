@@ -63,14 +63,14 @@ a:hover {
 }
 
 .site-header-inner {
-  padding: 10px 0 12px;
+  padding: 10px 0;
 }
 
 .site-header-top {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .site-logo {
@@ -81,15 +81,19 @@ a:hover {
   font-weight: 800;
   letter-spacing: -0.02em;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .site-nav {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 0;
   overflow-x: auto;
   white-space: nowrap;
   scrollbar-width: none;
+  flex: 1 1 100%;
+  order: 3;
+  padding-bottom: 2px;
 }
 
 .site-nav::-webkit-scrollbar {
@@ -99,9 +103,9 @@ a:hover {
 .site-nav-link {
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
-  padding: 5px 10px;
-  border-radius: 999px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 10px;
   border: 1px solid var(--line);
   color: #1f2937;
   background: #fff;
@@ -121,9 +125,11 @@ a:hover {
 }
 
 .site-cta {
-  min-height: 34px;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 8px 14px;
   font-size: 13px;
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .site-footer {
@@ -330,30 +336,41 @@ textarea,
     padding: 24px 0 32px;
   }
 
-  .site-logo {
-    font-size: 30px;
+  .site-header-inner {
+    padding: 12px 0;
   }
 
   .site-header-top {
     align-items: center;
+    flex-wrap: nowrap;
+    gap: 14px;
+  }
+
+  .site-logo {
+    font-size: 42px;
   }
 
   .site-nav {
+    order: 2;
+    flex: 1 1 auto;
     overflow: visible;
-    flex-wrap: wrap;
-    white-space: normal;
+    white-space: nowrap;
+    gap: 8px;
+    padding-bottom: 0;
   }
 
   .site-nav-link {
-    border-radius: 9px;
-    min-height: 36px;
-    padding: 6px 10px;
+    border-radius: 12px;
+    min-height: 40px;
+    padding: 7px 14px;
+    font-size: 14px;
   }
 
-  .site-nav-link.is-active {
-    background: #eef2ff;
-    border-color: #dbeafe;
-    color: #111827;
+  .site-cta {
+    order: 3;
+    min-height: 40px;
+    padding: 9px 16px;
+    font-size: 14px;
   }
 
   .card,
