@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand
 from wagtail.models import Page, Site
 
 from cms.models import CMSContentPage, CMSHomePage
+from blog.models import Category
 
 
 class Command(BaseCommand):
@@ -34,6 +35,7 @@ class Command(BaseCommand):
 
         self._ensure_site(home, "vxcloud.ru", is_default=True)
         self._ensure_site(home, "www.vxcloud.ru", is_default=False)
+        self._ensure_blog_categories()
 
         how_it_works = self._ensure_page(
             parent=home,
@@ -225,6 +227,28 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("YooKassa-ready pages are created/updated in Wagtail."))
         self.stdout.write(self.style.SUCCESS(f"Check in admin: /cms-admin/pages/{home.id}/"))
         self.stdout.write(self.style.SUCCESS(f"Key pages: /how-it-works/, /faq/, /help/, /legal/terms/, /legal/privacy/"))
+
+    def _ensure_blog_categories(self) -> None:
+        defaults = [
+            ("Гайды", "guides"),
+            ("Проблемы и решения", "troubleshooting"),
+        ]
+        for title, slug in defaults:
+            category, created = Category.objects.get_or_create(
+                slug=slug,
+                defaults={"title": title, "is_active": True},
+            )
+            if not created:
+                changed = False
+                if category.title != title:
+                    category.title = title
+                    changed = True
+                if not category.is_active:
+                    category.is_active = True
+                    changed = True
+                if changed:
+                    category.save(update_fields=["title", "is_active", "updated_at"])
+            self.stdout.write(self.style.SUCCESS(f"Category ready: {category.title} ({category.slug})"))
 
     def _ensure_site(self, root_page: Page, hostname: str, *, is_default: bool) -> None:
         site = Site.objects.filter(hostname=hostname).first()

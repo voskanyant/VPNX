@@ -3,14 +3,23 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+from wagtail.admin.panels import FieldPanel
+from wagtail.snippets.models import register_snippet
 
 
+@register_snippet
 class Category(models.Model):
     title = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(unique=True, max_length=140)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    panels = [
+        FieldPanel("title"),
+        FieldPanel("slug"),
+        FieldPanel("is_active"),
+    ]
 
     class Meta:
         ordering = ["title", "id"]
