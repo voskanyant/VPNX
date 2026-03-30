@@ -172,7 +172,7 @@ class Command(BaseCommand):
                 "<h2>Что продается</h2>"
                 "<p>Цифровой доступ к VPN-сервису VXcloud на ограниченный срок.</p>"
                 "<h2>Тариф</h2>"
-                "<p>Базовый тариф: 30 дней доступа. Цена указывается перед оплатой в личном кабинете.</p>"
+                "<p>Базовый тариф: 30 дней доступа — <strong>249 ₽</strong>.</p>"
                 "<h2>Что получает пользователь</h2>"
                 "<ul>"
                 "<li>Ссылку для подключения;</li>"
@@ -277,4 +277,3 @@ class Command(BaseCommand):
         parent.add_child(instance=page)
         page.save_revision().publish()
         return page
-

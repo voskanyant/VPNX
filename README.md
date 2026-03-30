@@ -311,7 +311,7 @@ Minimal:
 
 - `ENABLE_CARD_PAYMENTS=1`
 - `PAYMENT_PROVIDER=reference` (or `yookassa`)
-- `CARD_PAYMENT_AMOUNT_MINOR` (example `29900`)
+- `CARD_PAYMENT_AMOUNT_MINOR` (example `24900`)
 - `CARD_PAYMENT_CURRENCY` (example `RUB`)
 
 For `reference` provider:

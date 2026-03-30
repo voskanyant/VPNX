@@ -76,6 +76,15 @@ class EmailLoginView(LoginView):
     template_name = "registration/login.html"
 
 
+def _format_minor_amount_rub(amount_minor: int | None) -> str:
+    value = int(amount_minor or 0)
+    rub = value // 100
+    kop = value % 100
+    if kop == 0:
+        return f"{rub} ₽"
+    return f"{rub}.{kop:02d} ₽"
+
+
 def _format_payment_method(method: str | None, currency: str | None = None) -> str:
     normalized = (method or "").strip().lower()
     if not normalized:
@@ -245,6 +254,7 @@ def account_dashboard(request: HttpRequest) -> HttpResponse:
             "subscriptions": subscriptions,
             "has_active": has_active,
             "last_payment_method": last_payment_method,
+            "card_price_label": _format_minor_amount_rub(settings.CARD_PAYMENT_AMOUNT_MINOR),
             "now": now,
             "subscription_rows": subscription_rows,
         },

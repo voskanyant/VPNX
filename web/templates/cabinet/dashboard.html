@@ -72,8 +72,8 @@
 <section class="card mb-3">
   <h2 class="h5 mb-3">{{ cabinet_actions_title }}</h2>
   <div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-primary" href="/account/buy/">{{ cabinet_buy_new_action }}</a>
-    <a class="btn btn-secondary" href="/account/renew/">{{ cabinet_renew_action_short }}</a>
+    <a class="btn btn-primary" href="/account/buy/">{{ cabinet_buy_new_action }} · {{ card_price_label }}</a>
+    <a class="btn btn-secondary" href="/account/renew/">{{ cabinet_renew_action_short }} · {{ card_price_label }}</a>
     <a class="btn btn-secondary" href="/support/">{{ cabinet_support_action }}</a>
   </div>
 </section>
@@ -109,7 +109,7 @@
             <a class="btn btn-secondary btn-sm" href="/account/config/{{ row.id }}/">{{ cabinet_open_selected_config }}</a>
             <a class="btn btn-secondary btn-sm" href="/account/config/{{ row.id }}/#qr">{{ cabinet_qr_action }}</a>
             <button type="button" class="btn btn-secondary btn-sm js-copy-config" data-copy-text="{{ row.obj.vless_url|default:'' }}">{{ cabinet_copy_action }}</button>
-            <a class="btn btn-secondary btn-sm" href="/account/renew/?subscription_id={{ row.id }}">{{ cabinet_renew_action }}</a>
+            <a class="btn btn-secondary btn-sm" href="/account/renew/?subscription_id={{ row.id }}">{{ cabinet_renew_action }} · {{ card_price_label }}</a>
           </div>
 
           <div class="config-actions">
