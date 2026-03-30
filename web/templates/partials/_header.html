@@ -19,6 +19,9 @@
         <a href="/faq/" class="site-nav-link{% if request.path|slice:':5' == '/faq/' %} is-active{% endif %}">{{ nav_faq }}</a>
         <a href="/blog/" class="site-nav-link{% if request.path|slice:':6' == '/blog/' %} is-active{% endif %}">{{ nav_blog }}</a>
         <a href="/account/" class="site-nav-link{% if request.path|slice:':9' == '/account/' or request.path|slice:':10' == '/accounts/' %} is-active{% endif %}">{{ nav_account }}</a>
+        {% if request.user.is_authenticated and request.user.is_staff %}
+          <a href="/admin/" class="site-nav-link{% if request.path|slice:':7' == '/admin/' %} is-active{% endif %}">Админ</a>
+        {% endif %}
       </nav>
       <a href="/account/" class="btn btn-primary site-cta">{{ nav_buy_cta }}</a>
     </div>
