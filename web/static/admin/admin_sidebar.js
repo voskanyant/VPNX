@@ -2,7 +2,11 @@
   function init() {
     var toggle = document.querySelector(".admin-sidebar-toggle");
     var sidebar = document.getElementById("nav-sidebar");
-    if (!toggle || !sidebar) return;
+    if (!toggle) return;
+    if (!sidebar) {
+      toggle.style.display = "none";
+      return;
+    }
 
     function setOpen(opened) {
       document.body.classList.toggle("admin-sidebar-open", opened);
@@ -30,4 +34,3 @@
     init();
   }
 })();
-
