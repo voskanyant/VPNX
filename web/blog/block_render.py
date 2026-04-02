@@ -31,6 +31,41 @@ def _render_buttons(items: list[dict[str, Any]]) -> str:
     return "".join(parts)
 
 
+def _render_cards_slider(block: dict[str, Any]) -> str:
+    title = _safe_text(block.get("title"))
+    subtitle = _safe_text(block.get("subtitle"))
+    raw_items = block.get("items")
+    items = raw_items if isinstance(raw_items, list) else []
+    if not items:
+        return ""
+
+    parts: list[str] = ['<section class="block-cards-slider">']
+    if title or subtitle:
+        parts.append('<div class="block-cards-slider-head">')
+        if title:
+            parts.append(f"<h2>{title}</h2>")
+        if subtitle:
+            parts.append(f"<p>{subtitle}</p>")
+        parts.append("</div>")
+
+    parts.append('<div class="block-cards-track" role="list">')
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_title = _safe_text(item.get("title"))
+        item_text = _safe_text(item.get("text"))
+        if not item_title and not item_text:
+            continue
+        parts.append('<article class="block-card" role="listitem">')
+        if item_title:
+            parts.append(f"<h3>{item_title}</h3>")
+        if item_text:
+            parts.append(f"<p>{item_text}</p>")
+        parts.append("</article>")
+    parts.append("</div></section>")
+    return "".join(parts)
+
+
 def render_content_blocks(blocks: Any, legacy_html: str = ""):
     if not isinstance(blocks, list) or not blocks:
         return mark_safe(legacy_html or "")
@@ -117,8 +152,11 @@ def render_content_blocks(blocks: Any, legacy_html: str = ""):
             custom = str(block.get("html") or "").strip()
             if custom:
                 output.append(custom)
+        elif block_type == "cards_slider":
+            rendered = _render_cards_slider(block)
+            if rendered:
+                output.append(rendered)
 
     if not output:
         return mark_safe(legacy_html or "")
     return mark_safe("".join(output))
-

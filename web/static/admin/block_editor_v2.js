@@ -10,6 +10,7 @@
     { value: "embed", label: "Embed", icon: "E", group: "Media" },
     { value: "button", label: "Button", icon: "B", group: "Design" },
     { value: "buttons", label: "Buttons Group", icon: "BG", group: "Design" },
+    { value: "cards_slider", label: "Cards Slider", icon: "CS", group: "Design" },
     { value: "columns", label: "Columns", icon: "C", group: "Layout" },
     { value: "faq", label: "FAQ Item", icon: "?", group: "Design" },
     { value: "spacer", label: "Spacer", icon: "S", group: "Layout" },
@@ -52,6 +53,17 @@
         };
       case "columns":
         return { type, left: "Left column", right: "Right column" };
+      case "cards_slider":
+        return {
+          type,
+          title: "Почему VXcloud",
+          subtitle: "Коротко о преимуществах сервиса.",
+          items: [
+            { title: "Простой старт", text: "Подключение занимает всего несколько минут." },
+            { title: "Понятный формат", text: "После покупки вы получаете все необходимые данные для подключения." },
+            { title: "Удобное управление", text: "Основные действия доступны через сайт и Telegram." },
+          ],
+        };
       case "faq":
         return { type, question: "Question", answer: "Answer" };
       case "spacer":
@@ -135,6 +147,10 @@
     if (type === "embed") return String(block.url || "Embed without URL");
     if (type === "button") return `${block.label || "Button"} -> ${block.url || ""}`;
     if (type === "buttons") return "Buttons group";
+    if (type === "cards_slider") {
+      const count = Array.isArray(block.items) ? block.items.length : 0;
+      return `Cards slider (${count})`;
+    }
     if (type === "columns") return "Two-column content";
     if (type === "faq") return String(block.question || "FAQ item");
     if (type === "spacer") return `Spacer ${block.height || 24}px`;
@@ -563,6 +579,39 @@
         });
         form.appendChild(field("Left column", leftText));
         form.appendChild(field("Right column", rightText));
+      } else if (type === "cards_slider") {
+        const title = textInput(selected.title || "");
+        const subtitle = textArea(selected.subtitle || "", 4);
+        const items = textArea(
+          (selected.items || []).map((item) => `${item.title || ""}|${item.text || ""}`).join("\n"),
+          10
+        );
+        title.addEventListener("input", () => {
+          selected.title = title.value;
+          changed();
+        });
+        subtitle.addEventListener("input", () => {
+          selected.subtitle = subtitle.value;
+          changed();
+        });
+        items.addEventListener("input", () => {
+          selected.items = items.value
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+              const [cardTitle, ...rest] = line.split("|");
+              return {
+                title: (cardTitle || "").trim(),
+                text: rest.join("|").trim(),
+              };
+            })
+            .filter((item) => item.title || item.text);
+          changed();
+        });
+        form.appendChild(field("Section title", title));
+        form.appendChild(field("Section subtitle", subtitle));
+        form.appendChild(field("Cards (title|text, one card per line)", items));
       } else if (type === "faq") {
         const question = textInput(selected.question || "");
         const answer = textArea(selected.answer || "", 6);
