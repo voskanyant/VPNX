@@ -33,3 +33,48 @@ html[data-theme="auto"] {
 .change-form .tox-tinymce {
   max-width: 100%;
 }
+
+/* Compact form layout: labels above inputs (remove wide left label column) */
+.change-form #content-main .aligned .form-row,
+.change-form #content-main .aligned .form-group {
+  padding: 10px 0;
+}
+
+.change-form #content-main .aligned label {
+  float: none;
+  width: auto;
+  display: block;
+  margin: 0 0 6px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.change-form #content-main .aligned .vTextField,
+.change-form #content-main .aligned .vURLField,
+.change-form #content-main .aligned .vLargeTextField,
+.change-form #content-main .aligned .vIntegerField,
+.change-form #content-main .aligned .vForeignKeyRawIdAdminField,
+.change-form #content-main .aligned select,
+.change-form #content-main .aligned textarea {
+  max-width: 100%;
+  width: 100%;
+}
+
+.change-form #content-main .aligned .readonly,
+.change-form #content-main .aligned .related-widget-wrapper,
+.change-form #content-main .aligned p,
+.change-form #content-main .aligned .help,
+.change-form #content-main .aligned div.help,
+.change-form #content-main .aligned .helptext,
+.change-form #content-main .aligned .fieldBox {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+.change-form #content-main .aligned .help,
+.change-form #content-main .aligned div.help,
+.change-form #content-main .aligned .helptext {
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 12px;
+}

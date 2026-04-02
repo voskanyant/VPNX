@@ -23,10 +23,58 @@
     if (!raw || !raw.trim()) return [];
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(normalizeLegacyBlock);
     } catch (_error) {
       return [];
     }
+  }
+
+  function parseCardsLines(raw) {
+    if (!raw) return [];
+    const text = String(raw).replace(/\r/g, "\n");
+    let lines = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length === 1 && text.split("|").length > 3) {
+      const chunks = text
+        .split("|")
+        .map((chunk) => chunk.trim())
+        .filter(Boolean);
+      lines = [];
+      for (let i = 0; i < chunks.length; i += 2) {
+        lines.push(`${chunks[i] || ""}|${chunks[i + 1] || ""}`);
+      }
+    }
+
+    return lines
+      .map((line) => {
+        const parts = line.split("|");
+        const title = (parts.shift() || "").trim();
+        const body = parts.join("|").trim();
+        return { title, text: body };
+      })
+      .filter((item) => item.title || item.text);
+  }
+
+  function normalizeLegacyBlock(block) {
+    if (!block || typeof block !== "object") return defaultsFor("paragraph");
+    const originalType = String(block.type || "paragraph").trim().toLowerCase();
+    if (originalType === "cards-slider" || originalType === "cards slider" || originalType === "cs_cards_slider") {
+      block.type = "cards_slider";
+    }
+
+    if (String(block.type || "") === "cards_slider") {
+      const source = Array.isArray(block.items) ? block.items : block.items || block.lines || block.line || block.text || "";
+      if (!Array.isArray(block.items)) {
+        block.items = parseCardsLines(source);
+      }
+      if (!("title" in block)) block.title = "";
+      if (!("subtitle" in block)) block.subtitle = "";
+    }
+    return block;
   }
 
   function defaultsFor(type) {
@@ -582,10 +630,18 @@
       } else if (type === "cards_slider") {
         const title = textInput(selected.title || "");
         const subtitle = textArea(selected.subtitle || "", 4);
+        subtitle.placeholder = "Короткое описание секции карточек";
+        const initialItems = Array.isArray(selected.items)
+          ? selected.items
+          : parseCardsLines(selected.items || selected.lines || selected.line || selected.text || "");
         const items = textArea(
-          (selected.items || []).map((item) => `${item.title || ""}|${item.text || ""}`).join("\n"),
+          initialItems.map((item) => `${item.title || ""}|${item.text || ""}`).join("\n"),
           10
         );
+        if (!Array.isArray(selected.items)) {
+          selected.items = initialItems;
+        }
+        items.placeholder = "Заголовок карточки|Текст карточки";
         title.addEventListener("input", () => {
           selected.title = title.value;
           changed();
@@ -595,23 +651,12 @@
           changed();
         });
         items.addEventListener("input", () => {
-          selected.items = items.value
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .map((line) => {
-              const [cardTitle, ...rest] = line.split("|");
-              return {
-                title: (cardTitle || "").trim(),
-                text: rest.join("|").trim(),
-              };
-            })
-            .filter((item) => item.title || item.text);
+          selected.items = parseCardsLines(items.value);
           changed();
         });
         form.appendChild(field("Section title", title));
         form.appendChild(field("Section subtitle", subtitle));
-        form.appendChild(field("Cards (title|text, one card per line)", items));
+        form.appendChild(field("Cards (title|text, one card per line)", items, "Каждая строка = одна карточка."));
       } else if (type === "faq") {
         const question = textInput(selected.question || "");
         const answer = textArea(selected.answer || "", 6);

@@ -13,6 +13,8 @@ from .models import (
     LinkedAccount,
     PaymentEvent,
     TelegramLinkToken,
+    VPNNode,
+    VPNNodeClient,
     WebLoginToken,
 )
 
@@ -120,6 +122,241 @@ class WebLoginTokenAdmin(admin.ModelAdmin):
     list_filter = ("consumed_at",)
     ordering = ("-id",)
     list_per_page = 50
+
+
+@admin.register(VPNNode)
+class VPNNodeAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "region",
+        "backend_endpoint",
+        "is_active",
+        "lb_enabled",
+        "needs_backfill",
+        "last_health_ok",
+        "last_health_at",
+        "reality_key_fingerprint",
+        "last_backfill_at",
+    )
+    list_filter = ("lb_enabled", "is_active", "needs_backfill", "last_health_ok")
+    search_fields = ("name", "region", "backend_host", "xui_base_url", "last_health_error", "last_reality_sni")
+    ordering = ("name",)
+    list_per_page = 50
+    readonly_fields = (
+        "backend_endpoint",
+        "health_status",
+        "reality_key_fingerprint",
+        "reality_signature",
+        "reality_reference_signature",
+        "reality_mismatch_indicator",
+        "created_at",
+        "updated_at",
+    )
+    actions = (
+        "request_backfill",
+        "enable_lb",
+        "disable_lb",
+        "mark_inactive",
+        "mark_active",
+    )
+    fieldsets = (
+        (
+            "Identity",
+            {
+                "fields": ("name", "region", "backend_endpoint"),
+            },
+        ),
+        (
+            "Connection",
+            {
+                "fields": (
+                    "xui_base_url",
+                    "xui_username",
+                    "xui_password",
+                    "xui_inbound_id",
+                )
+            },
+        ),
+        (
+            "Routing",
+            {
+                "fields": (
+                    "backend_host",
+                    "backend_port",
+                    "backend_weight",
+                    "lb_enabled",
+                ),
+            },
+        ),
+        (
+            "Health",
+            {
+                "fields": (
+                    "health_status",
+                    "last_health_ok",
+                    "last_health_at",
+                    "last_health_error",
+                    "reality_key_fingerprint",
+                    "reality_signature",
+                    "reality_reference_signature",
+                    "reality_mismatch_indicator",
+                ),
+            },
+        ),
+        (
+            "Operations",
+            {
+                "fields": (
+                    "is_active",
+                    "needs_backfill",
+                    "backfill_requested_at",
+                    "last_backfill_at",
+                    "last_backfill_error",
+                ),
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": ("created_at", "updated_at"),
+            },
+        ),
+    )
+
+    @staticmethod
+    def _reality_tuple(obj: VPNNode) -> tuple[str, str, str, str] | None:
+        values = (
+            (obj.last_reality_public_key or "").strip(),
+            (obj.last_reality_short_id or "").strip(),
+            (obj.last_reality_sni or "").strip(),
+            (obj.last_reality_fingerprint or "").strip(),
+        )
+        if not any(values):
+            return None
+        return values
+
+    @staticmethod
+    def _reference_node(obj: VPNNode) -> VPNNode | None:
+        queryset = VPNNode.objects.filter(
+            lb_enabled=True,
+            is_active=True,
+            last_health_ok=True,
+        ).exclude(last_reality_public_key__isnull=True).exclude(last_reality_public_key="")
+        if obj.pk:
+            queryset = queryset.exclude(pk=obj.pk)
+        return queryset.order_by("id").first()
+
+    @admin.display(description="Backend")
+    def backend_endpoint(self, obj: VPNNode) -> str:
+        return f"{obj.backend_host}:{obj.backend_port}"
+
+    @admin.display(description="Health")
+    def health_status(self, obj: VPNNode) -> str:
+        if obj.last_health_ok is True:
+            return "healthy"
+        if obj.last_health_ok is False:
+            return "unhealthy"
+        return "unknown"
+
+    @admin.display(description="REALITY signature")
+    def reality_signature(self, obj: VPNNode) -> str:
+        current = self._reality_tuple(obj)
+        if current is None:
+            return "—"
+        pub, short_id, sni, fp = current
+        short_pub = f"{pub[:16]}..." if len(pub) > 16 else pub
+        return f"pbk={short_pub}; sid={short_id or '-'}; sni={sni or '-'}; fp={fp or '-'}"
+
+    @admin.display(description="REALITY key fp")
+    def reality_key_fingerprint(self, obj: VPNNode) -> str:
+        key = (obj.last_reality_public_key or "").strip()
+        if not key:
+            return "—"
+        return key[-12:] if len(key) > 12 else key
+
+    @admin.display(description="Reference signature")
+    def reality_reference_signature(self, obj: VPNNode) -> str:
+        reference = self._reference_node(obj)
+        if reference is None:
+            return "—"
+        ref_tuple = self._reality_tuple(reference)
+        if ref_tuple is None:
+            return "—"
+        pub, short_id, sni, fp = ref_tuple
+        short_pub = f"{pub[:16]}..." if len(pub) > 16 else pub
+        return f"{reference.name}: pbk={short_pub}; sid={short_id or '-'}; sni={sni or '-'}; fp={fp or '-'}"
+
+    @admin.display(description="REALITY mismatch")
+    def reality_mismatch_indicator(self, obj: VPNNode) -> str:
+        current = self._reality_tuple(obj)
+        if current is None:
+            return "unknown"
+        reference = self._reference_node(obj)
+        if reference is None:
+            return "n/a"
+        ref_tuple = self._reality_tuple(reference)
+        if ref_tuple is None:
+            return "n/a"
+        return "mismatch" if current != ref_tuple else "match"
+
+    @admin.action(description="Request backfill")
+    def request_backfill(self, request, queryset):
+        now = timezone.now()
+        updated = queryset.update(
+            needs_backfill=True,
+            backfill_requested_at=now,
+            last_backfill_error=None,
+            updated_at=now,
+        )
+        self.message_user(request, f"Backfill requested for nodes: {updated}")
+
+    @admin.action(description="Enable LB")
+    def enable_lb(self, request, queryset):
+        now = timezone.now()
+        updated = queryset.update(lb_enabled=True, updated_at=now)
+        self.message_user(request, f"LB enabled for nodes: {updated}")
+
+    @admin.action(description="Disable LB")
+    def disable_lb(self, request, queryset):
+        now = timezone.now()
+        updated = queryset.update(lb_enabled=False, updated_at=now)
+        self.message_user(request, f"LB disabled for nodes: {updated}")
+
+    @admin.action(description="Mark inactive")
+    def mark_inactive(self, request, queryset):
+        now = timezone.now()
+        updated = queryset.update(is_active=False, lb_enabled=False, updated_at=now)
+        self.message_user(request, f"Marked inactive nodes: {updated}")
+
+    @admin.action(description="Mark active")
+    def mark_active(self, request, queryset):
+        now = timezone.now()
+        updated = queryset.update(is_active=True, updated_at=now)
+        self.message_user(request, f"Marked active nodes: {updated}")
+
+
+@admin.register(VPNNodeClient)
+class VPNNodeClientAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "node",
+        "subscription_id",
+        "sync_state",
+        "last_synced_at",
+        "last_error",
+    )
+    list_filter = ("sync_state", "desired_enabled", "observed_enabled")
+    search_fields = (
+        "node__name",
+        "subscription_id",
+        "client_email",
+        "client_uuid",
+        "xui_sub_id",
+        "last_error",
+    )
+    ordering = ("-id",)
+    list_per_page = 50
+    readonly_fields = ("created_at", "updated_at")
 
 
 def ops_dashboard_view(request):

@@ -6,6 +6,7 @@ import logging
 from telegram.ext import ApplicationBuilder
 
 from .bot import VPNBot
+from .cluster.jobs import healthcheck_tick, sync_tick
 from .cms import DirectusCMS
 from .config import load_settings
 from .db import DB
@@ -57,8 +58,29 @@ async def run() -> None:
                 logging.exception("Single-IP loop failed")
             await asyncio.sleep(interval)
 
+    async def cluster_health_loop() -> None:
+        interval = max(10, int(getattr(settings, "vpn_cluster_healthcheck_interval_seconds", 30)))
+        while True:
+            try:
+                await healthcheck_tick(db)
+            except Exception:
+                logging.exception("Cluster health loop failed")
+            await asyncio.sleep(interval)
+
+    async def cluster_sync_loop() -> None:
+        interval = max(10, int(getattr(settings, "vpn_cluster_sync_interval_seconds", 60)))
+        while True:
+            try:
+                await sync_tick(db, settings)
+            except Exception:
+                logging.exception("Cluster sync loop failed")
+            await asyncio.sleep(interval)
+
     asyncio.create_task(reminder_loop())
     asyncio.create_task(single_ip_loop())
+    if settings.vpn_cluster_enabled:
+        asyncio.create_task(cluster_health_loop())
+        asyncio.create_task(cluster_sync_loop())
 
     await app.initialize()
     await app.start()

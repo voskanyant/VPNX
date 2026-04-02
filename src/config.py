@@ -34,6 +34,10 @@ class Settings:
     xui_sub_port: int
     vpn_public_host: str
     vpn_public_port: int
+    vpn_cluster_enabled: bool
+    vpn_cluster_healthcheck_interval_seconds: int
+    vpn_cluster_sync_interval_seconds: int
+    vpn_cluster_sync_batch_size: int
     vpn_tag: str
     plan_days: int
     plan_price_stars: int
@@ -66,6 +70,10 @@ def load_settings() -> Settings:
         xui_sub_port=int(_get("XUI_SUB_PORT", "2096")),
         vpn_public_host=_get("VPN_PUBLIC_HOST"),
         vpn_public_port=int(_get("VPN_PUBLIC_PORT")),
+        vpn_cluster_enabled=_get("VPN_CLUSTER_ENABLED", "0").strip() == "1",
+        vpn_cluster_healthcheck_interval_seconds=int(_get("VPN_CLUSTER_HEALTHCHECK_INTERVAL_SECONDS", "30")),
+        vpn_cluster_sync_interval_seconds=int(_get("VPN_CLUSTER_SYNC_INTERVAL_SECONDS", "60")),
+        vpn_cluster_sync_batch_size=int(_get("VPN_CLUSTER_SYNC_BATCH_SIZE", "200")),
         vpn_tag=_get("VPN_TAG", "VPN"),
         plan_days=int(_get("PLAN_DAYS", "30")),
         plan_price_stars=int(_get("PLAN_PRICE_STARS", "250")),

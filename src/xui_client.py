@@ -128,6 +128,33 @@ class XUIClient:
                 return str(sub_id) if sub_id else None
         return None
 
+    @staticmethod
+    def _build_client_payload(
+        *,
+        client_uuid: str,
+        email: str,
+        expiry: datetime,
+        enable: bool,
+        limit_ip: int,
+        sub_id: str | None = None,
+        comment: str | None = None,
+    ) -> dict[str, Any]:
+        expiry_ms = int(expiry.timestamp() * 1000)
+        client: dict[str, Any] = {
+            "id": client_uuid,
+            "email": email,
+            "limitIp": limit_ip,
+            "totalGB": 0,
+            "expiryTime": expiry_ms,
+            "enable": bool(enable),
+            "flow": "",
+        }
+        if sub_id:
+            client["subId"] = sub_id
+        if comment:
+            client["comment"] = comment[:64]
+        return client
+
     async def add_client(
         self,
         inbound_id: int,
@@ -136,19 +163,17 @@ class XUIClient:
         expiry: datetime,
         limit_ip: int = 0,
         comment: str | None = None,
+        sub_id: str | None = None,
     ) -> None:
-        expiry_ms = int(expiry.timestamp() * 1000)
-        client = {
-            "id": client_uuid,
-            "email": email,
-            "limitIp": limit_ip,
-            "totalGB": 0,
-            "expiryTime": expiry_ms,
-            "enable": True,
-            "flow": "",
-        }
-        if comment:
-            client["comment"] = comment[:64]
+        client = self._build_client_payload(
+            client_uuid=client_uuid,
+            email=email,
+            expiry=expiry,
+            enable=True,
+            limit_ip=limit_ip,
+            sub_id=sub_id,
+            comment=comment,
+        )
         settings = json.dumps({"clients": [client]}, separators=(",", ":"))
         await self._post("/panel/api/inbounds/addClient", {"id": inbound_id, "settings": settings})
 
@@ -159,17 +184,18 @@ class XUIClient:
         email: str,
         expiry: datetime,
         limit_ip: int = 0,
+        comment: str | None = None,
+        sub_id: str | None = None,
     ) -> None:
-        expiry_ms = int(expiry.timestamp() * 1000)
-        client = {
-            "id": client_uuid,
-            "email": email,
-            "limitIp": limit_ip,
-            "totalGB": 0,
-            "expiryTime": expiry_ms,
-            "enable": True,
-            "flow": "",
-        }
+        client = self._build_client_payload(
+            client_uuid=client_uuid,
+            email=email,
+            expiry=expiry,
+            enable=True,
+            limit_ip=limit_ip,
+            sub_id=sub_id,
+            comment=comment,
+        )
         settings = json.dumps({"clients": [client]}, separators=(",", ":"))
         await self._post(f"/panel/api/inbounds/updateClient/{client_uuid}", {"id": inbound_id, "settings": settings})
 
@@ -182,19 +208,70 @@ class XUIClient:
         *,
         enable: bool,
         limit_ip: int = 0,
+        comment: str | None = None,
+        sub_id: str | None = None,
     ) -> None:
-        expiry_ms = int(expiry.timestamp() * 1000)
-        client = {
-            "id": client_uuid,
-            "email": email,
-            "limitIp": limit_ip,
-            "totalGB": 0,
-            "expiryTime": expiry_ms,
-            "enable": bool(enable),
-            "flow": "",
-        }
+        client = self._build_client_payload(
+            client_uuid=client_uuid,
+            email=email,
+            expiry=expiry,
+            enable=enable,
+            limit_ip=limit_ip,
+            sub_id=sub_id,
+            comment=comment,
+        )
         settings = json.dumps({"clients": [client]}, separators=(",", ":"))
         await self._post(f"/panel/api/inbounds/updateClient/{client_uuid}", {"id": inbound_id, "settings": settings})
+
+    async def del_client(
+        self,
+        inbound_id: int,
+        client_uuid: str,
+        *,
+        email: str | None = None,
+        expiry: datetime | None = None,
+        limit_ip: int = 0,
+        comment: str | None = None,
+        sub_id: str | None = None,
+    ) -> str:
+        try:
+            await self._post(f"/panel/api/inbounds/{inbound_id}/delClient/{client_uuid}", {})
+            return "deleted"
+        except Exception:
+            if not email or expiry is None:
+                raise
+            await self.set_client_enabled(
+                inbound_id,
+                client_uuid,
+                email,
+                expiry,
+                enable=False,
+                limit_ip=limit_ip,
+                comment=comment,
+                sub_id=sub_id,
+            )
+            return "disabled"
+
+    async def delete_client(
+        self,
+        inbound_id: int,
+        client_uuid: str,
+        *,
+        email: str | None = None,
+        expiry: datetime | None = None,
+        limit_ip: int = 0,
+        comment: str | None = None,
+        sub_id: str | None = None,
+    ) -> str:
+        return await self.del_client(
+            inbound_id,
+            client_uuid,
+            email=email,
+            expiry=expiry,
+            limit_ip=limit_ip,
+            comment=comment,
+            sub_id=sub_id,
+        )
 
     @staticmethod
     def parse_reality(inbound_obj: dict[str, Any]) -> InboundRealityInfo:

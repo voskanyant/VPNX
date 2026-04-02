@@ -226,6 +226,354 @@ class DB:
         )
         return [dict(r) for r in rows]
 
+    async def get_active_vpn_nodes(self, lb_only: bool = False) -> list[dict[str, Any]]:
+        assert self.pool is not None
+        where = "WHERE is_active = TRUE"
+        if lb_only:
+            where += " AND lb_enabled = TRUE"
+        try:
+            rows = await self.pool.fetch(
+                f"""
+                SELECT *
+                FROM vpn_nodes
+                {where}
+                ORDER BY id
+                """
+            )
+        except (asyncpg.UndefinedTableError, asyncpg.UndefinedColumnError):
+            return []
+        return [dict(r) for r in rows]
+
+    async def get_vpn_node(self, node_id: int) -> dict[str, Any] | None:
+        assert self.pool is not None
+        try:
+            row = await self.pool.fetchrow(
+                """
+                SELECT *
+                FROM vpn_nodes
+                WHERE id = $1
+                LIMIT 1
+                """,
+                node_id,
+            )
+        except (asyncpg.UndefinedTableError, asyncpg.UndefinedColumnError):
+            return None
+        return dict(row) if row else None
+
+    async def mark_node_health(
+        self,
+        node_id: int,
+        ok: bool,
+        error: str | None = None,
+        reality_public_key: str | None = None,
+        reality_short_id: str | None = None,
+        reality_sni: str | None = None,
+        reality_fingerprint: str | None = None,
+    ) -> bool:
+        assert self.pool is not None
+        try:
+            row = await self.pool.fetchrow(
+                """
+                UPDATE vpn_nodes
+                SET last_health_at = NOW(),
+                    last_health_ok = $2,
+                    last_health_error = $3,
+                    last_reality_public_key = $4,
+                    last_reality_short_id = $5,
+                    last_reality_sni = $6,
+                    last_reality_fingerprint = $7,
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING id
+                """,
+                node_id,
+                bool(ok),
+                error,
+                reality_public_key,
+                reality_short_id,
+                reality_sni,
+                reality_fingerprint,
+            )
+        except asyncpg.UndefinedColumnError:
+            row = await self.pool.fetchrow(
+                """
+                UPDATE vpn_nodes
+                SET last_health_at = NOW(),
+                    last_health_ok = $2,
+                    last_health_error = $3
+                WHERE id = $1
+                RETURNING id
+                """,
+                node_id,
+                bool(ok),
+                error,
+            )
+        except asyncpg.UndefinedTableError:
+            return False
+        return row is not None
+
+    async def list_subscriptions_needing_sync(self, node_id: int, limit: int = 200) -> list[dict[str, Any]]:
+        assert self.pool is not None
+        safe_limit = max(1, int(limit))
+        try:
+            rows = await self.pool.fetch(
+                """
+                SELECT
+                    s.id AS subscription_id,
+                    s.user_id,
+                    s.inbound_id,
+                    s.client_uuid,
+                    s.client_email,
+                    s.xui_sub_id,
+                    s.expires_at,
+                    s.is_active,
+                    s.revoked_at,
+                    COALESCE(vnc.desired_enabled, (s.is_active = TRUE AND s.expires_at > NOW() AND s.revoked_at IS NULL)) AS desired_enabled,
+                    COALESCE(vnc.desired_expires_at, s.expires_at) AS desired_expires_at,
+                    vnc.observed_enabled,
+                    vnc.observed_expires_at,
+                    COALESCE(vnc.sync_state, 'pending') AS sync_state,
+                    vnc.last_synced_at,
+                    vnc.last_error
+                FROM subscriptions s
+                LEFT JOIN vpn_node_clients vnc
+                  ON vnc.subscription_id = s.id
+                 AND vnc.node_id = $1
+                WHERE
+                    vnc.id IS NULL
+                    OR vnc.sync_state <> 'ok'
+                    OR vnc.desired_enabled IS DISTINCT FROM (s.is_active = TRUE AND s.expires_at > NOW() AND s.revoked_at IS NULL)
+                    OR vnc.desired_expires_at IS DISTINCT FROM s.expires_at
+                ORDER BY COALESCE(vnc.last_synced_at, TO_TIMESTAMP(0)) ASC, s.id ASC
+                LIMIT $2
+                """,
+                node_id,
+                safe_limit,
+            )
+        except asyncpg.UndefinedColumnError:
+            try:
+                rows = await self.pool.fetch(
+                    """
+                    SELECT
+                        s.id AS subscription_id,
+                        s.user_id,
+                        s.inbound_id,
+                        s.client_uuid,
+                        s.client_email,
+                        s.expires_at,
+                        s.is_active,
+                        (s.is_active = TRUE AND s.expires_at > NOW()) AS desired_enabled,
+                        s.expires_at AS desired_expires_at,
+                        COALESCE(vnc.sync_state, 'pending') AS sync_state,
+                        vnc.last_synced_at,
+                        vnc.last_error
+                    FROM subscriptions s
+                    LEFT JOIN vpn_node_clients vnc
+                      ON vnc.subscription_id = s.id
+                     AND vnc.node_id = $1
+                    WHERE
+                        vnc.id IS NULL
+                        OR vnc.sync_state <> 'ok'
+                        OR vnc.desired_enabled IS DISTINCT FROM (s.is_active = TRUE AND s.expires_at > NOW())
+                        OR vnc.desired_expires_at IS DISTINCT FROM s.expires_at
+                    ORDER BY COALESCE(vnc.last_synced_at, TO_TIMESTAMP(0)) ASC, s.id ASC
+                    LIMIT $2
+                    """,
+                    node_id,
+                    safe_limit,
+                )
+            except (asyncpg.UndefinedTableError, asyncpg.UndefinedColumnError):
+                return []
+        except asyncpg.UndefinedTableError:
+            return []
+        return [dict(r) for r in rows]
+
+    async def upsert_vpn_node_client_state(
+        self,
+        node_id: int,
+        subscription_id: int,
+        client_uuid: str,
+        client_email: str,
+        desired_enabled: bool,
+        desired_expires_at: datetime,
+        observed_enabled: bool | None,
+        observed_expires_at: datetime | None,
+        sync_state: str,
+        last_error: str | None = None,
+        xui_sub_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        assert self.pool is not None
+        try:
+            row = await self.pool.fetchrow(
+                """
+                INSERT INTO vpn_node_clients (
+                    node_id,
+                    subscription_id,
+                    client_uuid,
+                    client_email,
+                    xui_sub_id,
+                    desired_enabled,
+                    desired_expires_at,
+                    observed_enabled,
+                    observed_expires_at,
+                    sync_state,
+                    last_synced_at,
+                    last_error,
+                    updated_at
+                )
+                VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, $9, $10, NOW(), $11, NOW())
+                ON CONFLICT (node_id, subscription_id)
+                DO UPDATE SET
+                    client_uuid = EXCLUDED.client_uuid,
+                    client_email = EXCLUDED.client_email,
+                    xui_sub_id = EXCLUDED.xui_sub_id,
+                    desired_enabled = EXCLUDED.desired_enabled,
+                    desired_expires_at = EXCLUDED.desired_expires_at,
+                    observed_enabled = EXCLUDED.observed_enabled,
+                    observed_expires_at = EXCLUDED.observed_expires_at,
+                    sync_state = EXCLUDED.sync_state,
+                    last_synced_at = NOW(),
+                    last_error = EXCLUDED.last_error,
+                    updated_at = NOW()
+                RETURNING *
+                """,
+                node_id,
+                subscription_id,
+                client_uuid,
+                client_email,
+                xui_sub_id,
+                bool(desired_enabled),
+                desired_expires_at,
+                observed_enabled,
+                observed_expires_at,
+                sync_state,
+                last_error,
+            )
+        except asyncpg.UndefinedColumnError:
+            try:
+                row = await self.pool.fetchrow(
+                    """
+                    INSERT INTO vpn_node_clients (
+                        node_id,
+                        subscription_id,
+                        client_uuid,
+                        client_email,
+                        desired_enabled,
+                        desired_expires_at,
+                        observed_enabled,
+                        observed_expires_at,
+                        sync_state,
+                        last_synced_at,
+                        last_error
+                    )
+                    VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, $9, NOW(), $10)
+                    ON CONFLICT (node_id, subscription_id)
+                    DO UPDATE SET
+                        client_uuid = EXCLUDED.client_uuid,
+                        client_email = EXCLUDED.client_email,
+                        desired_enabled = EXCLUDED.desired_enabled,
+                        desired_expires_at = EXCLUDED.desired_expires_at,
+                        observed_enabled = EXCLUDED.observed_enabled,
+                        observed_expires_at = EXCLUDED.observed_expires_at,
+                        sync_state = EXCLUDED.sync_state,
+                        last_synced_at = NOW(),
+                        last_error = EXCLUDED.last_error
+                    RETURNING *
+                    """,
+                    node_id,
+                    subscription_id,
+                    client_uuid,
+                    client_email,
+                    bool(desired_enabled),
+                    desired_expires_at,
+                    observed_enabled,
+                    observed_expires_at,
+                    sync_state,
+                    last_error,
+                )
+            except (asyncpg.UndefinedTableError, asyncpg.UndefinedColumnError):
+                return None
+        except asyncpg.UndefinedTableError:
+            return None
+        return dict(row) if row else None
+
+    async def mark_node_backfill_requested(self, node_id: int) -> bool:
+        assert self.pool is not None
+        try:
+            row = await self.pool.fetchrow(
+                """
+                UPDATE vpn_nodes
+                SET needs_backfill = TRUE,
+                    backfill_requested_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING id
+                """,
+                node_id,
+            )
+        except asyncpg.UndefinedColumnError:
+            row = await self.pool.fetchrow(
+                """
+                UPDATE vpn_nodes
+                SET needs_backfill = TRUE
+                WHERE id = $1
+                RETURNING id
+                """,
+                node_id,
+            )
+        except asyncpg.UndefinedTableError:
+            return False
+        return row is not None
+
+    async def mark_node_backfill_completed(self, node_id: int) -> bool:
+        assert self.pool is not None
+        try:
+            row = await self.pool.fetchrow(
+                """
+                UPDATE vpn_nodes
+                SET needs_backfill = FALSE,
+                    last_backfill_at = NOW(),
+                    last_backfill_error = NULL,
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING id
+                """,
+                node_id,
+            )
+        except asyncpg.UndefinedColumnError:
+            row = await self.pool.fetchrow(
+                """
+                UPDATE vpn_nodes
+                SET needs_backfill = FALSE
+                WHERE id = $1
+                RETURNING id
+                """,
+                node_id,
+            )
+        except asyncpg.UndefinedTableError:
+            return False
+        return row is not None
+
+    async def mark_node_backfill_error(self, node_id: int, error: str) -> bool:
+        assert self.pool is not None
+        try:
+            row = await self.pool.fetchrow(
+                """
+                UPDATE vpn_nodes
+                SET last_backfill_error = $2,
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING id
+                """,
+                node_id,
+                error,
+            )
+        except asyncpg.UndefinedColumnError:
+            return False
+        except asyncpg.UndefinedTableError:
+            return False
+        return row is not None
+
     async def get_latest_payment_method(self, user_id: int) -> str | None:
         assert self.pool is not None
         row = await self.pool.fetchrow(

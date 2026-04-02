@@ -116,3 +116,67 @@ class BotOrder(models.Model):
     class Meta:
         managed = False
         db_table = "orders"
+
+
+class VPNNode(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    name = models.TextField(unique=True)
+    region = models.TextField(null=True, blank=True)
+    xui_base_url = models.TextField()
+    xui_username = models.TextField()
+    xui_password = models.TextField()
+    xui_inbound_id = models.IntegerField()
+    backend_host = models.TextField()
+    backend_port = models.IntegerField()
+    backend_weight = models.IntegerField()
+    is_active = models.BooleanField()
+    lb_enabled = models.BooleanField()
+    needs_backfill = models.BooleanField()
+    backfill_requested_at = models.DateTimeField(null=True, blank=True)
+    last_backfill_at = models.DateTimeField(null=True, blank=True)
+    last_backfill_error = models.TextField(null=True, blank=True)
+    last_health_at = models.DateTimeField(null=True, blank=True)
+    last_health_ok = models.BooleanField(null=True, blank=True)
+    last_health_error = models.TextField(null=True, blank=True)
+    last_reality_public_key = models.TextField(null=True, blank=True)
+    last_reality_short_id = models.TextField(null=True, blank=True)
+    last_reality_sni = models.TextField(null=True, blank=True)
+    last_reality_fingerprint = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "vpn_nodes"
+        verbose_name = "VPN Node"
+        verbose_name_plural = "VPN Nodes"
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.backend_host}:{self.backend_port})"
+
+
+class VPNNodeClient(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    node = models.ForeignKey(VPNNode, db_column="node_id", on_delete=models.DO_NOTHING)
+    subscription = models.ForeignKey(BotSubscription, db_column="subscription_id", on_delete=models.DO_NOTHING)
+    client_uuid = models.UUIDField()
+    client_email = models.TextField()
+    xui_sub_id = models.TextField(null=True, blank=True)
+    desired_enabled = models.BooleanField()
+    desired_expires_at = models.DateTimeField()
+    observed_enabled = models.BooleanField(null=True, blank=True)
+    observed_expires_at = models.DateTimeField(null=True, blank=True)
+    sync_state = models.TextField()
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "vpn_node_clients"
+        verbose_name = "VPN Node Client"
+        verbose_name_plural = "VPN Node Clients"
+
+    def __str__(self) -> str:
+        return f"node={self.node_id} sub={self.subscription_id} state={self.sync_state}"

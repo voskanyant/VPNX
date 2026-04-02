@@ -904,24 +904,34 @@ class VPNBot:
 
     async def _resolve_subscription_links(self, user_id: int, sub: dict[str, object]) -> tuple[str, str | None]:
         vless_url = str(sub["vless_url"])
-        client_uuid = str(sub["client_uuid"])
-        inbound_id = int(sub["inbound_id"])
-        sub_id: str | None = None
-        try:
-            sub_id = await self.xui.get_client_sub_id(inbound_id, client_uuid)
-        except Exception:
-            LOGGER.exception(
-                "Failed to fetch client sub id from x-ui user_id=%s inbound_id=%s client_uuid=%s",
-                user_id,
-                inbound_id,
-                client_uuid,
-            )
+        cluster_mode = bool(getattr(self.settings, "vpn_cluster_enabled", False))
+        sub_id: str | None = str(sub.get("xui_sub_id") or "").strip() or None
+
+        if not cluster_mode:
+            client_uuid = str(sub["client_uuid"])
+            inbound_id = int(sub["inbound_id"])
+            try:
+                sub_id = await self.xui.get_client_sub_id(inbound_id, client_uuid)
+            except Exception:
+                LOGGER.exception(
+                    "Failed to fetch client sub id from x-ui user_id=%s inbound_id=%s client_uuid=%s",
+                    user_id,
+                    inbound_id,
+                    client_uuid,
+                )
 
         expires_at = sub.get("expires_at")
         is_active = bool(sub.get("is_active"))
         is_revoked = sub.get("revoked_at") is not None
         now = datetime.now(timezone.utc)
-        if not sub_id and is_active and not is_revoked and isinstance(expires_at, datetime) and expires_at > now:
+        if (
+            not cluster_mode
+            and not sub_id
+            and is_active
+            and not is_revoked
+            and isinstance(expires_at, datetime)
+            and expires_at > now
+        ):
             try:
                 restored = await self._restore_xui_profile_for_subscription(user_id, sub)
                 if restored is not None:

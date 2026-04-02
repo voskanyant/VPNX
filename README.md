@@ -40,6 +40,118 @@ cp .env.example .env
 Fill `.env` values.
 Set `PLAN_PRICE_STARS` (for example `250`).
 Set `MAX_DEVICES_PER_SUB=1` to block shared access from multiple devices on one subscription.
+Cluster mode env (optional, defaults keep single-node behavior):
+
+- `VPN_CLUSTER_ENABLED=0`
+- `VPN_CLUSTER_HEALTHCHECK_INTERVAL_SECONDS=30`
+- `VPN_CLUSTER_SYNC_INTERVAL_SECONDS=60`
+- `VPN_CLUSTER_SYNC_BATCH_SIZE=200`
+
+Set `VPN_CLUSTER_ENABLED=1` only when cluster tables and node inventory are configured.
+
+### HAProxy Config Rendering (Cluster Mode)
+
+For cluster mode with HAProxy TCP balancing, generate `haproxy.cfg` from `vpn_nodes`:
+
+```bash
+python scripts/ops/render_haproxy_cfg.py --env-file .env
+```
+
+The script:
+
+- selects nodes from `vpn_nodes` where `lb_enabled=true`, `is_active=true`, `last_health_ok=true`
+- renders config from `ops/haproxy/haproxy.cfg.tpl`
+- writes to `HAPROXY_OUTPUT_PATH`
+- validates with `haproxy -c -f <output>`
+- executes `HAPROXY_RELOAD_CMD` (if set)
+
+Relevant env vars:
+
+- `HAPROXY_TEMPLATE_PATH` (default: `ops/haproxy/haproxy.cfg.tpl`)
+- `HAPROXY_OUTPUT_PATH` (default: `/etc/haproxy/haproxy.cfg`)
+- `HAPROXY_FRONTEND_BIND_ADDR` (default: `0.0.0.0`)
+- `HAPROXY_FRONTEND_PORT` (default: `VPN_PUBLIC_PORT`)
+- `HAPROXY_RELOAD_CMD` (example: `sudo systemctl reload haproxy`)
+- `HAPROXY_BIN` (default: `haproxy`)
+
+Dry-run example:
+
+```bash
+python scripts/ops/render_haproxy_cfg.py --env-file .env --dry-run
+```
+
+### Backend Node Onboarding Checklist
+
+When you buy/add a second server, use this flow:
+
+1. Provision node and secure panel API
+- Install and harden 3x-ui/Xray on the backend node.
+- Allow panel API access from main server IP only (firewall).
+- Ensure API endpoints are reachable (`/login`, `/panel/api/inbounds/get/{id}`).
+
+2. Match REALITY baseline across nodes
+- Keep REALITY-compatible key material aligned for your cluster model.
+- Ensure accepted `shortIds` include IDs used by generated configs.
+- Keep inbound behavior consistent (VLESS + REALITY TCP), with backend listening on the routed port.
+
+3. Add node in Django Admin (`VPN Nodes`)
+- Fill: `name`, `region`, `xui_base_url`, credentials, `xui_inbound_id`, `backend_host`, `backend_port`, `backend_weight`.
+- Set `is_active=true`, keep `lb_enabled=false` initially.
+
+4. Verify health telemetry
+- Wait for cluster health loop updates:
+  - `last_health_ok`
+  - `last_health_at`
+  - `last_reality_*`
+- Check mismatch indicator before enabling LB.
+
+5. Request backfill
+- Run admin action `Request backfill`.
+- Wait until `vpn_node_clients.sync_state` converges to `ok`.
+- Confirm node `needs_backfill` clears and `last_backfill_at` is set.
+
+6. Enable in LB and reload HAProxy
+- Run admin action `Enable LB`.
+- Render/apply config:
+
+```bash
+python scripts/ops/render_haproxy_cfg.py --env-file .env
+```
+
+7. Safe rollback
+- Disable node in LB (`Disable LB`) and render HAProxy again.
+- Optionally mark node inactive for maintenance.
+
+### Single-Node Compatibility
+
+- Default mode remains single-node: `VPN_CLUSTER_ENABLED=0`.
+- Cluster mode is opt-in: `VPN_CLUSTER_ENABLED=1`.
+- In cluster mode, bot link resolution uses `subscriptions.xui_sub_id` from DB to avoid dependence on one backend panel.
+- You can bootstrap gradually by adding your current node into `vpn_nodes` first, then enabling cluster mode later.
+
+### Cluster Testing Coverage
+
+Current unit tests include:
+
+- domain cluster activation path (`activate_subscription`)
+- provisioner node fan-out and per-node sync state updates
+- HAProxy config renderer output (`mode tcp`, `leastconn`, server lines)
+- compatibility paths for existing single-node behavior
+
+Run tests:
+
+```bash
+python -m unittest
+```
+
+### Production note about 3x-ui
+
+3x-ui is commonly used in personal/self-hosted setups. For production services, apply extra hardening:
+
+- strict network ACLs
+- credential rotation
+- monitoring + alerting
+- backups and tested rollback procedure
 For production with a domain, set:
 
 - `DJANGO_SECRET_KEY`

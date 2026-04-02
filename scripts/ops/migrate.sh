@@ -36,6 +36,9 @@ MIGRATIONS=(
   "sql/migrations/20260328_create_web_login_tokens.sql"
   "sql/migrations/20260328_add_orders_notified_at.sql"
   "sql/migrations/20260328_add_orders_payment_idempotency_guards.sql"
+  "sql/migrations/20260402_create_vpn_cluster_tables.sql"
+  "sql/migrations/20260402_add_vpn_nodes_backfill_requested_at.sql"
+  "sql/migrations/20260402_extend_vpn_nodes_ops_fields.sql"
 )
 
 set_env_var() {
