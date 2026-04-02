@@ -337,9 +337,16 @@
         const groupBlock = document.createElement("section");
         groupBlock.className = "be-library-group";
 
-        const title = document.createElement("h4");
-        title.textContent = group;
-        groupBlock.appendChild(title);
+        const storageKey = `be.group.${group}`;
+        const stored = window.localStorage.getItem(storageKey);
+        const defaultOpen = group === "Text" || group === "Design";
+        const isOpen = stored === null ? defaultOpen : stored === "1";
+        if (!isOpen) groupBlock.classList.add("is-collapsed");
+
+        const title = document.createElement("button");
+        title.type = "button";
+        title.className = "be-library-toggle";
+        title.innerHTML = `<span>${group}</span><i>${isOpen ? "−" : "+"}</i>`;
 
         const grid = document.createElement("div");
         grid.className = "be-library-grid";
@@ -353,6 +360,14 @@
           grid.appendChild(item);
         });
 
+        title.addEventListener("click", () => {
+          groupBlock.classList.toggle("is-collapsed");
+          const open = !groupBlock.classList.contains("is-collapsed");
+          title.querySelector("i").textContent = open ? "−" : "+";
+          window.localStorage.setItem(storageKey, open ? "1" : "0");
+        });
+
+        groupBlock.appendChild(title);
         groupBlock.appendChild(grid);
         list.appendChild(groupBlock);
       });

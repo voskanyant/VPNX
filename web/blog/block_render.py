@@ -54,6 +54,7 @@ def _render_cards_slider(block: dict[str, Any]) -> str:
             parts.append(f"<p>{subtitle}</p>")
         parts.append("</div>")
 
+    parts.append('<div class="block-cards-viewport">')
     parts.append('<div class="block-cards-track" role="list">')
     for item in items:
         item_title = _safe_text(item["title"])
@@ -66,7 +67,7 @@ def _render_cards_slider(block: dict[str, Any]) -> str:
         if item_text:
             parts.append(f"<p>{item_text}</p>")
         parts.append("</article>")
-    parts.append("</div></section>")
+    parts.append("</div></div></section>")
     return "".join(parts)
 
 

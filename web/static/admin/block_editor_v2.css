@@ -89,12 +89,36 @@
   overflow: auto;
 }
 
-.be-library-group h4 {
+.be-library-group {
+  margin-bottom: 10px;
+}
+
+.be-library-toggle {
+  width: 100%;
   margin: 10px 0 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
   font-size: 11px;
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.be-library-toggle i {
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1;
+  color: #4b5563;
+}
+
+.be-library-group.is-collapsed .be-library-grid {
+  display: none;
 }
 
 .be-library-grid {
