@@ -21,8 +21,8 @@ class RichTextAdminForm(forms.ModelForm):
         }
 
     class Media:
-        css = {"all": ("admin/block_editor.css",)}
-        js = ("admin/block_editor.js",)
+        css = {"all": ("admin/block_editor_v2.css",)}
+        js = ("admin/block_editor_v2.js",)
 
 
 class PostAdminForm(RichTextAdminForm):
@@ -117,3 +117,4 @@ class SiteTextAdmin(admin.ModelAdmin):
     list_display = ("key", "updated_at")
     search_fields = ("key", "value")
     ordering = ("key",)
+
