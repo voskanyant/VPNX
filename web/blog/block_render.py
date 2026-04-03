@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from html import escape
 from typing import Any
+from uuid import uuid4
 
 from django.utils.safestring import mark_safe
 
@@ -29,6 +30,401 @@ def _render_buttons(items: list[dict[str, Any]]) -> str:
         css = "btn btn-primary" if style != "secondary" else "btn btn-secondary"
         parts.append(f'<a class="{css}" href="{href}">{label}</a>')
     parts.append("</div>")
+    return "".join(parts)
+
+
+def _safe_variant(value: Any, *, default: str = "primary") -> str:
+    allowed = {"primary", "secondary", "success", "danger", "warning", "info", "light", "dark", "link"}
+    variant = str(value or "").strip().lower()
+    return variant if variant in allowed else default
+
+
+def _render_bs_alert(block: dict[str, Any]) -> str:
+    variant = _safe_variant(block.get("variant"), default="info")
+    title = _safe_text(block.get("title"))
+    text = _safe_text(block.get("text"))
+    if not title and not text:
+        return ""
+    parts = [f'<div class="alert alert-{variant}" role="alert">']
+    if title:
+        parts.append(f'<h5 class="alert-heading mb-2">{title}</h5>')
+    if text:
+        parts.append(f"<p class='mb-0'>{text}</p>")
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _render_bs_badge(block: dict[str, Any]) -> str:
+    text = _safe_text(block.get("text"))
+    if not text:
+        return ""
+    variant = _safe_variant(block.get("variant"), default="primary")
+    pill = " rounded-pill" if bool(block.get("pill", True)) else ""
+    return f'<span class="badge text-bg-{variant}{pill}">{text}</span>'
+
+
+def _render_bs_card(block: dict[str, Any]) -> str:
+    title = _safe_text(block.get("title"))
+    text = _safe_text(block.get("text"))
+    image = _safe_url(block.get("image"))
+    button_label = _safe_text(block.get("button_label"))
+    button_url = _safe_url(block.get("button_url"))
+    button_variant = _safe_variant(block.get("button_style"), default="primary")
+    if not title and not text and (not image or image == "#"):
+        return ""
+    parts = ['<article class="card shadow-sm border-0">']
+    if image and image != "#":
+        parts.append(f'<img src="{image}" class="card-img-top" alt="{title or "Card image"}" loading="lazy" />')
+    parts.append('<div class="card-body">')
+    if title:
+        parts.append(f'<h5 class="card-title">{title}</h5>')
+    if text:
+        parts.append(f'<p class="card-text">{text}</p>')
+    if button_label and button_url and button_url != "#":
+        parts.append(f'<a href="{button_url}" class="btn btn-{button_variant}">{button_label}</a>')
+    parts.append("</div></article>")
+    return "".join(parts)
+
+
+def _render_bs_accordion(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if not isinstance(items, list) or not items:
+        return ""
+    acc_id = f"acc-{uuid4().hex[:8]}"
+    flush = " accordion-flush" if bool(block.get("flush")) else ""
+    parts = [f'<div class="accordion{flush}" id="{acc_id}">']
+    for idx, row in enumerate(items):
+        if not isinstance(row, dict):
+            continue
+        title = _safe_text(row.get("title"))
+        text = _safe_text(row.get("text"))
+        if not title and not text:
+            continue
+        item_id = f"{acc_id}-{idx}"
+        is_open = idx == 0
+        btn_cls = "accordion-button" + ("" if is_open else " collapsed")
+        collapse_cls = "accordion-collapse collapse" + (" show" if is_open else "")
+        parts.append('<div class="accordion-item">')
+        parts.append(
+            f'<h2 class="accordion-header" id="head-{item_id}">'
+            f'<button class="{btn_cls}" type="button" data-bs-toggle="collapse" '
+            f'data-bs-target="#{item_id}" aria-expanded="{str(is_open).lower()}" '
+            f'aria-controls="{item_id}">{title or f"Item {idx + 1}"}</button></h2>'
+        )
+        parts.append(
+            f'<div id="{item_id}" class="{collapse_cls}" aria-labelledby="head-{item_id}" '
+            f'data-bs-parent="#{acc_id}"><div class="accordion-body">{text}</div></div>'
+        )
+        parts.append("</div>")
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _render_bs_tabs(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if not isinstance(items, list) or not items:
+        return ""
+    tabs_id = f"tabs-{uuid4().hex[:8]}"
+    style = str(block.get("style") or "tabs").strip().lower()
+    nav_cls = "nav nav-pills mb-3" if style == "pills" else "nav nav-tabs mb-3"
+    parts = [f'<div class="block-bs-tabs" id="{tabs_id}">', f'<ul class="{nav_cls}" role="tablist">']
+    panes: list[str] = []
+    for idx, row in enumerate(items):
+        if not isinstance(row, dict):
+            continue
+        title = _safe_text(row.get("title"))
+        text = _safe_text(row.get("text"))
+        tab_id = f"{tabs_id}-tab-{idx}"
+        pane_id = f"{tabs_id}-pane-{idx}"
+        is_active = idx == 0
+        btn_cls = "nav-link" + (" active" if is_active else "")
+        pane_cls = "tab-pane fade" + (" show active" if is_active else "")
+        parts.append(
+            f'<li class="nav-item" role="presentation"><button class="{btn_cls}" id="{tab_id}" '
+            f'data-bs-toggle="tab" data-bs-target="#{pane_id}" type="button" role="tab" '
+            f'aria-controls="{pane_id}" aria-selected="{str(is_active).lower()}">{title or f"Tab {idx + 1}"}</button></li>'
+        )
+        panes.append(f'<div class="{pane_cls}" id="{pane_id}" role="tabpanel" aria-labelledby="{tab_id}"><p class="mb-0">{text}</p></div>')
+    parts.append("</ul>")
+    parts.append(f'<div class="tab-content border border-top-0 rounded-bottom p-3">{"".join(panes)}</div></div>')
+    return "".join(parts)
+
+
+def _render_bs_table(block: dict[str, Any]) -> str:
+    headers = block.get("headers")
+    rows = block.get("rows")
+    if not isinstance(headers, list):
+        headers = []
+    if not isinstance(rows, list):
+        rows = []
+    if not headers and not rows:
+        return ""
+    table_classes = ["table", "mb-0"]
+    if bool(block.get("striped", True)):
+        table_classes.append("table-striped")
+    if bool(block.get("hover", True)):
+        table_classes.append("table-hover")
+    if bool(block.get("bordered")):
+        table_classes.append("table-bordered")
+    parts = ['<div class="table-responsive"><table class="{}">'.format(" ".join(table_classes))]
+    if headers:
+        parts.append("<thead><tr>")
+        for cell in headers:
+            parts.append(f"<th>{_safe_text(cell)}</th>")
+        parts.append("</tr></thead>")
+    if rows:
+        parts.append("<tbody>")
+        for row in rows:
+            if not isinstance(row, list):
+                continue
+            parts.append("<tr>")
+            for cell in row:
+                parts.append(f"<td>{_safe_text(cell)}</td>")
+            parts.append("</tr>")
+        parts.append("</tbody>")
+    parts.append("</table></div>")
+    return "".join(parts)
+
+
+def _render_bs_divider(block: dict[str, Any]) -> str:
+    spacing = int(block.get("spacing") or 24)
+    spacing = 0 if spacing < 0 else min(spacing, 160)
+    label = _safe_text(block.get("label"))
+    if label:
+        return (
+            f'<div class="my-3 block-divider-wrap" style="margin-top:{spacing}px;margin-bottom:{spacing}px;">'
+            f'<div class="d-flex align-items-center gap-3"><hr class="flex-grow-1 my-0" />'
+            f'<small class="text-muted text-nowrap">{label}</small><hr class="flex-grow-1 my-0" /></div></div>'
+        )
+    return f'<hr style="margin-top:{spacing}px;margin-bottom:{spacing}px;" />'
+
+
+def _render_bs_list_group(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if isinstance(items, str):
+        items = [line.strip() for line in items.splitlines() if line.strip()]
+    if not isinstance(items, list) or not items:
+        return ""
+    numbered = bool(block.get("numbered"))
+    flush = bool(block.get("flush"))
+    classes = ["list-group"]
+    if numbered:
+        classes.append("list-group-numbered")
+    if flush:
+        classes.append("list-group-flush")
+    parts = [f'<ul class="{" ".join(classes)}">']
+    for item in items:
+        parts.append(f'<li class="list-group-item">{_safe_text(item)}</li>')
+    parts.append("</ul>")
+    return "".join(parts)
+
+
+def _render_bs_progress(block: dict[str, Any]) -> str:
+    value = int(block.get("value") or 0)
+    value = 0 if value < 0 else 100 if value > 100 else value
+    label = _safe_text(block.get("label")) or f"{value}%"
+    variant = _safe_variant(block.get("variant"), default="primary")
+    striped = bool(block.get("striped"))
+    animated = bool(block.get("animated"))
+    classes = [f"bg-{variant}"]
+    if striped:
+        classes.append("progress-bar-striped")
+    if animated:
+        classes.append("progress-bar-animated")
+    return (
+        '<div class="progress" role="progressbar" aria-label="Progress" '
+        f'aria-valuenow="{value}" aria-valuemin="0" aria-valuemax="100">'
+        f'<div class="progress-bar {" ".join(classes)}" style="width:{value}%">{label}</div></div>'
+    )
+
+
+def _render_bs_breadcrumb(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if not isinstance(items, list) or not items:
+        return ""
+    parts = ['<nav aria-label="breadcrumb"><ol class="breadcrumb mb-0">']
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        label = _safe_text(item.get("label"))
+        if not label:
+            continue
+        href = _safe_url(item.get("url"))
+        is_active = bool(item.get("active")) or idx == len(items) - 1
+        if is_active:
+            parts.append(f'<li class="breadcrumb-item active" aria-current="page">{label}</li>')
+        elif href and href != "#":
+            parts.append(f'<li class="breadcrumb-item"><a href="{href}">{label}</a></li>')
+        else:
+            parts.append(f'<li class="breadcrumb-item">{label}</li>')
+    parts.append("</ol></nav>")
+    return "".join(parts)
+
+
+def _render_bs_pagination(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if not isinstance(items, list) or not items:
+        return ""
+
+    size = str(block.get("size") or "").strip().lower()
+    size_class = " pagination-sm" if size == "sm" else " pagination-lg" if size == "lg" else ""
+    align = str(block.get("align") or "start").strip().lower()
+    align_class = " justify-content-center" if align == "center" else " justify-content-end" if align == "end" else ""
+
+    parts = [f'<nav aria-label="Pagination"><ul class="pagination{size_class}{align_class}">']
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        label = _safe_text(item.get("label"))
+        if not label:
+            continue
+        href = _safe_url(item.get("url"))
+        is_active = bool(item.get("active"))
+        is_disabled = bool(item.get("disabled"))
+        li_classes = []
+        if is_active:
+            li_classes.append("active")
+        if is_disabled:
+            li_classes.append("disabled")
+        li_cls = f' class="page-item {" ".join(li_classes)}"' if li_classes else ' class="page-item"'
+        if is_active or is_disabled or not href or href == "#":
+            parts.append(f"<li{li_cls}><span class=\"page-link\">{label}</span></li>")
+        else:
+            parts.append(f"<li{li_cls}><a class=\"page-link\" href=\"{href}\">{label}</a></li>")
+    parts.append("</ul></nav>")
+    return "".join(parts)
+
+
+def _render_bs_collapse(block: dict[str, Any]) -> str:
+    button_text = _safe_text(block.get("button_text")) or "Toggle content"
+    text = _safe_text(block.get("text"))
+    if not text:
+        return ""
+    collapse_id = f"collapse-{uuid4().hex[:8]}"
+    variant = _safe_variant(block.get("variant"), default="primary")
+    is_open = bool(block.get("open"))
+    btn_cls = f"btn btn-{variant}"
+    aria_expanded = "true" if is_open else "false"
+    collapse_cls = "collapse show" if is_open else "collapse"
+    return (
+        f'<p><button class="{btn_cls}" type="button" data-bs-toggle="collapse" '
+        f'data-bs-target="#{collapse_id}" aria-expanded="{aria_expanded}" aria-controls="{collapse_id}">{button_text}</button></p>'
+        f'<div class="{collapse_cls}" id="{collapse_id}"><div class="card card-body">{text}</div></div>'
+    )
+
+
+def _render_bs_spinner(block: dict[str, Any]) -> str:
+    variant = _safe_variant(block.get("variant"), default="primary")
+    spinner_type = str(block.get("spinner_type") or "border").strip().lower()
+    spinner_cls = "spinner-grow" if spinner_type == "grow" else "spinner-border"
+    size = str(block.get("size") or "").strip().lower()
+    size_cls = " spinner-border-sm" if size == "sm" and spinner_cls == "spinner-border" else ""
+    if size == "sm" and spinner_cls == "spinner-grow":
+        size_cls = " spinner-grow-sm"
+    label = _safe_text(block.get("label")) or "Loading..."
+    return (
+        '<div class="d-inline-flex align-items-center gap-2">'
+        f'<div class="{spinner_cls} text-{variant}{size_cls}" role="status" aria-hidden="true"></div>'
+        f'<span>{label}</span>'
+        "</div>"
+    )
+
+
+def _render_bs_carousel(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if not isinstance(items, list):
+        return ""
+    normalized: list[dict[str, str]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        src = _safe_url(item.get("image"))
+        if not src or src == "#":
+            continue
+        normalized.append(
+            {
+                "image": src,
+                "title": _safe_text(item.get("title")),
+                "caption": _safe_text(item.get("caption")),
+                "alt": _safe_text(item.get("alt")) or "Slide image",
+            }
+        )
+    if not normalized:
+        return ""
+
+    carousel_id = f"carousel-{uuid4().hex[:8]}"
+    show_controls = bool(block.get("controls", True))
+    show_indicators = bool(block.get("indicators", True))
+    fade = bool(block.get("fade"))
+    ride = bool(block.get("auto", False))
+    carousel_cls = "carousel slide" + (" carousel-fade" if fade else "")
+    ride_attr = ' data-bs-ride="carousel"' if ride else ""
+
+    parts = [f'<div id="{carousel_id}" class="{carousel_cls}"{ride_attr}>']
+    if show_indicators:
+        parts.append('<div class="carousel-indicators">')
+        for idx, _ in enumerate(normalized):
+            active = ' class="active"' if idx == 0 else ""
+            current = ' aria-current="true"' if idx == 0 else ""
+            parts.append(
+                f'<button type="button" data-bs-target="#{carousel_id}" data-bs-slide-to="{idx}"'
+                f'{active}{current} aria-label="Slide {idx + 1}"></button>'
+            )
+        parts.append("</div>")
+    parts.append('<div class="carousel-inner rounded-3 overflow-hidden">')
+    for idx, item in enumerate(normalized):
+        active = " active" if idx == 0 else ""
+        parts.append(f'<div class="carousel-item{active}">')
+        parts.append(f'<img src="{item["image"]}" class="d-block w-100" alt="{item["alt"]}" loading="lazy" />')
+        if item["title"] or item["caption"]:
+            parts.append('<div class="carousel-caption d-none d-md-block">')
+            if item["title"]:
+                parts.append(f'<h5>{item["title"]}</h5>')
+            if item["caption"]:
+                parts.append(f'<p>{item["caption"]}</p>')
+            parts.append("</div>")
+        parts.append("</div>")
+    parts.append("</div>")
+    if show_controls:
+        parts.append(
+            f'<button class="carousel-control-prev" type="button" data-bs-target="#{carousel_id}" data-bs-slide="prev">'
+            '<span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Previous</span></button>'
+        )
+        parts.append(
+            f'<button class="carousel-control-next" type="button" data-bs-target="#{carousel_id}" data-bs-slide="next">'
+            '<span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Next</span></button>'
+        )
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _render_bs_nav(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if not isinstance(items, list) or not items:
+        return ""
+    style = str(block.get("style") or "tabs").strip().lower()
+    base_cls = "nav nav-tabs" if style == "tabs" else "nav nav-pills"
+    if bool(block.get("fill")):
+        base_cls += " nav-fill"
+    if bool(block.get("justified")):
+        base_cls += " nav-justified"
+    if bool(block.get("vertical")):
+        base_cls += " flex-column"
+
+    parts = [f'<ul class="{base_cls}">']
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        label = _safe_text(item.get("label"))
+        href = _safe_url(item.get("url"))
+        if not label:
+            continue
+        is_active = bool(item.get("active")) or idx == 0
+        link_cls = "nav-link" + (" active" if is_active else "")
+        parts.append(
+            f'<li class="nav-item"><a class="{link_cls}" href="{href if href and href != "#" else "#"}">{label}</a></li>'
+        )
+    parts.append("</ul>")
     return "".join(parts)
 
 
@@ -211,6 +607,66 @@ def render_content_blocks(blocks: Any, legacy_html: str = ""):
             a = _safe_text(block.get("answer"))
             if q:
                 output.append(f'<details class="block-faq"><summary>{q}</summary><p>{a}</p></details>')
+        elif block_type == "bs_alert":
+            rendered = _render_bs_alert(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_badge":
+            rendered = _render_bs_badge(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_card":
+            rendered = _render_bs_card(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_accordion":
+            rendered = _render_bs_accordion(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_tabs":
+            rendered = _render_bs_tabs(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_table":
+            rendered = _render_bs_table(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_divider":
+            rendered = _render_bs_divider(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_list_group":
+            rendered = _render_bs_list_group(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_progress":
+            rendered = _render_bs_progress(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_breadcrumb":
+            rendered = _render_bs_breadcrumb(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_pagination":
+            rendered = _render_bs_pagination(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_collapse":
+            rendered = _render_bs_collapse(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_spinner":
+            rendered = _render_bs_spinner(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_carousel":
+            rendered = _render_bs_carousel(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_nav":
+            rendered = _render_bs_nav(block)
+            if rendered:
+                output.append(rendered)
         elif block_type == "columns":
             left_html = ""
             right_html = ""
@@ -262,12 +718,27 @@ def render_content_blocks(blocks: Any, legacy_html: str = ""):
                             if legacy_col_text:
                                 col_html = f"<p>{legacy_col_text}</p>"
                         if col_html:
-                            rendered_columns.append(f'<div class="block-row-column">{col_html}</div>')
+                            width = int(col.get("width") or 6)
+                            width = 1 if width < 1 else 12 if width > 12 else width
+                            rendered_columns.append(
+                                f'<div class="block-row-column col-12 col-md-{width}">{col_html}</div>'
+                            )
 
                     if rendered_columns:
-                        cols_count = len(rendered_columns)
+                        gutter = int(row.get("gutter") or 3)
+                        gutter = 0 if gutter < 0 else 5 if gutter > 5 else gutter
+                        align = str(row.get("align") or "start").strip().lower()
+                        align_class = (
+                            "align-items-center"
+                            if align == "center"
+                            else "align-items-end"
+                            if align == "end"
+                            else "align-items-stretch"
+                            if align == "stretch"
+                            else "align-items-start"
+                        )
                         rendered_rows.append(
-                            f'<div class="block-row-layout" style="--row-cols: {cols_count};">'
+                            f'<div class="block-row-layout row gx-{gutter} gy-{gutter} {align_class}">'
                             f'{"".join(rendered_columns)}'
                             "</div>"
                         )
