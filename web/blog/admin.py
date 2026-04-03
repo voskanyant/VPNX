@@ -4,6 +4,9 @@ from django.contrib import admin
 from .models import Category, Page, Post, PostType, SiteText
 
 
+BLOCK_EDITOR_ASSET_VERSION = "20260403-rows-v2"
+
+
 class RichTextAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -21,8 +24,8 @@ class RichTextAdminForm(forms.ModelForm):
         }
 
     class Media:
-        css = {"all": ("admin/block_editor_v2.css",)}
-        js = ("admin/block_editor_v2.js",)
+        css = {"all": (f"admin/block_editor_v2.css?v={BLOCK_EDITOR_ASSET_VERSION}",)}
+        js = (f"admin/block_editor_v2.js?v={BLOCK_EDITOR_ASSET_VERSION}",)
 
 
 class PostAdminForm(RichTextAdminForm):
