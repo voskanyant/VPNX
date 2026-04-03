@@ -1,5 +1,9 @@
 (function () {
-  const SOURCE_SELECTOR = "textarea.js-block-editor-source";
+  const SOURCE_SELECTORS = [
+    "textarea.js-block-editor-source",
+    "textarea#id_content_blocks",
+    "textarea[name='content_blocks']",
+  ];
 
   const BLOCK_TYPES = [
     { value: "paragraph", label: "Paragraph", icon: "P", group: "Text" },
@@ -317,6 +321,8 @@
   }
 
   function mountEditor(source) {
+    if (!source || source.dataset.beMounted === "1") return;
+    source.dataset.beMounted = "1";
     source.style.display = "none";
     const formRow = source.closest(".form-row");
     if (formRow) formRow.classList.add("be-source-hidden");
@@ -1395,8 +1401,13 @@
   }
 
   function init() {
-    document.querySelectorAll(SOURCE_SELECTOR).forEach((source) => {
-      mountEditor(source);
+    const seen = new Set();
+    SOURCE_SELECTORS.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((source) => {
+        if (seen.has(source)) return;
+        seen.add(source);
+        mountEditor(source);
+      });
     });
   }
 
