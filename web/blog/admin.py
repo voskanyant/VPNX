@@ -21,7 +21,7 @@ class RichTextAdminForm(forms.ModelForm):
         }
 
     class Media:
-        css = {"all": ("admin/block_editor_v2.css",)}
+        css = {"all": ("admin/block_editor_v3.css",)}
         js = ("admin/block_editor_v2.js",)
 
 
