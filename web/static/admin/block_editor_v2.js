@@ -38,6 +38,24 @@
     "html",
   ];
 
+  function safeStorageGet(key) {
+    try {
+      if (!window.localStorage) return null;
+      return window.localStorage.getItem(key);
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function safeStorageSet(key, value) {
+    try {
+      if (!window.localStorage) return;
+      window.localStorage.setItem(key, value);
+    } catch (_error) {
+      // ignore storage errors (privacy mode / blocked storage)
+    }
+  }
+
   function parseJSON(raw) {
     if (!raw || !raw.trim()) return [];
     try {
@@ -455,7 +473,7 @@
         groupBlock.className = "be-library-group";
 
         const storageKey = `be.group.${group}`;
-        const stored = window.localStorage.getItem(storageKey);
+        const stored = safeStorageGet(storageKey);
         const defaultOpen = group === "Text" || group === "Design";
         const isOpen = stored === null ? defaultOpen : stored === "1";
         if (!isOpen) groupBlock.classList.add("is-collapsed");
@@ -481,7 +499,7 @@
           groupBlock.classList.toggle("is-collapsed");
           const open = !groupBlock.classList.contains("is-collapsed");
           title.querySelector("i").textContent = open ? "-" : "+";
-          window.localStorage.setItem(storageKey, open ? "1" : "0");
+          safeStorageSet(storageKey, open ? "1" : "0");
         });
 
         groupBlock.appendChild(title);
@@ -1411,9 +1429,31 @@
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
+  function initWithRetries() {
     init();
+    // Some admin themes rebuild form rows after load; remount editor a few times.
+    let attempts = 0;
+    const maxAttempts = 12;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      init();
+      if (attempts >= maxAttempts) {
+        window.clearInterval(timer);
+      }
+    }, 500);
+
+    if (typeof MutationObserver !== "undefined") {
+      const observer = new MutationObserver(() => {
+        init();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      window.setTimeout(() => observer.disconnect(), 15000);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initWithRetries);
+  } else {
+    initWithRetries();
   }
 })();
