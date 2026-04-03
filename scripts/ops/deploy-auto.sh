@@ -96,15 +96,39 @@ ensure_web_port_available() {
   fi
 
   if port_in_use; then
-    echo "ERROR: 127.0.0.1:8088 is still in use. Cannot start vxcloud-web."
+    echo "Port 8088 is still in use after cleanup."
+    echo "Will retry port takeover right before web container start."
     show_port_occupant
-    return 1
   fi
 
   return 0
 }
 
-echo "[1/9] Fetch latest..."
+start_web_with_port_takeover() {
+  local max_attempts=6
+  local attempt=1
+
+  while [[ "$attempt" -le "$max_attempts" ]]; do
+    echo "Starting web container (attempt $attempt/$max_attempts)..."
+    kill_gunicorn_on_8088
+
+    if docker compose --env-file .env up -d web; then
+      echo "vxcloud-web started."
+      return 0
+    fi
+
+    echo "web start failed on attempt $attempt; port likely re-captured. Retrying..."
+    docker compose --env-file .env rm -fsv web >/dev/null 2>&1 || true
+    show_port_occupant
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+
+  echo "ERROR: failed to start vxcloud-web after $max_attempts attempts."
+  return 1
+}
+
+echo "[1/10] Fetch latest..."
 git fetch origin main
 
 LOCAL="$(git rev-parse HEAD)"
@@ -112,34 +136,38 @@ REMOTE="$(git rev-parse origin/main)"
 echo "LOCAL=$LOCAL"
 echo "REMOTE=$REMOTE"
 
-echo "[2/9] Auto-stash local/untracked changes (if any)..."
+echo "[2/10] Auto-stash local/untracked changes (if any)..."
 git stash push -u -m "auto-stash-before-deploy-$(date +%F_%H%M%S)" >/dev/null || true
 
-echo "[3/9] Fast-forward pull..."
+echo "[3/10] Fast-forward pull..."
 git pull --ff-only origin main
 
-echo "[4/9] Preflight checks..."
+echo "[4/10] Preflight checks..."
 ensure_web_port_available
 
-echo "[5/9] Rebuild/start containers..."
-docker compose --env-file .env up -d --build db web
-docker compose --env-file .env --profile bot up -d --build bot
+echo "[5/10] Build images..."
+docker compose --env-file .env build web bot
 
-echo "[6/9] Apply Django migrations + static..."
+echo "[6/10] Start containers..."
+docker compose --env-file .env up -d db
+start_web_with_port_takeover
+docker compose --env-file .env --profile bot up -d bot
+
+echo "[7/10] Apply Django migrations + static..."
 docker compose --env-file .env exec -T web python /app/web/manage.py migrate --noinput
 docker compose --env-file .env exec -T web python /app/web/manage.py collectstatic --noinput
 
-echo "[7/9] Check migration drift (makemigrations --check)..."
+echo "[8/10] Check migration drift (makemigrations --check)..."
 if ! docker compose --env-file .env exec -T web python /app/web/manage.py makemigrations --check --dry-run; then
   echo "ERROR: model changes detected without migration files."
   echo "Create and commit migrations first (manage.py makemigrations), then redeploy."
   exit 1
 fi
 
-echo "[8/9] Health checks..."
+echo "[9/10] Health checks..."
 wait_for_http "http://127.0.0.1:8088/"
 docker compose --env-file .env ps
 
-echo "[9/9] Done."
+echo "[10/10] Done."
 echo "If needed, stashes are here:"
 git stash list | head -n 3 || true
