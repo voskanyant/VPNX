@@ -4,7 +4,7 @@
 
 .be-shell {
   display: grid;
-  grid-template-columns: minmax(240px, 28%) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 24%) minmax(0, 1fr);
   min-height: 700px;
   width: 100%;
   max-width: 100%;
@@ -115,19 +115,20 @@
 
 .be-library-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 7px;
 }
 
 .be-library-item {
   border: 1px solid #d7dee8;
   border-radius: 10px;
   background: #fff;
-  min-height: 72px;
-  padding: 8px;
+  min-height: 48px;
+  padding: 9px 10px;
   text-align: left;
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   cursor: pointer;
 }
 
@@ -141,8 +142,11 @@
 }
 
 .be-lib-icon {
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 700;
   color: #374151;
+  min-width: 22px;
+  text-align: center;
 }
 
 .be-lib-label {
@@ -511,6 +515,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.be-rows-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.be-row-preset-select {
+  min-width: 190px;
 }
 
 .be-rows-editor-head strong {
@@ -521,7 +537,7 @@
 .be-row-item {
   border: 1px solid #d7dee8;
   border-radius: 10px;
-  background: #f8fafc;
+  background: #fbfcfe;
   padding: 10px;
   display: grid;
   gap: 10px;
@@ -587,7 +603,7 @@
 
 .be-row-settings {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 8px;
   min-width: 0;
 }
@@ -658,7 +674,7 @@
 
 @media (max-width: 1320px) {
   .be-shell {
-    grid-template-columns: minmax(220px, 32%) minmax(0, 1fr);
+    grid-template-columns: minmax(210px, 30%) minmax(0, 1fr);
   }
 }
 

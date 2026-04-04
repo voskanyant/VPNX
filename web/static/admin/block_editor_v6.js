@@ -41,12 +41,11 @@
     { value: "bs_ratio", label: "Bootstrap Ratio", icon: "RT", group: "Bootstrap Components" },
     { value: "bs_placeholder", label: "Bootstrap Placeholder", icon: "PH", group: "Bootstrap Components" },
     { value: "bs_container", label: "Bootstrap Container", icon: "CT", group: "Bootstrap Layout" },
-    { value: "bs_rows", label: "Bootstrap Rows", icon: "R", group: "Bootstrap Layout" },
-    { value: "bs_columns", label: "Bootstrap Columns", icon: "C", group: "Bootstrap Layout" },
     { value: "bs_spacer", label: "Bootstrap Spacer", icon: "S", group: "Bootstrap Layout" },
+    { value: "bs_html", label: "Bootstrap HTML", icon: "<>", group: "Advanced" },
   ];
 
-  const GROUPS = ["Bootstrap Content", "Bootstrap Components", "Bootstrap Layout"];
+  const GROUPS = ["Bootstrap Content", "Bootstrap Components", "Bootstrap Layout", "Advanced"];
   const COLUMN_CHILD_TYPES = [
     "bs_paragraph",
     "bs_heading",
@@ -83,9 +82,8 @@
     "bs_faq",
     "bs_divider",
     "bs_container",
-    "bs_rows",
-    "bs_columns",
     "bs_spacer",
+    "bs_html",
   ];
 
   const LEGACY_TO_BOOTSTRAP_TYPE = {
@@ -104,10 +102,10 @@
     faq: "bs_faq",
     spacer: "bs_spacer",
     html: "bs_html",
-    rows: "bs_rows",
-    row: "bs_rows",
-    raws: "bs_rows",
-    columns: "bs_columns",
+    rows: "bs_container",
+    row: "bs_container",
+    raws: "bs_container",
+    columns: "bs_container",
   };
 
   const BOOTSTRAP_TO_LEGACY_TYPE = {
@@ -124,8 +122,6 @@
     bs_spacer: "spacer",
     bs_html: "html",
     bs_container: "rows",
-    bs_rows: "rows",
-    bs_columns: "rows",
   };
 
   function toBootstrapType(value) {
@@ -325,7 +321,7 @@
       const leftBlocks = normalizeNestedBlocks(block.left_blocks ?? block.left ?? "");
       const rightBlocks = normalizeNestedBlocks(block.right_blocks ?? block.right ?? "");
       return {
-        type: "bs_columns",
+        type: "bs_container",
         rows: [
           {
             gutter: 3,
@@ -350,7 +346,7 @@
       if (!("subtitle" in block)) block.subtitle = "";
     }
 
-    if (String(block.type || "") === "bs_container" || String(block.type || "") === "bs_rows" || String(block.type || "") === "bs_columns") {
+    if (String(block.type || "") === "bs_container") {
       block.rows = normalizeRowsLayout(block.rows ?? block.items);
       delete block.items;
     }
@@ -524,21 +520,6 @@
           ],
         };
       case "rows":
-        if (bsType === "bs_columns") {
-          return {
-            type: bsType,
-            rows: [
-              {
-                gutter: 3,
-                align: "start",
-                columns: [
-                  { width: 6, blocks: [{ type: "bs_heading", level: 3, text: "Column title" }] },
-                  { width: 6, blocks: [{ type: "bs_paragraph", text: "Column text" }] },
-                ],
-              },
-            ],
-          };
-        }
         return {
           type: bsType,
           rows: [
@@ -946,126 +927,11 @@
       selectedIndex: -1,
       search: "",
       dragIndex: -1,
-      groupCollapsed: {},
     };
     if (state.blocks.length) state.selectedIndex = 0;
 
-    const ROW_PRESETS = [
-      { value: "12", label: "1 column (12/12)", widths: [12] },
-      { value: "6-6", label: "2 columns (6/6 + 6/6)", widths: [6, 6] },
-      { value: "4-4-4", label: "3 columns (4/4 + 4/4 + 4/4)", widths: [4, 4, 4] },
-      { value: "3-9", label: "2 columns (3/12 + 9/12)", widths: [3, 9] },
-      { value: "9-3", label: "2 columns (9/12 + 3/12)", widths: [9, 3] },
-      { value: "3-3-3-3", label: "4 columns (3/3/3/3)", widths: [3, 3, 3, 3] },
-    ];
-
-    function rowPresetOptions(includeCustom) {
-      const options = ROW_PRESETS.map((preset) => ({ value: preset.value, label: preset.label }));
-      if (includeCustom) options.unshift({ value: "custom", label: "Custom (keep current)" });
-      return options;
-    }
-
-    function rowPresetFromColumns(columns) {
-      if (!Array.isArray(columns) || !columns.length) return "custom";
-      const key = columns
-        .map((col) => {
-          const width = Number(col && col.width ? col.width : 6) || 6;
-          return width < 1 ? 1 : width > 12 ? 12 : width;
-        })
-        .join("-");
-      return ROW_PRESETS.some((preset) => preset.value === key) ? key : "custom";
-    }
-
     function sync() {
       source.value = JSON.stringify(state.blocks);
-    }
-
-    function getFocusableControls(scope) {
-      if (!scope) return [];
-      return Array.from(scope.querySelectorAll("input, textarea, select, button"));
-    }
-
-    function captureInlineEditorSnapshot() {
-      const stage = center.querySelector(".be-canvas-stage");
-      const snapshot = {
-        stageScrollTop: stage ? stage.scrollTop : 0,
-        focus: null,
-      };
-      if (!stage) return snapshot;
-
-      const active = document.activeElement;
-      if (!active) return snapshot;
-      const inspectorForm = stage.querySelector(".be-canvas-block.is-selected .be-inline-editor .be-inspector-form");
-      if (!inspectorForm || !inspectorForm.contains(active)) return snapshot;
-
-      const controls = getFocusableControls(inspectorForm);
-      const controlIndex = controls.indexOf(active);
-      if (controlIndex < 0) return snapshot;
-
-      const focus = {
-        index: controlIndex,
-        tagName: active.tagName,
-        type: active.type || "",
-      };
-
-      if (typeof active.selectionStart === "number" && typeof active.selectionEnd === "number") {
-        focus.selectionStart = active.selectionStart;
-        focus.selectionEnd = active.selectionEnd;
-      }
-      if (typeof active.scrollTop === "number") {
-        focus.scrollTop = active.scrollTop;
-      }
-
-      snapshot.focus = focus;
-      return snapshot;
-    }
-
-    function restoreInlineEditorSnapshot(snapshot) {
-      const stage = center.querySelector(".be-canvas-stage");
-      if (stage && snapshot && typeof snapshot.stageScrollTop === "number") {
-        stage.scrollTop = snapshot.stageScrollTop;
-      }
-      if (!snapshot || !snapshot.focus || !stage) return;
-
-      const inspectorForm = stage.querySelector(".be-canvas-block.is-selected .be-inline-editor .be-inspector-form");
-      if (!inspectorForm) return;
-      const controls = getFocusableControls(inspectorForm);
-      let target = controls[snapshot.focus.index] || null;
-
-      if (
-        target &&
-        snapshot.focus.tagName &&
-        String(target.tagName || "").toUpperCase() !== String(snapshot.focus.tagName || "").toUpperCase()
-      ) {
-        target = controls.find((el) => String(el.tagName || "").toUpperCase() === String(snapshot.focus.tagName || "").toUpperCase()) || null;
-      }
-      if (!target) return;
-
-      try {
-        target.focus({ preventScroll: true });
-      } catch (_error) {
-        target.focus();
-      }
-
-      if (
-        typeof snapshot.focus.selectionStart === "number" &&
-        typeof snapshot.focus.selectionEnd === "number" &&
-        typeof target.setSelectionRange === "function"
-      ) {
-        const max = typeof target.value === "string" ? target.value.length : snapshot.focus.selectionEnd;
-        const start = Math.max(0, Math.min(snapshot.focus.selectionStart, max));
-        const end = Math.max(start, Math.min(snapshot.focus.selectionEnd, max));
-        target.setSelectionRange(start, end);
-      }
-      if (typeof snapshot.focus.scrollTop === "number" && typeof target.scrollTop === "number") {
-        target.scrollTop = snapshot.focus.scrollTop;
-      }
-    }
-
-    function renderCanvasPreserveInlineFocus() {
-      const snapshot = captureInlineEditorSnapshot();
-      renderCanvas();
-      restoreInlineEditorSnapshot(snapshot);
     }
 
     function selectBlock(index) {
@@ -1157,19 +1023,10 @@
 
         const groupBlock = document.createElement("section");
         groupBlock.className = "be-library-group";
-        const collapsedByUser = !!state.groupCollapsed[group];
-        const isCollapsed = !state.search && collapsedByUser;
-        if (isCollapsed) groupBlock.classList.add("is-collapsed");
 
-        const title = document.createElement("button");
-        title.type = "button";
+        const title = document.createElement("div");
         title.className = "be-library-toggle";
-        title.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
-        title.innerHTML = `<span>${group}</span><i>${isCollapsed ? "+" : "−"} ${filtered.length}</i>`;
-        title.addEventListener("click", () => {
-          state.groupCollapsed[group] = !state.groupCollapsed[group];
-          renderLeft();
-        });
+        title.innerHTML = `<span>${group}</span><i>${filtered.length}</i>`;
 
         const grid = document.createElement("div");
         grid.className = "be-library-grid";
@@ -1272,7 +1129,7 @@
           const card = document.createElement("article");
           card.className = "be-canvas-block";
           if (state.selectedIndex === index) card.classList.add("is-selected");
-          card.draggable = true;
+          card.draggable = state.selectedIndex !== index;
           card.innerHTML =
             "<div class='be-canvas-block-top'>" +
             `<span class='be-canvas-type'><span class='be-drag-handle' title='Drag to reorder'>⋮⋮</span>${meta.icon} ${meta.label}</span>` +
@@ -1420,7 +1277,7 @@
       target.appendChild(form);
 
       function changed() {
-        renderCanvasPreserveInlineFocus();
+        renderCanvas();
         sync();
       }
 
@@ -2789,23 +2646,6 @@
         return { width: 6, blocks: [{ type: "bs_paragraph", text: "Column text" }] };
       }
 
-      function rowFromPreset(presetValue, existingColumns) {
-        const preset = ROW_PRESETS.find((item) => item.value === presetValue) || ROW_PRESETS[1];
-        const previous = Array.isArray(existingColumns) ? existingColumns : [];
-        return {
-          gutter: 3,
-          align: "start",
-          columns: preset.widths.map((width, index) => {
-            const prevColumn = previous[index];
-            const prevBlocks = prevColumn && Array.isArray(prevColumn.blocks) ? normalizeColumnItems(prevColumn.blocks) : [];
-            return {
-              width,
-              blocks: prevBlocks.length ? prevBlocks : [{ type: "bs_paragraph", text: "Column text" }],
-            };
-          }),
-        };
-      }
-
       function normalizeRowItem(row) {
         if (!row || typeof row !== "object") return { columns: [defaultRowColumn()] };
         const columns = Array.isArray(row.columns)
@@ -2841,22 +2681,16 @@
         head.className = "be-rows-editor-head";
         const title = document.createElement("strong");
         title.textContent = "Rows layout";
-        const headActions = document.createElement("div");
-        headActions.className = "be-rows-head-actions";
-        const headPreset = selectInput(rowPresetOptions(false), "6-6");
-        headPreset.classList.add("be-row-preset-select");
         const addRowBtn = document.createElement("button");
         addRowBtn.type = "button";
         addRowBtn.className = "button";
         addRowBtn.textContent = "Add row";
         addRowBtn.addEventListener("click", () => {
-          rowsBlock.rows.push(rowFromPreset(headPreset.value, []));
+          rowsBlock.rows.push({ gutter: 3, align: "start", columns: [defaultRowColumn(), defaultRowColumn()] });
           changed();
         });
         head.appendChild(title);
-        headActions.appendChild(headPreset);
-        headActions.appendChild(addRowBtn);
-        head.appendChild(headActions);
+        head.appendChild(addRowBtn);
         section.appendChild(head);
 
         if (!rowsBlock.rows.length) {
@@ -2936,14 +2770,6 @@
           const rowSettings = document.createElement("div");
           rowSettings.className = "be-row-settings";
 
-          const rowPresetSelect = selectInput(rowPresetOptions(true), rowPresetFromColumns(normalizedRow.columns));
-          rowPresetSelect.classList.add("be-row-preset-select");
-          rowPresetSelect.addEventListener("change", () => {
-            if (rowPresetSelect.value === "custom") return;
-            rowsBlock.rows[rowIndex] = rowFromPreset(rowPresetSelect.value, normalizedRow.columns);
-            changed();
-          });
-
           const gutterSelect = selectInput(
             [
               { value: 0, label: "No gap" },
@@ -2974,7 +2800,6 @@
             changed();
           });
 
-          rowSettings.appendChild(field("Layout preset", rowPresetSelect, "Replaces current columns for this row"));
           rowSettings.appendChild(field("Row gap", gutterSelect));
           rowSettings.appendChild(field("Vertical align", alignSelect));
           rowCard.appendChild(rowSettings);
