@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import io
@@ -177,10 +177,24 @@ class VPNBot:
             return "звёзды Telegram"
         return normalized
 
+    def _card_price_label(self) -> str:
+        value = int(self.settings.card_payment_amount_minor or 0)
+        major = value // 100
+        minor = value % 100
+        amount = f"{major}" if minor == 0 else f"{major}.{minor:02d}"
+        currency = (self.settings.card_payment_currency or "RUB").upper()
+        return f"{amount} {currency}"
+
+    def _with_card_price(self, label: str) -> str:
+        normalized = label.lower()
+        if "rub" in normalized or "₽" in label:
+            return label
+        return f"{label} · {self._card_price_label()}"
+
     def _menu_buttons(self, has_active_subscription: bool = False) -> list[tuple[str, str]]:
         buttons: list[tuple[str, str]] = [
             ("menu_trial", self._button_label("menu_trial", "\U0001f381 \u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e 7\u0434").strip() or "\U0001f381 \u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e 7\u0434"),
-            ("menu_buy", self._button_label("menu_buy", "⭐ Купить доступ").strip() or "⭐ Купить доступ"),
+            ("menu_buy", self._button_label("menu_buy", "⭐ Купить новый доступ").strip() or "⭐ Купить новый доступ"),
             ("menu_mysub", self._button_label("menu_mysub", "\U0001f4ca \u041c\u043e\u0439 \u0434\u043e\u0441\u0442\u0443\u043f").strip() or "\U0001f4ca \u041c\u043e\u0439 \u0434\u043e\u0441\u0442\u0443\u043f"),
             (
                 "menu_instructions",
@@ -353,7 +367,7 @@ class VPNBot:
             stars_help_url = f"{self._site_url().rstrip('/')}/help/stars"
             return InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton(text="⭐ Купить доступ", callback_data="act|buy_new|_")],
+                    [InlineKeyboardButton(text="⭐ Купить новый доступ", callback_data="act|buy_new|_")],
                     [InlineKeyboardButton(text="📖 Подробная инструкция", url=stars_help_url)],
                     [InlineKeyboardButton(text="🆘 Поддержка", callback_data="act|support_hub|_")],
                     [InlineKeyboardButton(text="⬅️ Назад", callback_data="nav|menu_instructions|_")],
@@ -440,7 +454,7 @@ class VPNBot:
             [
                 [
                     InlineKeyboardButton(text="🎁 Попробовать 7 дней", callback_data="act|start_trial|_"),
-                    InlineKeyboardButton(text="⭐ Купить доступ", callback_data="act|buy_new|_"),
+                    InlineKeyboardButton(text="⭐ Купить новый доступ", callback_data="act|buy_new|_"),
                 ],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
@@ -482,7 +496,7 @@ class VPNBot:
     def _trial_used_markup(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="⭐ Купить доступ", callback_data="act|buy_new|_")],
+                [InlineKeyboardButton(text="⭐ Купить новый доступ", callback_data="act|buy_new|_")],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
                     InlineKeyboardButton(text="⬅️ Назад", callback_data="act|start_back|_"),
@@ -508,7 +522,7 @@ class VPNBot:
         return InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton(text="⭐ Оплатить звёздами", callback_data="act|buy_stars_info|_")],
-                [InlineKeyboardButton(text="💳 Оплатить картой", callback_data="act|buy_card|_")],
+                [InlineKeyboardButton(text=self._with_card_price("💳 Оплатить картой"), callback_data="act|buy_card|_")],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
                     InlineKeyboardButton(text="⬅️ Назад", callback_data="act|start_back|_"),
@@ -521,7 +535,7 @@ class VPNBot:
             [
                 [InlineKeyboardButton(text="⭐ Продолжить через Stars", callback_data="act|buy_stars_continue|_")],
                 [
-                    InlineKeyboardButton(text="💳 Оплатить картой", callback_data="act|buy_card|_"),
+                    InlineKeyboardButton(text=self._with_card_price("💳 Оплатить картой"), callback_data="act|buy_card|_"),
                     InlineKeyboardButton(text="⬅️ Назад", callback_data="act|buy_back|_"),
                 ],
             ]
@@ -530,7 +544,7 @@ class VPNBot:
     def _buy_card_markup(self, pay_url: str) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="💳 Перейти к оплате", url=pay_url)],
+                [InlineKeyboardButton(text=self._with_card_price("💳 Перейти к оплате"), url=pay_url)],
                 [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|buy_back|_")],
             ]
         )
@@ -538,7 +552,7 @@ class VPNBot:
     def _renew_card_markup(self, pay_url: str) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="💳 Перейти к оплате", url=pay_url)],
+                [InlineKeyboardButton(text=self._with_card_price("💳 Перейти к оплате"), url=pay_url)],
                 [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_")],
             ]
         )
@@ -561,7 +575,7 @@ class VPNBot:
         return InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton(text="⭐ Продлить через Stars", callback_data="act|renew_stars_info|_")],
-                [InlineKeyboardButton(text="💳 Продлить картой", callback_data="act|renew_card|_")],
+                [InlineKeyboardButton(text=self._with_card_price("💳 Продлить картой"), callback_data="act|renew_card|_")],
                 [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_")],
             ]
         )
@@ -570,8 +584,17 @@ class VPNBot:
         return InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton(text="⭐ Продолжить через Stars", callback_data="act|renew_stars_continue|_")],
-                [InlineKeyboardButton(text="💳 Продлить картой", callback_data="act|renew_card|_")],
+                [InlineKeyboardButton(text=self._with_card_price("💳 Продлить картой"), callback_data="act|renew_card|_")],
                 [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_")],
+            ]
+        )
+
+    def _buy_existing_access_markup(self) -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(text="🔄 Продлить текущий доступ", callback_data="act|buy_existing_renew|_")],
+                [InlineKeyboardButton(text="➕ Купить дополнительный доступ", callback_data="act|buy_existing_continue|_")],
+                [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|start_back|_")],
             ]
         )
 
@@ -611,7 +634,7 @@ class VPNBot:
     def _renew_no_active_markup(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="⭐ Купить доступ", callback_data="act|buy_new|_")],
+                [InlineKeyboardButton(text="⭐ Купить новый доступ", callback_data="act|buy_new|_")],
                 [
                     InlineKeyboardButton(text="🎁 Бесплатно 7д", callback_data="act|start_trial|_"),
                     InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_"),
@@ -691,12 +714,13 @@ class VPNBot:
     async def _show_renew_card_info(self, message: Message) -> None:
         pay_url = f"{self._site_url().rstrip('/')}/account/renew/"
         await message.reply_text(
-            "Сейчас откроется страница оплаты на сайте.\n\n"
+            f"Сейчас откроется страница оплаты картой на сайте.\n\n"
+            f"Сумма: {self._card_price_label()}.\n\n"
             "После успешной оплаты доступ появится и на сайте, и в боте.",
             reply_markup=self._renew_card_markup(pay_url),
         )
 
-    async def _show_buy_offer(self, message: Message, user_id: int) -> None:
+    async def _show_buy_checkout_options(self, message: Message) -> None:
         await message.reply_text(
             "Оформление доступа\n\n"
             "Здесь вы можете купить новый доступ для подключения.\n\n"
@@ -707,6 +731,18 @@ class VPNBot:
             "После оплаты вы сразу получите ссылку для подключения и QR-код.",
             reply_markup=self._buy_offer_markup(),
         )
+
+    async def _show_buy_offer(self, message: Message, user_id: int) -> None:
+        active_sub = await self.db.get_active_subscription(user_id)
+        if active_sub:
+            await message.reply_text(
+                "У вас уже есть 1 активный доступ.\n\n"
+                "Если хотите продлить текущий доступ, нажмите «Продлить текущий доступ».\n"
+                "Если нужен дополнительный доступ, нажмите «Купить дополнительный доступ».",
+                reply_markup=self._buy_existing_access_markup(),
+            )
+            return
+        await self._show_buy_checkout_options(message)
 
     async def _show_buy_stars_info(self, message: Message) -> None:
         await message.reply_text(
@@ -721,7 +757,8 @@ class VPNBot:
     async def _show_buy_card_info(self, message: Message) -> None:
         pay_url = f"{self._site_url().rstrip('/')}/account/renew/"
         await message.reply_text(
-            "Сейчас откроется страница оплаты на сайте.\n\n"
+            f"Сейчас откроется страница оплаты картой на сайте.\n\n"
+            f"Сумма: {self._card_price_label()}.\n\n"
             "После успешной оплаты доступ появится и на сайте, и в боте.",
             reply_markup=self._buy_card_markup(pay_url),
         )
@@ -999,7 +1036,7 @@ class VPNBot:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=self._button_label("buy_new_config_button", "⭐ Купить доступ"),
+                    text=self._button_label("buy_new_config_button", "⭐ Купить новый доступ"),
                     callback_data="act|buy_new|_",
                 )
             ]
@@ -1549,6 +1586,17 @@ class VPNBot:
                     user_id = await self._ensure_user(update)
                     await self._show_buy_offer(query.message, user_id)
                 return
+            if target == "buy_existing_renew":
+                await query.answer()
+                if query.message is not None:
+                    user_id = await self._ensure_user(update)
+                    await self._show_renew_offer(query.message, user_id, context)
+                return
+            if target == "buy_existing_continue":
+                await query.answer()
+                if query.message is not None:
+                    await self._show_buy_checkout_options(query.message)
+                return
             if target == "buy_stars_info":
                 await query.answer()
                 if query.message is not None:
@@ -1567,8 +1615,7 @@ class VPNBot:
             if target == "buy_back":
                 await query.answer()
                 if query.message is not None:
-                    user_id = await self._ensure_user(update)
-                    await self._show_buy_offer(query.message, user_id)
+                    await self._show_buy_checkout_options(query.message)
                 return
             if target == "renew_stars_info":
                 await query.answer()
@@ -2144,7 +2191,7 @@ class VPNBot:
         user_id = await self._ensure_user(update)
         sub = await self.db.get_active_subscription(user_id)
         if not sub:
-            await update.message.reply_text("Доступ не найден. Используйте «⭐ Купить доступ».")
+            await update.message.reply_text("Доступ не найден. Используйте «⭐ Купить новый доступ».")
             return
         client_uuid = str(sub["client_uuid"])
         sub_id = await self.xui.get_client_sub_id(self.settings.xui_inbound_id, client_uuid)
@@ -2357,7 +2404,7 @@ class VPNBot:
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=self._button_label("pay_card_button", "💳 Оплатить картой"),
+                    text=self._with_card_price(self._button_label("pay_card_button", "💳 Оплатить картой")),
                     url=f"{self._site_url().rstrip('/')}/account/renew/",
                 )
             ]
@@ -2587,3 +2634,4 @@ class VPNBot:
                 await self.db.log_reminder(sub_id, tag)
             except Exception:
                 LOGGER.exception("Failed to send reminder to telegram_id=%s", tg_id)
+

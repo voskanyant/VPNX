@@ -12,14 +12,6 @@
   <h1 class="display-6 fw-bold mb-2">{{ instructions_hero_title }}</h1>
   <p class="text-secondary mb-0">{{ instructions_hero_description }}</p>
 
-  {% if categories %}
-    <nav class="nav nav-pills gap-2 mt-4">
-      <a class="btn btn-sm {% if not selected_category %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="/instructions/">Все</a>
-      {% for category in categories %}
-        <a class="btn btn-sm {% if selected_category and selected_category.id == category.id %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{% url 'blog_category_detail' slug=category.slug %}">{{ category.title }}</a>
-      {% endfor %}
-    </nav>
-  {% endif %}
 </section>
 
 <section class="row g-3 g-lg-4">
@@ -27,14 +19,14 @@
     <div class="col-12 col-lg-6">
       <article class="surface-card h-100 post-preview">
         <h2 class="h4 mb-2"><a class="link-dark text-decoration-none" href="{% url 'blog_post_detail' slug=post.slug %}">{{ post.title }}</a></h2>
-        {% if post.categories.all %}
-          <p class="small text-secondary mb-2">
-            {% for category in post.categories.all %}
-              <a href="{% url 'blog_category_detail' slug=category.slug %}" class="text-secondary">{{ category.title }}</a>{% if not forloop.last %}, {% endif %}
-            {% endfor %}
-          </p>
-        {% endif %}
-        {% if post.summary %}<p class="text-secondary mb-3">{{ post.summary }}</p>{% endif %}
+        {% with excerpt=post.summary|default:post.rendered_content|striptags %}
+          {% if excerpt %}
+            <p class="text-secondary mb-3">
+              {{ excerpt|truncatechars:190 }}{% if excerpt|length > 190 %}...{% endif %}
+              <a href="{% url 'blog_post_detail' slug=post.slug %}" class="ms-1">read more</a>
+            </p>
+          {% endif %}
+        {% endwith %}
         <div class="small text-secondary d-flex align-items-center gap-2">
           <i class="bi bi-clock"></i>
           <span>{{ post.published_at|date:'d.m.Y H:i' }}</span>

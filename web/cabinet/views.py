@@ -81,8 +81,8 @@ def _format_minor_amount_rub(amount_minor: int | None) -> str:
     rub = value // 100
     kop = value % 100
     if kop == 0:
-        return f"{rub} RUB"
-    return f"{rub}.{kop:02d} RUB"
+        return f"{rub} ₽"
+    return f"{rub}.{kop:02d} ₽"
 
 
 def _format_payment_method(method: str | None, currency: str | None = None) -> str:

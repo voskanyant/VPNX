@@ -20,7 +20,14 @@
         <div class="col-12 col-lg-6">
           <article class="surface-card h-100">
             <h3 class="h5 mb-2"><a href="{% url 'blog_post_detail' slug=post.slug %}" class="link-dark text-decoration-none">{{ post.title }}</a></h3>
-            {% if post.summary %}<p class="text-secondary mb-3">{{ post.summary }}</p>{% endif %}
+            {% with excerpt=post.summary|default:post.rendered_content|striptags %}
+              {% if excerpt %}
+                <p class="text-secondary mb-3">
+                  {{ excerpt|truncatechars:190 }}{% if excerpt|length > 190 %}...{% endif %}
+                  <a href="{% url 'blog_post_detail' slug=post.slug %}" class="ms-1">read more</a>
+                </p>
+              {% endif %}
+            {% endwith %}
             <div class="small text-secondary">{{ post.published_at|date:'d.m.Y H:i' }}</div>
           </article>
         </div>

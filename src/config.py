@@ -41,6 +41,8 @@ class Settings:
     vpn_tag: str
     plan_days: int
     plan_price_stars: int
+    card_payment_amount_minor: int
+    card_payment_currency: str
     max_devices_per_sub: int
     price_text: str
     timezone: str
@@ -77,6 +79,8 @@ def load_settings() -> Settings:
         vpn_tag=_get("VPN_TAG", "VPN"),
         plan_days=int(_get("PLAN_DAYS", "30")),
         plan_price_stars=int(_get("PLAN_PRICE_STARS", "250")),
+        card_payment_amount_minor=int(_get("CARD_PAYMENT_AMOUNT_MINOR", "24900")),
+        card_payment_currency=_get("CARD_PAYMENT_CURRENCY", "RUB").upper(),
         max_devices_per_sub=int(_get("MAX_DEVICES_PER_SUB", "1")),
         price_text=_get("PRICE_TEXT", "Monthly plan"),
         timezone=_get("TIMEZONE", "UTC"),

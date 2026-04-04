@@ -39,16 +39,7 @@ def home(request: HttpRequest) -> HttpResponse:
 def index(request: HttpRequest) -> HttpResponse:
     now = timezone.now()
     posts = Post.objects.filter(is_published=True, published_at__lte=now).prefetch_related("categories")
-    categories = Category.objects.filter(is_active=True).order_by("title")
-    return render(
-        request,
-        "blog/index.html",
-        {
-            "posts": posts,
-            "categories": categories,
-            "selected_category": None,
-        },
-    )
+    return render(request, "blog/index.html", {"posts": posts})
 
 
 def category_detail(request: HttpRequest, slug: str) -> HttpResponse:
@@ -59,16 +50,7 @@ def category_detail(request: HttpRequest, slug: str) -> HttpResponse:
         .prefetch_related("categories")
         .distinct()
     )
-    categories = Category.objects.filter(is_active=True).order_by("title")
-    return render(
-        request,
-        "blog/index.html",
-        {
-            "posts": posts,
-            "categories": categories,
-            "selected_category": category,
-        },
-    )
+    return render(request, "blog/index.html", {"posts": posts})
 
 
 def post_detail(request: HttpRequest, slug: str) -> HttpResponse:

@@ -157,6 +157,15 @@
     }
   }
 
+  function safeStorageRemove(key) {
+    try {
+      if (!window.localStorage) return;
+      window.localStorage.removeItem(key);
+    } catch (_error) {
+      // ignore storage errors (privacy mode / blocked storage)
+    }
+  }
+
   function parseJSON(raw) {
     if (!raw || !raw.trim()) return [];
     try {
@@ -967,10 +976,24 @@
       collapsedBlocks: {},
       rowCollapsed: {},
       colCollapsed: {},
+      nestedCollapsed: {},
+      nestedSelected: {},
       compactMode: safeStorageGet("be.compactMode") === "1",
       uidSeq: 1,
     };
     if (state.blocks.length) state.selectedIndex = 0;
+
+    const HISTORY_LIMIT = 120;
+    const sourceKey = source.name || source.id || "content_blocks";
+    const autosaveKey = `be.autosave.${window.location.pathname}.${sourceKey}`;
+    const history = [];
+    let historyIndex = -1;
+    let autosaveBadge = null;
+    let undoBtn = null;
+    let redoBtn = null;
+    let historyDebounceTimer = null;
+    let autosaveTimer = null;
+    let isRestoringHistory = false;
 
     const ROW_PRESETS = [
       { value: "12", label: "1 column (12/12)", widths: [12] },
@@ -1027,6 +1050,129 @@
       if (target.closest("textarea, input, select, [contenteditable='true']")) return true;
       if (target.closest(".be-inspector-form")) return true;
       return false;
+    }
+
+    function cloneBlocks(input) {
+      try {
+        return JSON.parse(JSON.stringify(input || []));
+      } catch (_error) {
+        return [];
+      }
+    }
+
+    function blocksToJSON(input) {
+      try {
+        return JSON.stringify(input || []);
+      } catch (_error) {
+        return "[]";
+      }
+    }
+
+    function updateHistoryButtons() {
+      if (undoBtn) undoBtn.disabled = historyIndex <= 0;
+      if (redoBtn) redoBtn.disabled = historyIndex < 0 || historyIndex >= history.length - 1;
+    }
+
+    function setAutosaveState(status, message) {
+      if (!autosaveBadge) return;
+      autosaveBadge.classList.remove("is-dirty", "is-saving", "is-saved");
+      if (status) autosaveBadge.classList.add(`is-${status}`);
+      autosaveBadge.textContent = message || "";
+    }
+
+    function writeAutosaveSnapshot() {
+      safeStorageSet(autosaveKey, blocksToJSON(state.blocks));
+      safeStorageSet(`${autosaveKey}.ts`, String(Date.now()));
+      setAutosaveState("saved", "Saved");
+    }
+
+    function clearAutosaveSnapshot() {
+      safeStorageRemove(autosaveKey);
+      safeStorageRemove(`${autosaveKey}.ts`);
+      setAutosaveState("saved", "Saved");
+    }
+
+    function scheduleAutosave() {
+      setAutosaveState("dirty", "Unsaved");
+      if (autosaveTimer) window.clearTimeout(autosaveTimer);
+      autosaveTimer = window.setTimeout(() => {
+        setAutosaveState("saving", "Saving...");
+        writeAutosaveSnapshot();
+      }, 700);
+    }
+
+    function pushHistorySnapshot() {
+      if (isRestoringHistory) return;
+      const snapshot = cloneBlocks(state.blocks);
+      const serialized = blocksToJSON(snapshot);
+      if (historyIndex >= 0) {
+        const currentSerialized = blocksToJSON(history[historyIndex]);
+        if (currentSerialized === serialized) {
+          updateHistoryButtons();
+          return;
+        }
+      }
+      if (historyIndex < history.length - 1) {
+        history.splice(historyIndex + 1);
+      }
+      history.push(snapshot);
+      if (history.length > HISTORY_LIMIT) {
+        history.shift();
+      }
+      historyIndex = history.length - 1;
+      updateHistoryButtons();
+    }
+
+    function queueHistorySnapshot() {
+      if (historyDebounceTimer) window.clearTimeout(historyDebounceTimer);
+      historyDebounceTimer = window.setTimeout(() => {
+        pushHistorySnapshot();
+      }, 350);
+    }
+
+    function applyHistorySnapshot(nextIndex) {
+      if (nextIndex < 0 || nextIndex >= history.length) return;
+      isRestoringHistory = true;
+      historyIndex = nextIndex;
+      state.blocks = cloneBlocks(history[nextIndex]);
+      if (!state.blocks.length) state.selectedIndex = -1;
+      else if (state.selectedIndex < 0 || state.selectedIndex >= state.blocks.length) {
+        state.selectedIndex = Math.min(state.blocks.length - 1, 0);
+      }
+      renderPanels();
+      isRestoringHistory = false;
+      updateHistoryButtons();
+      scheduleAutosave();
+    }
+
+    function undoHistory() {
+      applyHistorySnapshot(historyIndex - 1);
+    }
+
+    function redoHistory() {
+      applyHistorySnapshot(historyIndex + 1);
+    }
+
+    function restoreAutosaveIfAvailable() {
+      const raw = safeStorageGet(autosaveKey);
+      if (!raw) return;
+      const current = blocksToJSON(state.blocks);
+      if (raw === current) {
+        setAutosaveState("saved", "Saved");
+        return;
+      }
+      const ts = safeStorageGet(`${autosaveKey}.ts`);
+      const dateText = ts ? new Date(Number(ts)).toLocaleString() : "";
+      const shouldRestore = window.confirm(
+        `Unsaved draft found${dateText ? ` (${dateText})` : ""}. Restore it?`
+      );
+      if (!shouldRestore) {
+        setAutosaveState("saved", "Draft skipped");
+        return;
+      }
+      state.blocks = parseJSON(raw);
+      state.selectedIndex = state.blocks.length ? 0 : -1;
+      setAutosaveState("saved", "Draft restored");
     }
 
     function sync() {
@@ -1136,6 +1282,8 @@
       state.blocks.push(defaultsFor(type));
       state.selectedIndex = state.blocks.length - 1;
       renderPanels();
+      pushHistorySnapshot();
+      scheduleAutosave();
     }
 
     function insertBlockAt(index, type) {
@@ -1143,6 +1291,8 @@
       state.blocks.splice(at, 0, defaultsFor(type));
       state.selectedIndex = at;
       renderPanels();
+      pushHistorySnapshot();
+      scheduleAutosave();
     }
 
     function removeSelected() {
@@ -1151,6 +1301,8 @@
       if (!state.blocks.length) state.selectedIndex = -1;
       else if (state.selectedIndex >= state.blocks.length) state.selectedIndex = state.blocks.length - 1;
       renderPanels();
+      pushHistorySnapshot();
+      scheduleAutosave();
     }
 
     function moveSelected(step) {
@@ -1163,6 +1315,8 @@
       state.blocks[current] = tmp;
       state.selectedIndex = target;
       renderPanels();
+      pushHistorySnapshot();
+      scheduleAutosave();
     }
 
     function duplicateSelected() {
@@ -1172,6 +1326,8 @@
       state.blocks.splice(index + 1, 0, clone);
       state.selectedIndex = index + 1;
       renderPanels();
+      pushHistorySnapshot();
+      scheduleAutosave();
     }
 
     function displayTypeName(block) {
@@ -1395,6 +1551,24 @@
       count.className = "be-doc-count";
       count.textContent = `${state.blocks.length} blocks`;
 
+      autosaveBadge = document.createElement("span");
+      autosaveBadge.className = "be-autosave-state";
+      autosaveBadge.textContent = "Saved";
+
+      undoBtn = document.createElement("button");
+      undoBtn.type = "button";
+      undoBtn.className = "button";
+      undoBtn.textContent = "Undo";
+      undoBtn.title = "Ctrl/Cmd + Z";
+      undoBtn.addEventListener("click", undoHistory);
+
+      redoBtn = document.createElement("button");
+      redoBtn.type = "button";
+      redoBtn.className = "button";
+      redoBtn.textContent = "Redo";
+      redoBtn.title = "Ctrl/Cmd + Shift + Z / Ctrl + Y";
+      redoBtn.addEventListener("click", redoHistory);
+
       const compactToggle = document.createElement("button");
       compactToggle.type = "button";
       compactToggle.className = "button";
@@ -1432,11 +1606,15 @@
       });
 
       actions.appendChild(count);
+      actions.appendChild(autosaveBadge);
+      actions.appendChild(undoBtn);
+      actions.appendChild(redoBtn);
       actions.appendChild(compactToggle);
       actions.appendChild(collapseToggle);
       actions.appendChild(quickAdd);
       top.appendChild(meta);
       top.appendChild(actions);
+      updateHistoryButtons();
 
       const stage = document.createElement("div");
       stage.className = "be-canvas-stage";
@@ -1487,6 +1665,8 @@
           state.dragIndex = -1;
           renderCanvas();
           sync();
+          pushHistorySnapshot();
+          scheduleAutosave();
         };
 
         state.blocks.forEach((block, index) => {
@@ -1709,6 +1889,8 @@
       function changed() {
         renderCanvasPreserveInlineFocus();
         sync();
+        queueHistorySnapshot();
+        scheduleAutosave();
       }
 
       function normalizeColumnItems(value) {
@@ -2953,17 +3135,32 @@
         }
       }
 
-      function renderColumnEditor(columnBlock, key, labelText) {
+      function renderColumnEditor(columnBlock, key, labelText, options) {
         if (!Array.isArray(columnBlock[key])) columnBlock[key] = normalizeColumnItems(columnBlock[key]);
         const list = columnBlock[key];
+        const keyPrefix = options && options.keyPrefix ? options.keyPrefix : blockUid(columnBlock);
+        const selectedKey = `${keyPrefix}:selected`;
+        let selectedIndexRaw = Number(state.nestedSelected[selectedKey]);
+        if (!Number.isFinite(selectedIndexRaw)) selectedIndexRaw = 0;
+        if (selectedIndexRaw < 0) selectedIndexRaw = 0;
+        if (selectedIndexRaw > list.length - 1) selectedIndexRaw = Math.max(0, list.length - 1);
+        state.nestedSelected[selectedKey] = selectedIndexRaw;
 
         const section = document.createElement("section");
-        section.className = "be-columns-editor";
+        section.className = "be-columns-editor be-columns-editor--builder";
 
         const head = document.createElement("div");
         head.className = "be-columns-editor-head";
+
+        const leftMeta = document.createElement("div");
+        leftMeta.className = "be-columns-head-meta";
         const title = document.createElement("strong");
         title.textContent = labelText;
+        const count = document.createElement("small");
+        count.textContent = `${list.length} block${list.length === 1 ? "" : "s"}`;
+        leftMeta.appendChild(title);
+        leftMeta.appendChild(count);
+
         const addWrap = document.createElement("div");
         addWrap.className = "be-columns-add";
         const addType = selectInput(
@@ -2973,102 +3170,221 @@
           }),
           "bs_paragraph"
         );
+        addType.classList.add("be-mini-select");
         const addBtn = document.createElement("button");
         addBtn.type = "button";
         addBtn.className = "button";
         addBtn.textContent = "Add";
         addBtn.addEventListener("click", () => {
           list.push(defaultsFor(addType.value));
+          state.nestedSelected[selectedKey] = list.length - 1;
           changed();
         });
         addWrap.appendChild(addType);
         addWrap.appendChild(addBtn);
-        head.appendChild(title);
+
+        head.appendChild(leftMeta);
         head.appendChild(addWrap);
         section.appendChild(head);
 
         if (!list.length) {
           const empty = document.createElement("p");
           empty.className = "be-columns-empty";
-          empty.textContent = "No blocks in this column.";
+          empty.textContent = "No blocks in this column yet.";
           section.appendChild(empty);
           return section;
         }
+
+        let dragChildIndex = -1;
+        const listPane = document.createElement("div");
+        listPane.className = "be-nested-list";
+
+        const clearDropMarkers = () => {
+          listPane.querySelectorAll(".be-nested-row").forEach((el) => {
+            el.classList.remove("is-drop-before");
+            el.classList.remove("is-drop-after");
+          });
+        };
+
+        const setSelected = (nextIndex) => {
+          const safe = Math.max(0, Math.min(nextIndex, list.length - 1));
+          state.nestedSelected[selectedKey] = safe;
+        };
+
+        const moveChild = (fromIndex, toIndex) => {
+          if (fromIndex < 0 || fromIndex >= list.length) return;
+          let target = Math.max(0, Math.min(toIndex, list.length));
+          if (target === fromIndex || target === fromIndex + 1) return;
+          const moved = list.splice(fromIndex, 1)[0];
+          if (target > fromIndex) target -= 1;
+          list.splice(target, 0, moved);
+
+          const selected = Number(state.nestedSelected[selectedKey] || 0);
+          if (selected === fromIndex) {
+            state.nestedSelected[selectedKey] = target;
+          } else if (fromIndex < selected && selected <= target) {
+            state.nestedSelected[selectedKey] = selected - 1;
+          } else if (target <= selected && selected < fromIndex) {
+            state.nestedSelected[selectedKey] = selected + 1;
+          }
+          changed();
+        };
 
         list.forEach((item, index) => {
           const block = normalizeLegacyBlock(item);
           list[index] = block;
           const itemType = toBootstrapType(block.type || "bs_paragraph");
+          const itemMeta = blockMeta(itemType);
+          const active = index === selectedIndexRaw;
 
-          const card = document.createElement("article");
-          card.className = "be-columns-item";
+          const row = document.createElement("article");
+          row.className = "be-nested-row";
+          if (active) row.classList.add("is-active");
+          row.draggable = true;
+          row.addEventListener("click", () => {
+            setSelected(index);
+            changed();
+          });
+          row.addEventListener("dragstart", (event) => {
+            dragChildIndex = index;
+            row.classList.add("is-dragging");
+            if (event.dataTransfer) {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("application/x-be-column-child-index", String(index));
+            }
+          });
+          row.addEventListener("dragend", () => {
+            dragChildIndex = -1;
+            row.classList.remove("is-dragging");
+            clearDropMarkers();
+          });
+          row.addEventListener("dragover", (event) => {
+            if (dragChildIndex < 0) return;
+            event.preventDefault();
+            const rect = row.getBoundingClientRect();
+            const dropBefore = event.clientY < rect.top + rect.height / 2;
+            clearDropMarkers();
+            row.classList.add(dropBefore ? "is-drop-before" : "is-drop-after");
+          });
+          row.addEventListener("drop", (event) => {
+            if (dragChildIndex < 0) return;
+            event.preventDefault();
+            const rect = row.getBoundingClientRect();
+            const dropBefore = event.clientY < rect.top + rect.height / 2;
+            const targetIndex = dropBefore ? index : index + 1;
+            clearDropMarkers();
+            moveChild(dragChildIndex, targetIndex);
+          });
 
-          const bar = document.createElement("div");
-          bar.className = "be-columns-item-top";
-          const num = document.createElement("span");
-          num.textContent = `#${index + 1}`;
-          num.className = "be-columns-index";
-          const typeSelect = selectInput(
-            COLUMN_CHILD_TYPES.map((childType) => {
-              const meta = blockMeta(childType);
-              return { value: childType, label: meta.label };
-            }),
-            itemType
+          const rowInfo = document.createElement("div");
+          rowInfo.className = "be-nested-row-info";
+          const idx = document.createElement("span");
+          idx.className = "be-columns-index";
+          idx.textContent = `#${index + 1}`;
+          const typeBadge = document.createElement("span");
+          typeBadge.className = "be-nested-type";
+          typeBadge.textContent = `${itemMeta.icon} ${itemMeta.label}`;
+          const summary = document.createElement("span");
+          summary.className = "be-nested-row-summary";
+          summary.textContent = blockPreview(block) || itemMeta.label;
+          rowInfo.appendChild(idx);
+          rowInfo.appendChild(typeBadge);
+          rowInfo.appendChild(summary);
+
+          const actions = document.createElement("div");
+          actions.className = "be-row-actions";
+
+          const actionButton = (label, className, handler, disabled) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = className;
+            btn.textContent = label;
+            btn.disabled = !!disabled;
+            btn.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              handler();
+            });
+            return btn;
+          };
+
+          actions.appendChild(
+            actionButton("↑", "button be-mini-btn", () => {
+              if (index < 1) return;
+              const tmp = list[index - 1];
+              list[index - 1] = list[index];
+              list[index] = tmp;
+              setSelected(index - 1);
+              changed();
+            }, index === 0)
           );
-          typeSelect.addEventListener("change", () => {
-            list[index] = defaultsFor(typeSelect.value);
-            changed();
-          });
+          actions.appendChild(
+            actionButton("↓", "button be-mini-btn", () => {
+              if (index >= list.length - 1) return;
+              const tmp = list[index + 1];
+              list[index + 1] = list[index];
+              list[index] = tmp;
+              setSelected(index + 1);
+              changed();
+            }, index === list.length - 1)
+          );
+          actions.appendChild(
+            actionButton("Dup", "button be-mini-btn", () => {
+              list.splice(index + 1, 0, JSON.parse(JSON.stringify(block)));
+              setSelected(index + 1);
+              changed();
+            })
+          );
+          actions.appendChild(
+            actionButton("Delete", "button deletelink be-mini-btn", () => {
+              list.splice(index, 1);
+              setSelected(Math.max(0, index - 1));
+              changed();
+            })
+          );
 
-          const up = document.createElement("button");
-          up.type = "button";
-          up.className = "button";
-          up.textContent = "Up";
-          up.disabled = index === 0;
-          up.addEventListener("click", () => {
-            if (index < 1) return;
-            const tmp = list[index - 1];
-            list[index - 1] = list[index];
-            list[index] = tmp;
-            changed();
-          });
-
-          const down = document.createElement("button");
-          down.type = "button";
-          down.className = "button";
-          down.textContent = "Down";
-          down.disabled = index === list.length - 1;
-          down.addEventListener("click", () => {
-            if (index >= list.length - 1) return;
-            const tmp = list[index + 1];
-            list[index + 1] = list[index];
-            list[index] = tmp;
-            changed();
-          });
-
-          const remove = document.createElement("button");
-          remove.type = "button";
-          remove.className = "button deletelink";
-          remove.textContent = "Delete";
-          remove.addEventListener("click", () => {
-            list.splice(index, 1);
-            changed();
-          });
-
-          bar.appendChild(num);
-          bar.appendChild(typeSelect);
-          bar.appendChild(up);
-          bar.appendChild(down);
-          bar.appendChild(remove);
-          card.appendChild(bar);
-
-          const body = document.createElement("div");
-          body.className = "be-columns-item-body";
-          renderColumnChildFields(block, body);
-          card.appendChild(body);
-          section.appendChild(card);
+          row.appendChild(rowInfo);
+          row.appendChild(actions);
+          listPane.appendChild(row);
         });
 
+        section.appendChild(listPane);
+
+        const selectedIndex = Math.max(0, Math.min(Number(state.nestedSelected[selectedKey] || 0), list.length - 1));
+        const selectedBlock = normalizeLegacyBlock(list[selectedIndex]);
+        list[selectedIndex] = selectedBlock;
+        const selectedType = toBootstrapType(selectedBlock.type || "bs_paragraph");
+
+        const editor = document.createElement("div");
+        editor.className = "be-nested-editor";
+        const editorTop = document.createElement("div");
+        editorTop.className = "be-nested-editor-top";
+
+        const editorTitle = document.createElement("strong");
+        editorTitle.textContent = `Edit #${selectedIndex + 1}`;
+        const typeSelect = selectInput(
+          COLUMN_CHILD_TYPES.map((childType) => {
+            const meta = blockMeta(childType);
+            return { value: childType, label: meta.label };
+          }),
+          selectedType
+        );
+        typeSelect.classList.add("be-mini-select");
+        typeSelect.addEventListener("change", () => {
+          list[selectedIndex] = defaultsFor(typeSelect.value);
+          changed();
+        });
+
+        editorTop.appendChild(editorTitle);
+        editorTop.appendChild(typeSelect);
+        editor.appendChild(editorTop);
+
+        const fields = document.createElement("div");
+        fields.className = "be-columns-item-body";
+        renderColumnChildFields(selectedBlock, fields);
+        editor.appendChild(fields);
+
+        section.appendChild(editor);
         return section;
       }
 
@@ -3122,12 +3438,19 @@
         delete rowsBlock.items;
 
         const section = document.createElement("section");
-        section.className = "be-rows-editor";
+        section.className = "be-rows-editor be-rows-builder";
 
         const head = document.createElement("div");
         head.className = "be-rows-editor-head";
+        const titleWrap = document.createElement("div");
+        titleWrap.className = "be-rows-head-title";
         const title = document.createElement("strong");
-        title.textContent = "Rows layout";
+        title.textContent = "Container layout";
+        const hint = document.createElement("small");
+        hint.textContent = "Build sections using rows and columns.";
+        titleWrap.appendChild(title);
+        titleWrap.appendChild(hint);
+
         const headActions = document.createElement("div");
         headActions.className = "be-rows-head-actions";
         const headPreset = selectInput(rowPresetOptions(false), "6-6");
@@ -3140,9 +3463,30 @@
           rowsBlock.rows.push(rowFromPreset(headPreset.value, []));
           changed();
         });
-        head.appendChild(title);
+
+        const toggleRows = document.createElement("button");
+        toggleRows.type = "button";
+        toggleRows.className = "button";
+        const allCollapsed =
+          rowsBlock.rows.length > 0 &&
+          rowsBlock.rows.every((_, idx) => {
+            const key = `${blockUid(rowsBlock)}:r:${idx}`;
+            const current = state.rowCollapsed[key];
+            return typeof current === "boolean" ? current : idx !== 0;
+          });
+        toggleRows.textContent = allCollapsed ? "Expand rows" : "Collapse rows";
+        toggleRows.addEventListener("click", () => {
+          rowsBlock.rows.forEach((_, idx) => {
+            const key = `${blockUid(rowsBlock)}:r:${idx}`;
+            state.rowCollapsed[key] = !allCollapsed;
+          });
+          changed();
+        });
+
+        head.appendChild(titleWrap);
         headActions.appendChild(headPreset);
         headActions.appendChild(addRowBtn);
+        headActions.appendChild(toggleRows);
         head.appendChild(headActions);
         section.appendChild(head);
 
@@ -3155,30 +3499,233 @@
         }
 
         const parentUid = blockUid(rowsBlock);
+        const split = document.createElement("div");
+        split.className = "be-rows-split";
+        const structurePane = document.createElement("aside");
+        structurePane.className = "be-rows-structure";
+        const structureHead = document.createElement("div");
+        structureHead.className = "be-rows-structure-head";
+        const structureTitle = document.createElement("strong");
+        structureTitle.textContent = "Structure";
+        const structureHint = document.createElement("small");
+        structureHint.textContent = "Rows and columns";
+        structureHead.appendChild(structureTitle);
+        structureHead.appendChild(structureHint);
+        structurePane.appendChild(structureHead);
+        const structureList = document.createElement("div");
+        structureList.className = "be-rows-structure-list";
+        structurePane.appendChild(structureList);
+        split.appendChild(structurePane);
+
+        const canvasPane = document.createElement("div");
+        canvasPane.className = "be-rows-canvas";
+        const canvasHead = document.createElement("div");
+        canvasHead.className = "be-rows-canvas-head";
+        const canvasTitle = document.createElement("strong");
+        canvasTitle.textContent = "Canvas";
+        const canvasHint = document.createElement("small");
+        canvasHint.textContent = "Drag rows/columns and edit in place";
+        canvasHead.appendChild(canvasTitle);
+        canvasHead.appendChild(canvasHint);
+        canvasPane.appendChild(canvasHead);
+        split.appendChild(canvasPane);
+        section.appendChild(split);
+
+        let dragRowIndex = -1;
+        let dragColumn = null;
+
+        const createDragGhost = (event, label) => {
+          if (!event.dataTransfer) return;
+          const ghost = document.createElement("div");
+          ghost.className = "be-drag-ghost";
+          ghost.textContent = label;
+          document.body.appendChild(ghost);
+          event.dataTransfer.setDragImage(ghost, 10, 10);
+          setTimeout(() => ghost.remove(), 0);
+        };
+
+        const clearRowDropzones = () => {
+          canvasPane.querySelectorAll(".be-row-dropzone").forEach((el) => {
+            el.classList.remove("is-active");
+          });
+        };
+        const clearColumnDropzones = () => {
+          canvasPane.querySelectorAll(".be-col-dropzone").forEach((el) => {
+            el.classList.remove("is-active");
+          });
+        };
+
+        const moveRow = (fromIndex, targetIndexRaw) => {
+          if (fromIndex < 0 || fromIndex >= rowsBlock.rows.length) return;
+          let target = Math.max(0, Math.min(targetIndexRaw, rowsBlock.rows.length));
+          if (target === fromIndex || target === fromIndex + 1) return;
+          const moved = rowsBlock.rows.splice(fromIndex, 1)[0];
+          if (target > fromIndex) target -= 1;
+          rowsBlock.rows.splice(target, 0, moved);
+          changed();
+        };
+
+        const moveColumn = (rowIndex, fromIndex, targetIndexRaw) => {
+          const row = rowsBlock.rows[rowIndex];
+          if (!row || !Array.isArray(row.columns)) return;
+          const columns = row.columns;
+          if (fromIndex < 0 || fromIndex >= columns.length) return;
+          let target = Math.max(0, Math.min(targetIndexRaw, columns.length));
+          if (target === fromIndex || target === fromIndex + 1) return;
+          const moved = columns.splice(fromIndex, 1)[0];
+          if (target > fromIndex) target -= 1;
+          columns.splice(target, 0, moved);
+          changed();
+        };
+
+        const createRowDropzone = (targetIndex) => {
+          const zone = document.createElement("button");
+          zone.type = "button";
+          zone.className = "be-row-dropzone";
+          zone.textContent = "+ Add row here or drop";
+          zone.addEventListener("click", () => {
+            rowsBlock.rows.splice(targetIndex, 0, rowFromPreset(headPreset.value, []));
+            changed();
+          });
+          zone.addEventListener("dragover", (event) => {
+            if (dragRowIndex < 0) return;
+            event.preventDefault();
+            clearRowDropzones();
+            zone.classList.add("is-active");
+          });
+          zone.addEventListener("drop", (event) => {
+            if (dragRowIndex < 0) return;
+            event.preventDefault();
+            clearRowDropzones();
+            moveRow(dragRowIndex, targetIndex);
+          });
+          return zone;
+        };
+
+        const createColumnDropzone = (rowIndex, targetIndex) => {
+          const zone = document.createElement("button");
+          zone.type = "button";
+          zone.className = "be-col-dropzone";
+          zone.textContent = "+";
+          zone.title = "Drop column here";
+          zone.addEventListener("dragover", (event) => {
+            if (!dragColumn || dragColumn.rowIndex !== rowIndex) return;
+            event.preventDefault();
+            clearColumnDropzones();
+            zone.classList.add("is-active");
+          });
+          zone.addEventListener("drop", (event) => {
+            if (!dragColumn || dragColumn.rowIndex !== rowIndex) return;
+            event.preventDefault();
+            clearColumnDropzones();
+            moveColumn(rowIndex, dragColumn.colIndex, targetIndex);
+          });
+          return zone;
+        };
+
+        canvasPane.appendChild(createRowDropzone(0));
 
         rowsBlock.rows.forEach((row, rowIndex) => {
           const normalizedRow = normalizeRowItem(row);
           rowsBlock.rows[rowIndex] = normalizedRow;
           const rowKey = `${parentUid}:r:${rowIndex}`;
-          const rowCollapsed = !!state.rowCollapsed[rowKey];
+          const rowCollapsed = typeof state.rowCollapsed[rowKey] === "boolean" ? state.rowCollapsed[rowKey] : rowIndex !== 0;
+
+          const structureItem = document.createElement("button");
+          structureItem.type = "button";
+          structureItem.className = "be-rows-structure-item";
+          if (!rowCollapsed) structureItem.classList.add("is-active");
+          const structureLabel = document.createElement("span");
+          structureLabel.textContent = `Row ${rowIndex + 1}`;
+          const structureMeta = document.createElement("small");
+          structureMeta.textContent = `${normalizedRow.columns.length} cols`;
+          structureItem.appendChild(structureLabel);
+          structureItem.appendChild(structureMeta);
+          structureItem.addEventListener("click", () => {
+            state.rowCollapsed[rowKey] = false;
+            changed();
+          });
+          structureList.appendChild(structureItem);
+
+          const structureColumns = document.createElement("div");
+          structureColumns.className = "be-rows-structure-sublist";
+          normalizedRow.columns.forEach((column, colIndex) => {
+            const colKey = `${rowKey}:c:${colIndex}`;
+            const isColOpen =
+              !rowCollapsed &&
+              (typeof state.colCollapsed[colKey] === "boolean" ? !state.colCollapsed[colKey] : colIndex === 0);
+            const sub = document.createElement("button");
+            sub.type = "button";
+            sub.className = "be-rows-structure-subitem";
+            if (isColOpen) sub.classList.add("is-active");
+            sub.textContent = `Column ${colIndex + 1} · ${Number(column.width || 6) || 6}/12`;
+            sub.addEventListener("click", () => {
+              state.rowCollapsed[rowKey] = false;
+              state.colCollapsed[colKey] = false;
+              changed();
+            });
+            structureColumns.appendChild(sub);
+          });
+          structureList.appendChild(structureColumns);
 
           const rowCard = document.createElement("article");
           rowCard.className = "be-row-item";
           if (rowCollapsed) rowCard.classList.add("is-collapsed");
+          rowCard.draggable = false;
 
           const rowTop = document.createElement("div");
-          rowTop.className = "be-row-item-top";
+          rowTop.className = "be-row-item-top be-sticky-toolbar be-row-toolbar";
+          const rowMeta = document.createElement("div");
+          rowMeta.className = "be-row-meta";
           const rowLabel = document.createElement("strong");
-          rowLabel.textContent = `Row #${rowIndex + 1} · ${normalizedRow.columns.length} cols`;
+          rowLabel.textContent = `Row ${rowIndex + 1}`;
+          const rowChips = document.createElement("div");
+          rowChips.className = "be-row-chips";
+          const chipCols = document.createElement("span");
+          chipCols.className = "be-chip";
+          chipCols.textContent = `${normalizedRow.columns.length} cols`;
+          const chipGap = document.createElement("span");
+          chipGap.className = "be-chip";
+          chipGap.textContent = `gap-${normalizedRow.gutter}`;
+          const chipAlign = document.createElement("span");
+          chipAlign.className = "be-chip";
+          chipAlign.textContent = normalizedRow.align;
+          rowChips.appendChild(chipCols);
+          rowChips.appendChild(chipGap);
+          rowChips.appendChild(chipAlign);
+          rowMeta.appendChild(rowLabel);
+          rowMeta.appendChild(rowChips);
+
           const rowButtons = document.createElement("div");
           rowButtons.className = "be-row-actions";
+
+          const rowDrag = document.createElement("button");
+          rowDrag.type = "button";
+          rowDrag.className = "button be-mini-btn be-drag-pill";
+          rowDrag.textContent = "⋮⋮";
+          rowDrag.title = "Drag row";
+          rowDrag.draggable = true;
+          rowDrag.addEventListener("dragstart", (event) => {
+            dragRowIndex = rowIndex;
+            rowCard.classList.add("is-dragging");
+            createDragGhost(event, `Row ${rowIndex + 1}`);
+            if (event.dataTransfer) {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("application/x-be-row-index", String(rowIndex));
+            }
+          });
+          rowDrag.addEventListener("dragend", () => {
+            dragRowIndex = -1;
+            rowCard.classList.remove("is-dragging");
+            clearRowDropzones();
+          });
 
           const rowToggle = document.createElement("button");
           rowToggle.type = "button";
           rowToggle.className = "button be-mini-btn";
-          rowToggle.textContent = rowCollapsed ? "Expand" : "Collapse";
+          rowToggle.textContent = rowCollapsed ? "Show" : "Hide";
           rowToggle.addEventListener("click", () => {
-            state.rowCollapsed[rowKey] = !state.rowCollapsed[rowKey];
+            state.rowCollapsed[rowKey] = !rowCollapsed;
             changed();
           });
 
@@ -3226,26 +3773,60 @@
             changed();
           });
 
+          rowButtons.appendChild(rowDrag);
           rowButtons.appendChild(rowToggle);
           rowButtons.appendChild(addColumnBtn);
           rowButtons.appendChild(rowUp);
           rowButtons.appendChild(rowDown);
           rowButtons.appendChild(rowRemove);
-          rowTop.appendChild(rowLabel);
+          rowTop.appendChild(rowMeta);
           rowTop.appendChild(rowButtons);
           rowCard.appendChild(rowTop);
 
           if (rowCollapsed) {
+            const mini = document.createElement("div");
+            mini.className = "be-row-mini-map";
+            const totalWidth = normalizedRow.columns.reduce((sum, col) => sum + (Number(col.width || 6) || 6), 0) || 12;
+            normalizedRow.columns.forEach((column, colIndex) => {
+              const cell = document.createElement("span");
+              cell.className = "be-row-mini-cell";
+              const colWidth = Number(column.width || 6) || 6;
+              const pct = Math.max(8, Math.round((colWidth / totalWidth) * 100));
+              cell.style.flexBasis = `${pct}%`;
+              const nestedCount = Array.isArray(column.blocks) ? column.blocks.length : 0;
+              cell.textContent = `${colIndex + 1}:${colWidth}/12 · ${nestedCount}`;
+              mini.appendChild(cell);
+            });
+            rowCard.appendChild(mini);
+
             const rowSummary = document.createElement("p");
             rowSummary.className = "be-collapse-summary";
-            rowSummary.textContent = `Gap ${normalizedRow.gutter} · Align ${normalizedRow.align}`;
+            rowSummary.textContent = "Click Show to edit columns and nested blocks.";
             rowCard.appendChild(rowSummary);
-            section.appendChild(rowCard);
+            canvasPane.appendChild(rowCard);
+            canvasPane.appendChild(createRowDropzone(rowIndex + 1));
             return;
           }
 
           const rowSettings = document.createElement("div");
-          rowSettings.className = "be-row-settings";
+          rowSettings.className = "be-row-settings be-row-settings-inline";
+
+          const inlineControl = (labelText, inputEl, helperText) => {
+            const wrap = document.createElement("label");
+            wrap.className = "be-inline-control";
+            const titleEl = document.createElement("span");
+            titleEl.className = "be-inline-label";
+            titleEl.textContent = labelText;
+            wrap.appendChild(titleEl);
+            wrap.appendChild(inputEl);
+            if (helperText) {
+              const hintEl = document.createElement("small");
+              hintEl.className = "be-inline-help";
+              hintEl.textContent = helperText;
+              wrap.appendChild(hintEl);
+            }
+            return wrap;
+          };
 
           const rowPresetSelect = selectInput(rowPresetOptions(true), rowPresetFromColumns(normalizedRow.columns));
           rowPresetSelect.classList.add("be-row-preset-select");
@@ -3285,35 +3866,67 @@
             changed();
           });
 
-          rowSettings.appendChild(field("Layout preset", rowPresetSelect, "Replaces current columns for this row"));
-          rowSettings.appendChild(field("Row gap", gutterSelect));
-          rowSettings.appendChild(field("Vertical align", alignSelect));
+          rowSettings.appendChild(
+            inlineControl("Layout preset", rowPresetSelect, "Replaces current row columns")
+          );
+          rowSettings.appendChild(inlineControl("Row gap", gutterSelect));
+          rowSettings.appendChild(inlineControl("Vertical align", alignSelect));
           rowCard.appendChild(rowSettings);
 
           const columnsGrid = document.createElement("div");
           columnsGrid.className = "be-row-columns";
+          columnsGrid.appendChild(createColumnDropzone(rowIndex, 0));
 
           normalizedRow.columns.forEach((column, colIndex) => {
             const colKey = `${rowKey}:c:${colIndex}`;
-            const colCollapsed = !!state.colCollapsed[colKey];
+            const colCollapsed = typeof state.colCollapsed[colKey] === "boolean" ? state.colCollapsed[colKey] : colIndex !== 0;
             const colCard = document.createElement("div");
             colCard.className = "be-row-column";
             if (colCollapsed) colCard.classList.add("is-collapsed");
+            colCard.draggable = false;
 
             const colTop = document.createElement("div");
-            colTop.className = "be-row-column-top";
+            colTop.className = "be-row-column-top be-sticky-toolbar be-col-toolbar";
+            const colMeta = document.createElement("div");
+            colMeta.className = "be-col-meta";
             const colLabel = document.createElement("span");
             colLabel.textContent = `Column ${colIndex + 1}`;
+            const widthBadge = document.createElement("small");
+            widthBadge.className = "be-chip";
+            widthBadge.textContent = `${Number(column.width || 6) || 6}/12`;
+            colMeta.appendChild(colLabel);
+            colMeta.appendChild(widthBadge);
 
             const colActions = document.createElement("div");
             colActions.className = "be-row-actions";
 
+            const colDrag = document.createElement("button");
+            colDrag.type = "button";
+            colDrag.className = "button be-mini-btn be-drag-pill";
+            colDrag.textContent = "⋮⋮";
+            colDrag.title = "Drag column";
+            colDrag.draggable = true;
+            colDrag.addEventListener("dragstart", (event) => {
+              dragColumn = { rowIndex, colIndex };
+              colCard.classList.add("is-dragging");
+              createDragGhost(event, `Column ${colIndex + 1}`);
+              if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("application/x-be-col-index", String(colIndex));
+              }
+            });
+            colDrag.addEventListener("dragend", () => {
+              dragColumn = null;
+              colCard.classList.remove("is-dragging");
+              clearColumnDropzones();
+            });
+
             const colToggle = document.createElement("button");
             colToggle.type = "button";
             colToggle.className = "button be-mini-btn";
-            colToggle.textContent = colCollapsed ? "Expand" : "Collapse";
+            colToggle.textContent = colCollapsed ? "Show" : "Hide";
             colToggle.addEventListener("click", () => {
-              state.colCollapsed[colKey] = !state.colCollapsed[colKey];
+              state.colCollapsed[colKey] = !colCollapsed;
               changed();
             });
 
@@ -3354,11 +3967,12 @@
               changed();
             });
 
+            colActions.appendChild(colDrag);
             colActions.appendChild(colToggle);
             colActions.appendChild(colLeft);
             colActions.appendChild(colRight);
             colActions.appendChild(colRemove);
-            colTop.appendChild(colLabel);
+            colTop.appendChild(colMeta);
             colTop.appendChild(colActions);
             colCard.appendChild(colTop);
 
@@ -3376,26 +3990,39 @@
               ],
               column.width || 6
             );
+            widthSelect.classList.add("be-mini-select");
             widthSelect.addEventListener("change", () => {
               column.width = Number(widthSelect.value || 6);
               changed();
             });
-            colCard.appendChild(field("Desktop width", widthSelect));
+            colActions.appendChild(widthSelect);
 
             if (colCollapsed) {
               const colSummary = document.createElement("p");
               colSummary.className = "be-collapse-summary";
               const nested = Array.isArray(column.blocks) ? column.blocks.length : 0;
-              colSummary.textContent = `${nested} nested block${nested === 1 ? "" : "s"}`;
+              const labels = (Array.isArray(column.blocks) ? column.blocks : [])
+                .slice(0, 3)
+                .map((child) => blockMeta(toBootstrapType(child.type || "bs_paragraph")).label)
+                .join(", ");
+              colSummary.textContent = nested
+                ? `${nested} nested block${nested === 1 ? "" : "s"} · ${labels}${nested > 3 ? "..." : ""}`
+                : "No nested blocks yet.";
               colCard.appendChild(colSummary);
             } else {
-              colCard.appendChild(renderColumnEditor(column, "blocks", "Blocks"));
+              colCard.appendChild(
+                renderColumnEditor(column, "blocks", "Nested blocks", {
+                  keyPrefix: `${rowKey}:c:${colIndex}`,
+                })
+              );
             }
             columnsGrid.appendChild(colCard);
+            columnsGrid.appendChild(createColumnDropzone(rowIndex, colIndex + 1));
           });
 
           rowCard.appendChild(columnsGrid);
-          section.appendChild(rowCard);
+          canvasPane.appendChild(rowCard);
+          canvasPane.appendChild(createRowDropzone(rowIndex + 1));
         });
 
         return section;
@@ -4581,9 +5208,27 @@
       if (state.selectedIndex < 0) return;
       const key = String(event.key || "");
       const lower = key.toLowerCase();
+      const typing = isTypingContext(event.target);
+
+      if ((event.ctrlKey || event.metaKey) && lower === "z" && !event.shiftKey) {
+        if (typing) return;
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        ((lower === "z" && event.shiftKey) || lower === "y")
+      ) {
+        if (typing) return;
+        event.preventDefault();
+        redoHistory();
+        return;
+      }
 
       if ((event.ctrlKey || event.metaKey) && lower === "d") {
-        if (isTypingContext(event.target)) return;
+        if (typing) return;
         event.preventDefault();
         duplicateSelected();
         return;
@@ -4601,16 +5246,26 @@
         return;
       }
 
-      if ((key === "Delete" || key === "Backspace") && !isTypingContext(event.target)) {
+      if ((key === "Delete" || key === "Backspace") && !typing) {
         event.preventDefault();
         removeSelected();
       }
     });
 
+    restoreAutosaveIfAvailable();
+    pushHistorySnapshot();
     renderAll();
+    setAutosaveState("saved", "Saved");
 
     const form = source.closest("form");
-    if (form) form.addEventListener("submit", sync);
+    if (form) {
+      form.addEventListener("submit", () => {
+        if (autosaveTimer) window.clearTimeout(autosaveTimer);
+        if (historyDebounceTimer) window.clearTimeout(historyDebounceTimer);
+        sync();
+        clearAutosaveSnapshot();
+      });
+    }
   }
 
   function init() {
