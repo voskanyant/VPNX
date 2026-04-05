@@ -308,6 +308,7 @@ a:hover {
 .badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 22px;
   border-radius: 999px;
   padding: 2px 9px;
@@ -333,6 +334,16 @@ a:hover {
   background: #f1f4f9;
   color: #46556f;
   border-color: #dae1ed;
+}
+
+.badge-status {
+  min-height: 32px;
+  padding: 0.45rem 0.9rem;
+  font-size: 13px;
+  line-height: 1.1;
+  font-weight: 700;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .alert {
@@ -882,8 +893,26 @@ textarea,
   margin-inline: auto;
 }
 
+.cabinet-page {
+  position: relative;
+}
+
 .cabinet-hero {
   overflow: hidden;
+  padding: 20px;
+}
+
+.cabinet-hero-head {
+  position: relative;
+}
+
+.cabinet-hero-copy {
+  max-width: 48rem;
+}
+
+.cabinet-hero-count {
+  min-height: 34px;
+  padding-inline: 12px;
 }
 
 .cabinet-hero-actions .btn {
@@ -930,10 +959,6 @@ textarea,
 
 .config-mobile-card {
   padding: 14px;
-}
-
-.cabinet-page {
-  position: relative;
 }
 
 .cabinet-sections .cabinet-fold {
@@ -993,6 +1018,97 @@ textarea,
   color: #475569;
   font-size: 13px;
   font-weight: 600;
+}
+
+.config-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.config-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.config-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.config-card-title-wrap {
+  min-width: 0;
+}
+
+.config-card-title {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.config-card-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.config-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.config-meta-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.config-meta-value {
+  color: #0f172a;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.config-card-link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.config-card-actions .btn {
+  justify-content: center;
+}
+
+.config-card-actions > .btn,
+.config-card-actions > .config-rename-block {
+  width: 100%;
+}
+
+.config-rename-block {
+  border: 1px solid #dbe3f2;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.config-rename-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .config-shell .config-qr-wrap {
@@ -1082,6 +1198,13 @@ body.theme-flatsome.vx-body .cabinet-page .badge {
   white-space: nowrap;
 }
 
+body.wp-theme-flatsome.vx-body .cabinet-page .badge-status,
+body.theme-flatsome.vx-body .cabinet-page .badge-status {
+  min-height: 32px;
+  padding: 0.45rem 0.9rem;
+  line-height: 1.1;
+}
+
 body.wp-theme-flatsome.vx-body .cabinet-page code,
 body.theme-flatsome.vx-body .cabinet-page code {
   white-space: nowrap;
@@ -1095,7 +1218,8 @@ body.theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap input[readonly] {
 
 body.wp-theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap,
 body.theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap {
-  min-width: 280px;
+  min-width: 0;
+  width: 100%;
 }
 
 body.wp-theme-flatsome.vx-body .cabinet-page .vx-rename-input,
@@ -1219,6 +1343,10 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
     padding: 10px;
   }
 
+  .cabinet-hero {
+    padding: 16px;
+  }
+
   .cabinet-hero-actions {
     grid-template-columns: 1fr;
   }
@@ -1300,6 +1428,19 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
   .cabinet-fold-content {
     padding: 12px 14px 14px;
   }
+
+  .config-card {
+    padding: 14px;
+  }
+
+  .config-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .config-card-head .badge-status {
+    align-self: flex-start;
+  }
 }
 
 @media (min-width: 981px) {
@@ -1321,6 +1462,37 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
 
   .block-columns {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .config-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .config-card-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .config-card-actions {
+    flex-direction: row;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .config-card-actions > .btn {
+    width: auto;
+  }
+
+  .config-card-actions > .config-rename-block {
+    flex: 1 1 260px;
+  }
+
+  .config-rename-form {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .config-rename-form .form-control {
+    flex: 1 1 auto;
   }
 
   .config-actions .btn {
