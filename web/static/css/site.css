@@ -1261,6 +1261,16 @@ textarea,
   gap: 10px;
 }
 
+body.wp-theme-flatsome.vx-account-shell #footer,
+body.theme-flatsome.vx-account-shell #footer {
+  margin-top: clamp(18px, 3vw, 32px);
+}
+
+body.wp-theme-flatsome.vx-account-shell #footer .absolute-footer,
+body.theme-flatsome.vx-account-shell #footer .absolute-footer {
+  background: #424242;
+}
+
 .config-link-field {
   font-size: 13px;
   line-height: 1.45;
@@ -1308,6 +1318,82 @@ body.theme-flatsome.vx-body #footer [class^="col-"] {
   padding-left: 0;
   padding-right: 0;
   flex: 0 0 auto;
+}
+
+body.wp-theme-flatsome.vx-account-shell,
+body.theme-flatsome.vx-account-shell {
+  background:
+    radial-gradient(circle at top center, rgba(187, 107, 45, 0.06), transparent 28%),
+    linear-gradient(180deg, #fffdf8 0%, #f8f7f2 38%, #f4f5f7 100%);
+  color: #122033;
+}
+
+body.wp-theme-flatsome.vx-account-shell #main.vx-shell-main,
+body.theme-flatsome.vx-account-shell #main.vx-shell-main {
+  background: transparent;
+}
+
+body.wp-theme-flatsome.vx-account-shell .vx-shell-page,
+body.theme-flatsome.vx-account-shell .vx-shell-page {
+  padding-top: clamp(18px, 2.6vw, 34px);
+  padding-bottom: clamp(28px, 4vw, 56px);
+}
+
+body.wp-theme-flatsome.vx-account-shell .vx-shell-inner,
+body.theme-flatsome.vx-account-shell .vx-shell-inner {
+  width: min(100%, 1120px);
+  margin-inline: auto;
+  padding-inline: 14px;
+}
+
+body.wp-theme-flatsome.vx-account-shell .cabinet-page,
+body.wp-theme-flatsome.vx-account-shell .config-shell,
+body.theme-flatsome.vx-account-shell .cabinet-page,
+body.theme-flatsome.vx-account-shell .config-shell {
+  color: #122033;
+}
+
+body.wp-theme-flatsome.vx-account-shell .surface-card,
+body.theme-flatsome.vx-account-shell .surface-card {
+  border-radius: 26px;
+  border: 1px solid rgba(18, 32, 51, 0.08);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 48px rgba(17, 24, 39, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+body.wp-theme-flatsome.vx-account-shell .surface-panel,
+body.theme-flatsome.vx-account-shell .surface-panel {
+  border-radius: 18px;
+  border-color: rgba(18, 32, 51, 0.08);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+body.wp-theme-flatsome.vx-account-shell .cabinet-hero,
+body.theme-flatsome.vx-account-shell .cabinet-hero {
+  padding: clamp(22px, 3vw, 32px);
+}
+
+body.wp-theme-flatsome.vx-account-shell .cabinet-hero .display-6,
+body.theme-flatsome.vx-account-shell .cabinet-hero .display-6,
+body.wp-theme-flatsome.vx-account-shell .config-shell-title,
+body.theme-flatsome.vx-account-shell .config-shell-title {
+  color: #122033;
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+body.wp-theme-flatsome.vx-account-shell .cabinet-hero-copy .text-secondary,
+body.wp-theme-flatsome.vx-account-shell .config-shell-subtitle,
+body.theme-flatsome.vx-account-shell .cabinet-hero-copy .text-secondary,
+body.theme-flatsome.vx-account-shell .config-shell-subtitle {
+  color: rgba(18, 32, 51, 0.66) !important;
+}
+
+body.wp-theme-flatsome.vx-account-shell .stat-card,
+body.theme-flatsome.vx-account-shell .stat-card {
+  justify-content: flex-start;
 }
 
 body.wp-theme-flatsome.vx-body .cabinet-page .row.g-3 > [class*="col-"],
@@ -1475,6 +1561,27 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
     padding: 10px;
   }
 
+  body.wp-theme-flatsome.vx-account-shell .vx-shell-page,
+  body.theme-flatsome.vx-account-shell .vx-shell-page {
+    padding-top: 12px;
+    padding-bottom: 22px;
+  }
+
+  body.wp-theme-flatsome.vx-account-shell .vx-shell-inner,
+  body.theme-flatsome.vx-account-shell .vx-shell-inner {
+    padding-inline: 10px;
+  }
+
+  body.wp-theme-flatsome.vx-account-shell .surface-card,
+  body.theme-flatsome.vx-account-shell .surface-card {
+    border-radius: 22px;
+  }
+
+  body.wp-theme-flatsome.vx-account-shell .surface-panel,
+  body.theme-flatsome.vx-account-shell .surface-panel {
+    border-radius: 16px;
+  }
+
   .config-shell {
     padding: 14px;
   }
@@ -1491,6 +1598,10 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
     font-size: 14px;
   }
 
+  .config-shell-title {
+    font-size: clamp(1.45rem, 8vw, 2rem);
+  }
+
   .config-shell .config-qr-wrap {
     padding: 8px;
     border-radius: 14px;
@@ -1505,6 +1616,10 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
   .config-link-panel {
     padding: 12px;
     border-radius: 14px;
+  }
+
+  .cabinet-hero {
+    border-radius: 24px;
   }
 
   .cabinet-hero {
@@ -1700,6 +1815,7 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
   .config-shell-grid {
     grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
     align-items: start;
+    gap: 20px;
   }
 
   .config-shell-head {
