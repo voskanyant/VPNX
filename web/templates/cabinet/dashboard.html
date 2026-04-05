@@ -19,7 +19,7 @@
       <h1 class="display-6 fw-bold mb-2">{{ cabinet_heading }}</h1>
       <p class="text-secondary mb-0">Управляйте доступами, конфигами и подключением в одном месте.</p>
     </div>
-    <span class="badge badge-muted fw-semibold align-self-start cabinet-hero-count">{{ subscription_rows|length }} доступов</span>
+    <span class="vx-pill vx-pill-muted align-self-start cabinet-hero-count">{{ subscription_rows|length }} доступов</span>
   </div>
   <div class="cabinet-hero-actions d-grid d-sm-flex gap-2 mt-3">
     <a class="btn btn-primary" href="/account/buy/">{{ cabinet_buy_new_action }} · {{ card_price_label }}</a>
@@ -31,7 +31,7 @@
 {% if not bot_user %}
   <div class="surface-card"><div class="alert alert-danger mb-0">{{ cabinet_error_loading }}</div></div>
 {% else %}
-  <section class="row g-3 mb-4">
+  <section class="row g-3 mb-4 cabinet-stats">
     <div class="col-12 col-sm-6 col-xl-3">
       <article class="surface-card h-100 stat-card">
         <div class="stat-label">Пользователь</div>
@@ -55,10 +55,10 @@
         <div class="stat-label">Telegram</div>
         <div class="stat-value">
           {% if linked %}
-            <span class="badge badge-success badge-status">Привязан</span>
+            <span class="vx-pill vx-pill-success status-pill">Привязан</span>
             <div class="small text-secondary mt-2"><code>{{ linked.telegram_id }}</code></div>
           {% else %}
-            <span class="badge badge-warning badge-status">Не привязан</span>
+            <span class="vx-pill vx-pill-warning status-pill">Не привязан</span>
             <div class="small mt-2"><a href="/account/link/">Привязать</a> · <span class="text-secondary">{{ inactive_configs }} неактивных</span></div>
           {% endif %}
         </div>
@@ -84,9 +84,9 @@
                   <div class="small text-secondary">ID: {{ row.id }}</div>
                 </div>
                 {% if row.is_active %}
-                  <span class="badge badge-success badge-status">{{ row.status_text }}</span>
+                  <span class="vx-pill vx-pill-success status-pill">{{ row.status_text }}</span>
                 {% else %}
-                  <span class="badge badge-muted badge-status">{{ row.status_text }}</span>
+                  <span class="vx-pill vx-pill-muted status-pill">{{ row.status_text }}</span>
                 {% endif %}
               </div>
 
@@ -100,6 +100,10 @@
                       -
                     {% endif %}
                   </span>
+                </div>
+                <div class="config-meta-item">
+                  <span class="config-meta-label">Доступ</span>
+                  <span class="config-meta-value">{% if row.is_active %}Работает{% else %}Неактивен{% endif %}</span>
                 </div>
               </div>
 
@@ -134,40 +138,10 @@
       {% endif %}
     </div>
   </details>
-
-  <details class="surface-card cabinet-fold mb-3">
-    <summary class="cabinet-fold-summary">
-      <span>История</span>
-      <span class="text-secondary small">Покупки и продления</span>
-    </summary>
-    <div class="cabinet-fold-content">
-      <div class="surface-panel">
-        <p class="mb-2">История платежей появится здесь в ближайшем обновлении.</p>
-        <div class="d-flex flex-wrap gap-2">
-          <a class="btn btn-sm btn-outline-primary" href="/account/buy/">Купить новый доступ</a>
-          <a class="btn btn-sm btn-outline-primary" href="/account/renew/">Продлить текущий</a>
-        </div>
-      </div>
-    </div>
-  </details>
-
-  <details class="surface-card cabinet-fold">
-    <summary class="cabinet-fold-summary">
-      <span>Помощь</span>
-      <span class="text-secondary small">Быстрые действия</span>
-    </summary>
-    <div class="cabinet-fold-content">
-      <div class="surface-panel d-flex flex-wrap gap-2">
-        <a class="btn btn-sm btn-outline-secondary" href="/instructions/">Инструкция</a>
-        <a class="btn btn-sm btn-outline-secondary" href="/account/link/">Привязать Telegram</a>
-      </div>
-    </div>
-  </details>
 </section>
 
 <div class="cabinet-mobile-actions d-lg-none">
   <a class="btn btn-primary" href="/account/buy/">{{ cabinet_buy_new_action }}</a>
-  <a class="btn btn-outline-primary" href="/account/renew/">{{ cabinet_renew_action_short }}</a>
   <a class="btn btn-outline-secondary" href="/instructions/">{{ cabinet_support_action }}</a>
 </div>
 </div>

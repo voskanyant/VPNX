@@ -895,6 +895,9 @@ textarea,
 
 .cabinet-page {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .cabinet-hero {
@@ -922,8 +925,12 @@ textarea,
 .stat-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   min-height: 100%;
+}
+
+.cabinet-stats {
+  margin-bottom: 0 !important;
 }
 
 .stat-label {
@@ -940,6 +947,46 @@ textarea,
   line-height: 1.35;
   color: #0f172a;
   overflow-wrap: anywhere;
+}
+
+.vx-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 0.5rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.vx-pill-muted {
+  background: #f2f6fb;
+  border-color: #dbe4f0;
+  color: #48566d;
+}
+
+.vx-pill-success {
+  background: #eefaf2;
+  border-color: #c7ead3;
+  color: #25754a;
+}
+
+.vx-pill-warning {
+  background: #fff6e7;
+  border-color: #f1d79c;
+  color: #9a6708;
+}
+
+.status-pill {
+  align-self: flex-start;
+  margin: 0;
 }
 
 .vx-config-table {
@@ -959,6 +1006,12 @@ textarea,
 
 .config-mobile-card {
   padding: 14px;
+}
+
+.cabinet-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .cabinet-sections .cabinet-fold {
@@ -1001,7 +1054,7 @@ textarea,
   backdrop-filter: blur(10px);
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.08);
 }
@@ -1029,8 +1082,10 @@ textarea,
 .config-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
 }
 
 .config-card-head {
@@ -1060,6 +1115,10 @@ textarea,
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  border: 1px solid #e1e8f3;
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .config-meta-label {
@@ -1080,11 +1139,15 @@ textarea,
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  border: 1px solid #e1e8f3;
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .config-card-actions {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1102,6 +1165,7 @@ textarea,
   border-radius: 12px;
   background: #fff;
   padding: 10px 12px;
+  grid-column: 1 / -1;
 }
 
 .config-rename-form {
@@ -1125,11 +1189,85 @@ textarea,
   background: #fff;
 }
 
+.config-shell {
+  padding: 18px;
+}
+
+.config-shell-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.config-shell-primary,
+.config-shell-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.config-shell-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.config-shell-title {
+  margin: 0;
+  font-size: clamp(1.7rem, 5vw, 2.15rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.config-shell-subtitle {
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.config-shell-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.config-shell-actions .btn {
+  width: 100%;
+}
+
+.config-shell-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.config-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  min-height: 100%;
+}
+
+.config-info-card-wide {
+  grid-column: 1 / -1;
+}
+
+.config-switch-panel,
+.config-link-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .config-link-field {
   font-size: 13px;
   line-height: 1.45;
   background: #fff !important;
   border-color: #d9e3f4;
+  min-width: 0;
+  width: 100%;
 }
 
 .site-main .badge.text-bg-light {
@@ -1190,19 +1328,13 @@ body.theme-flatsome.vx-body .cabinet-page .stat-value {
   gap: 8px;
 }
 
-body.wp-theme-flatsome.vx-body .cabinet-page .badge,
-body.theme-flatsome.vx-body .cabinet-page .badge {
-  min-height: 28px;
-  padding: 0.35em 0.8em;
-  line-height: 1.2;
+body.wp-theme-flatsome.vx-body .cabinet-page .vx-pill,
+body.theme-flatsome.vx-body .cabinet-page .vx-pill {
+  min-height: 34px;
+  padding: 0.5rem 0.95rem;
+  line-height: 1;
   white-space: nowrap;
-}
-
-body.wp-theme-flatsome.vx-body .cabinet-page .badge-status,
-body.theme-flatsome.vx-body .cabinet-page .badge-status {
-  min-height: 32px;
-  padding: 0.45rem 0.9rem;
-  line-height: 1.1;
+  border-radius: 999px;
 }
 
 body.wp-theme-flatsome.vx-body .cabinet-page code,
@@ -1213,7 +1345,7 @@ body.theme-flatsome.vx-body .cabinet-page code {
 
 body.wp-theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap input[readonly],
 body.theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap input[readonly] {
-  min-width: 220px;
+  min-width: 0;
 }
 
 body.wp-theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap,
@@ -1343,6 +1475,38 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
     padding: 10px;
   }
 
+  .config-shell {
+    padding: 14px;
+  }
+
+  .config-shell-grid {
+    gap: 14px;
+  }
+
+  .config-shell-head {
+    gap: 8px;
+  }
+
+  .config-shell-subtitle {
+    font-size: 14px;
+  }
+
+  .config-shell .config-qr-wrap {
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .config-info-card {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .config-switch-panel,
+  .config-link-panel {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
   .cabinet-hero {
     padding: 16px;
   }
@@ -1360,7 +1524,16 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
   }
 
   .cabinet-page {
-    padding-bottom: 86px;
+    gap: 12px;
+    padding-bottom: 92px;
+  }
+
+  .stat-card {
+    min-height: auto;
+  }
+
+  .stat-value {
+    font-size: 1rem;
   }
 
   .card,
@@ -1431,6 +1604,7 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
 
   .config-card {
     padding: 14px;
+    gap: 14px;
   }
 
   .config-card-head {
@@ -1438,8 +1612,63 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
     align-items: flex-start;
   }
 
-  .config-card-head .badge-status {
-    align-self: flex-start;
+  .config-card-meta {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .config-meta-item,
+  .config-card-link {
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .vx-pill {
+    min-height: 32px;
+    padding: 0.45rem 0.8rem;
+    font-size: 12px;
+  }
+
+  .status-pill {
+    margin-top: 2px;
+  }
+
+  .vx-link-input-wrap {
+    align-items: stretch;
+  }
+
+  .vx-link-input-wrap .js-copy-icon {
+    flex: 0 0 40px;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+  }
+
+  .config-link-field {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .config-card-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .config-card-actions .btn,
+  .config-card-actions .config-rename-block {
+    min-height: 44px;
+  }
+
+  .config-rename-form {
+    gap: 8px;
+  }
+
+  .config-rename-block summary {
+    font-size: 12px;
+  }
+
+  .cabinet-fold-summary > .text-secondary {
+    font-size: 12px !important;
   }
 }
 
@@ -1465,6 +1694,25 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
   }
 
   .config-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .config-shell-grid {
+    grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .config-shell-head {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .config-shell-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .config-shell-meta-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

@@ -10,50 +10,59 @@
 {% cms_text "cabinet.config.back_action" "Назад в кабинет" as cabinet_config_back_action %}
 
 <section class="surface-card config-shell">
-  <div class="row g-4 align-items-start">
-    <div class="col-12 col-lg-5">
-      <h1 class="h3 mb-3">{{ cabinet_config_heading }}</h1>
-      <p class="text-secondary small mb-3">{{ display_name }}</p>
+  <div class="config-shell-grid">
+    <div class="config-shell-primary">
+      <div class="config-shell-head">
+        <div>
+          <h1 class="config-shell-title">{{ cabinet_config_heading }}</h1>
+          <p class="config-shell-subtitle mb-0">{{ display_name }}</p>
+        </div>
+        {% if has_active %}
+          <span class="vx-pill vx-pill-success status-pill">Активна</span>
+        {% else %}
+          <span class="vx-pill vx-pill-muted status-pill">Неактивна</span>
+        {% endif %}
+      </div>
+
       <div class="config-qr-wrap">
         <img id="qr" class="img-fluid config-qr-img" src="data:image/png;base64,{{ qr_b64 }}" alt="VPN QR" />
       </div>
-      <div class="config-actions-grid d-grid gap-2 mt-3">
-        <button class="btn btn-outline-primary" type="button" id="copy-config-button">📋 {{ cabinet_config_copy_action }}</button>
+
+      <div class="config-shell-actions">
+        <button class="btn btn-primary" type="button" id="copy-config-button">📋 {{ cabinet_config_copy_action }}</button>
         <a class="btn btn-outline-secondary" href="/account/">{{ cabinet_config_back_action }}</a>
       </div>
     </div>
 
-    <div class="col-12 col-lg-7">
-      <div class="row g-2 mb-3">
-        <div class="col-12 col-md-6">
-          <div class="surface-panel h-100">
-            <div class="small text-secondary mb-1">Статус</div>
-            <div class="fw-semibold">
-              {% if has_active %}
-                <span class="badge text-bg-success">Активна</span>
-              {% else %}
-                <span class="badge text-bg-secondary">Неактивна</span>
-              {% endif %}
-            </div>
+    <div class="config-shell-secondary">
+      <div class="config-shell-meta-grid">
+        <article class="surface-panel config-info-card">
+          <div class="config-meta-label">Статус</div>
+          <div class="config-meta-value">
+            {% if has_active %}
+              <span class="vx-pill vx-pill-success status-pill">Активна</span>
+            {% else %}
+              <span class="vx-pill vx-pill-muted status-pill">Неактивна</span>
+            {% endif %}
           </div>
-        </div>
-        <div class="col-12 col-md-6">
-          <div class="surface-panel h-100">
-            <div class="small text-secondary mb-1">Действует до</div>
-            <div class="fw-semibold">{{ subscription.expires_at|date:'d.m.Y H:i' }}</div>
-          </div>
-        </div>
+        </article>
+
+        <article class="surface-panel config-info-card">
+          <div class="config-meta-label">Действует до</div>
+          <div class="config-meta-value">{{ subscription.expires_at|date:'d.m.Y H:i' }}</div>
+        </article>
+
+        {% if subscription.user and subscription.user.client_code %}
+          <article class="surface-panel config-info-card config-info-card-wide">
+            <div class="config-meta-label">Client code</div>
+            <div class="config-meta-value"><code>{{ subscription.user.client_code }}</code></div>
+          </article>
+        {% endif %}
       </div>
-      {% if subscription.user and subscription.user.client_code %}
-        <div class="surface-panel mb-3">
-          <div class="small text-secondary mb-1">Client code</div>
-          <code>{{ subscription.user.client_code }}</code>
-        </div>
-      {% endif %}
 
       {% if subscriptions %}
-        <div class="mb-3">
-          <label class="form-label" for="config-switch">Все конфиги</label>
+        <div class="surface-panel config-switch-panel">
+          <label class="form-label fw-semibold" for="config-switch">Все конфиги</label>
           <select id="config-switch" class="form-select" onchange="if(this.value){window.location.href=this.value;}">
             {% for sub_item in subscriptions %}
               <option value="/account/config/{{ sub_item.id }}/" {% if sub_item.id == subscription.id %}selected{% endif %}>
@@ -64,15 +73,15 @@
         </div>
       {% endif %}
 
-      <div class="surface-panel">
+      <div class="surface-panel config-link-panel">
         <label class="form-label fw-semibold" for="cfg">Ссылка конфигурации</label>
         <div class="vx-link-input-wrap">
-          <input id="cfg" type="text" class="form-control form-control-sm" value="{{ copy_text }}" readonly>
+          <input id="cfg" type="text" class="form-control form-control-sm config-link-field" value="{{ copy_text }}" readonly>
           <button type="button" class="btn btn-sm btn-outline-secondary js-copy-icon" id="copy-config-icon" data-copy-text="{{ copy_text }}" title="Скопировать ссылку" aria-label="Скопировать ссылку">
             <i class="bi bi-clipboard"></i>
           </button>
         </div>
-        <p class="small text-secondary mt-2 mb-0">Скопируйте ссылку и импортируйте ее в клиент VPN.</p>
+        <p class="small text-secondary mb-0">Скопируйте ссылку и импортируйте ее в клиент VPN.</p>
       </div>
     </div>
   </div>
