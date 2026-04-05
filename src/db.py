@@ -7,6 +7,13 @@ from typing import Any
 import asyncpg
 
 
+WEB_PLACEHOLDER_TELEGRAM_ID_OFFSET = 10**12
+
+
+def _site_placeholder_telegram_id_for_auth_user(user_id: int) -> int:
+    return -(WEB_PLACEHOLDER_TELEGRAM_ID_OFFSET + int(user_id))
+
+
 class DB:
     def __init__(self, dsn: str) -> None:
         self._dsn = dsn
@@ -1264,6 +1271,78 @@ class DB:
                     return "expired"
 
                 user_id = int(token["user_id"])
+                placeholder_telegram_id = _site_placeholder_telegram_id_for_auth_user(user_id)
+                placeholder_user = await conn.fetchrow(
+                    """
+                    SELECT id
+                    FROM users
+                    WHERE telegram_id = $1
+                    LIMIT 1
+                    FOR UPDATE
+                    """,
+                    placeholder_telegram_id,
+                )
+                telegram_user = await conn.fetchrow(
+                    """
+                    SELECT id, username, first_name
+                    FROM users
+                    WHERE telegram_id = $1
+                    LIMIT 1
+                    FOR UPDATE
+                    """,
+                    telegram_id,
+                )
+
+                if placeholder_user and telegram_user and int(placeholder_user["id"]) != int(telegram_user["id"]):
+                    placeholder_user_id = int(placeholder_user["id"])
+                    telegram_user_id = int(telegram_user["id"])
+                    await conn.execute(
+                        "UPDATE orders SET user_id = $1 WHERE user_id = $2",
+                        placeholder_user_id,
+                        telegram_user_id,
+                    )
+                    await conn.execute(
+                        "UPDATE subscriptions SET user_id = $1 WHERE user_id = $2",
+                        placeholder_user_id,
+                        telegram_user_id,
+                    )
+                    await conn.execute(
+                        "UPDATE support_tickets SET user_id = $1 WHERE user_id = $2",
+                        placeholder_user_id,
+                        telegram_user_id,
+                    )
+                    await conn.execute(
+                        "UPDATE support_messages SET sender_user_id = $1 WHERE sender_user_id = $2",
+                        placeholder_user_id,
+                        telegram_user_id,
+                    )
+                    await conn.execute(
+                        """
+                        UPDATE users
+                        SET telegram_id = $1,
+                            username = COALESCE($2, username),
+                            first_name = COALESCE($3, first_name)
+                        WHERE id = $4
+                        """,
+                        telegram_id,
+                        telegram_user["username"],
+                        telegram_user["first_name"],
+                        placeholder_user_id,
+                    )
+                    await conn.execute(
+                        "DELETE FROM users WHERE id = $1",
+                        telegram_user_id,
+                    )
+                elif placeholder_user:
+                    await conn.execute(
+                        """
+                        UPDATE users
+                        SET telegram_id = $1
+                        WHERE id = $2
+                        """,
+                        telegram_id,
+                        int(placeholder_user["id"]),
+                    )
 
                 await conn.execute(
                     "DELETE FROM cabinet_linkedaccount WHERE telegram_id = $1 AND user_id <> $2",

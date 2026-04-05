@@ -1423,7 +1423,7 @@ class VPNBot:
             return
 
         telegram_id = ticket.get("telegram_id")
-        if telegram_id is None:
+        if telegram_id is None or int(telegram_id) <= 0:
             await update.message.reply_text(
                 f"Тикет #{ticket_id} не привязан к Telegram-пользователю."
             )
@@ -1503,6 +1503,11 @@ class VPNBot:
         user_id = int(user["id"])
         telegram_id = int(user["telegram_id"])
         normalized_client_code = str(user.get("client_code") or client_code).upper()
+        if telegram_id <= 0:
+            await update.message.reply_text(
+                f"Пользователь {normalized_client_code} ещё не привязал Telegram."
+            )
+            return
 
         ticket = await self.db.get_latest_open_ticket_for_user(user_id)
         if ticket:
@@ -2587,7 +2592,7 @@ class VPNBot:
                     self._single_ip_notified_blocked.add(email)
                     user_id = int(sub["user_id"])
                     tg_id = await self.db.get_user_telegram_id(user_id)
-                    if tg_id:
+                    if tg_id and int(tg_id) > 0:
                         try:
                             await self.app.bot.send_message(
                                 chat_id=tg_id,
@@ -2618,6 +2623,8 @@ class VPNBot:
         for item in items:
             expires_at = item["expires_at"]
             tg_id = int(item["telegram_id"])
+            if tg_id <= 0:
+                continue
             sub_id = int(item["id"])
             if expires_at <= now:
                 msg = "Ваш доступ VXcloud истёк. Используйте /buy для продления."

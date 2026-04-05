@@ -47,6 +47,7 @@ ALLOWED_DEEPLINK_SCHEMES = ("vless://", "vmess://", "trojan://", "ss://", "hyste
 PAYMENT_SUCCESS_STATUSES = {"success", "succeeded", "paid", "approved"}
 LOGGER = logging.getLogger(__name__)
 WEB_ORDER_SESSION_KEY = "web_order_checkout_state_v1"
+WEB_PLACEHOLDER_TELEGRAM_ID_OFFSET = 10**12
 
 
 def _log_payment_event(
@@ -137,12 +138,63 @@ def _subscription_display_name(subscription: BotSubscription) -> str:
     return f"Конфиг #{subscription.id}"
 
 
-def _resolve_linked_bot_user(request: HttpRequest) -> tuple[LinkedAccount | None, BotUser | None]:
+def _site_placeholder_telegram_id_for_user(user_id: int) -> int:
+    return -(WEB_PLACEHOLDER_TELEGRAM_ID_OFFSET + int(user_id))
+
+
+def _ensure_site_bot_user(request: HttpRequest) -> BotUser | None:
+    if not getattr(request.user, "is_authenticated", False):
+        return None
+
+    placeholder_telegram_id = _site_placeholder_telegram_id_for_user(int(request.user.id))
+    existing = BotUser.objects.filter(telegram_id=placeholder_telegram_id).first()
+    desired_username = (request.user.username or "").strip() or None
+    desired_first_name = (request.user.first_name or request.user.username or "").strip() or None
+    if existing:
+        update_fields: list[str] = []
+        if existing.username != desired_username:
+            existing.username = desired_username
+            update_fields.append("username")
+        if existing.first_name != desired_first_name:
+            existing.first_name = desired_first_name
+            update_fields.append("first_name")
+        if update_fields:
+            existing.save(update_fields=update_fields)
+        return existing
+
+    try:
+        BotUser.objects.create(
+            telegram_id=placeholder_telegram_id,
+            client_code="",
+            username=desired_username,
+            first_name=desired_first_name,
+            created_at=timezone.now(),
+        )
+    except IntegrityError:
+        pass
+
+    return BotUser.objects.filter(telegram_id=placeholder_telegram_id).first()
+
+
+def _resolve_account_bot_user(
+    request: HttpRequest,
+    *,
+    ensure_site_bot_user: bool = False,
+) -> tuple[LinkedAccount | None, BotUser | None]:
     linked = LinkedAccount.objects.filter(user=request.user).first()
-    if not linked:
-        return None, None
-    bot_user = BotUser.objects.filter(telegram_id=linked.telegram_id).first()
-    return linked, bot_user
+    if linked:
+        bot_user = BotUser.objects.filter(telegram_id=linked.telegram_id).first()
+        if bot_user is not None:
+            return linked, bot_user
+
+    placeholder_telegram_id = _site_placeholder_telegram_id_for_user(int(request.user.id))
+    placeholder_user = BotUser.objects.filter(telegram_id=placeholder_telegram_id).first()
+    if placeholder_user is not None:
+        return linked, placeholder_user
+
+    if ensure_site_bot_user:
+        return linked, _ensure_site_bot_user(request)
+    return linked, None
 
 
 def _new_web_idempotency_key() -> str:
@@ -225,7 +277,7 @@ def signup_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def account_dashboard(request: HttpRequest) -> HttpResponse:
-    linked, bot_user = _resolve_linked_bot_user(request)
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
     sub, has_active, last_payment_method = _get_subscription_snapshot_for_bot_user(bot_user)
     subscriptions = _list_subscriptions_for_bot_user(bot_user)
     now = timezone.now()
@@ -314,14 +366,10 @@ def _generate_link_code(length: int = 12) -> str:
 
 @login_required
 def account_config(request: HttpRequest, subscription_id: int | None = None) -> HttpResponse:
-    linked, bot_user = _resolve_linked_bot_user(request)
-    if not linked:
-        messages.error(request, "Сначала привяжите Telegram ID")
-        return redirect("account_link")
-
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
     if not bot_user:
-        messages.error(request, "Пользователь бота не найден")
-        return redirect("account_link")
+        messages.error(request, "Не удалось загрузить данные аккаунта")
+        return redirect("account_dashboard")
 
     sub, has_active, last_payment_method = _get_subscription_snapshot_for_bot_user(bot_user)
     subscriptions = _list_subscriptions_for_bot_user(bot_user)
@@ -359,14 +407,10 @@ def account_config(request: HttpRequest, subscription_id: int | None = None) -> 
 
 @login_required
 def create_order_stub(request: HttpRequest) -> HttpResponse:
-    linked, bot_user = _resolve_linked_bot_user(request)
-    if not linked:
-        messages.error(request, "Сначала привяжите Telegram ID")
-        return redirect("account_link")
-
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
     if not bot_user:
-        messages.error(request, "Пользователь бота не найден")
-        return redirect("account_link")
+        messages.error(request, "Не удалось подготовить аккаунт для оплаты. Попробуйте снова через 1-2 минуты.")
+        return redirect("account_dashboard")
 
     now = timezone.now()
     is_buy_route = request.resolver_match and request.resolver_match.url_name == "account_buy"
@@ -540,10 +584,10 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def rename_subscription(request: HttpRequest, subscription_id: int) -> HttpResponse:
-    linked, bot_user = _resolve_linked_bot_user(request)
-    if not linked or not bot_user:
-        messages.error(request, "Сначала привяжите Telegram ID")
-        return redirect("account_link")
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
+    if not bot_user:
+        messages.error(request, "Не удалось загрузить данные аккаунта.")
+        return redirect("account_dashboard")
 
     subscription = BotSubscription.objects.filter(id=subscription_id, user_id=bot_user.id).first()
     if not subscription:
@@ -565,10 +609,10 @@ def rename_subscription(request: HttpRequest, subscription_id: int) -> HttpRespo
 @login_required
 @require_POST
 def revoke_subscription(request: HttpRequest, subscription_id: int) -> HttpResponse:
-    linked, bot_user = _resolve_linked_bot_user(request)
-    if not linked or not bot_user:
-        messages.error(request, "Сначала привяжите Telegram ID")
-        return redirect("account_link")
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
+    if not bot_user:
+        messages.error(request, "Не удалось загрузить данные аккаунта.")
+        return redirect("account_dashboard")
 
     subscription = BotSubscription.objects.filter(id=subscription_id, user_id=bot_user.id).first()
     if not subscription:
@@ -1033,7 +1077,7 @@ async def _notify_user_after_card_activation(
         return
 
     telegram_id = await db.get_user_telegram_id(user_id)
-    if telegram_id is None:
+    if telegram_id is None or int(telegram_id) <= 0:
         return
 
     is_first_notification = await db.mark_order_notified_if_pending(order_id)
