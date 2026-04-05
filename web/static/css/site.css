@@ -477,12 +477,18 @@ textarea,
 
 .post-content > .block-buttons,
 .post-content > .block-image,
+.post-content > .block-bs-figure,
 .post-content > .block-embed,
 .post-content > .block-columns,
 .post-content > .block-rows-layout,
 .post-content > .block-rows,
+.post-content > .block-bs-form,
 .post-content > .block-cards-slider,
 .post-content > .block-faq,
+.post-content > .block-bs-scrollspy,
+.post-content > .block-bs-stretched-link,
+.post-content > .block-bs-stacks,
+.post-content > .block-bs-vr,
 .post-content > .block-spacer {
   max-width: none;
 }
@@ -632,6 +638,42 @@ textarea,
 .block-bs-offcanvas,
 .block-bs-toast {
   margin: 12px 0;
+}
+
+.block-bs-figure {
+  margin: var(--space-3) 0;
+}
+
+.block-bs-figure .figure-img {
+  border: 1px solid #dbe3f1;
+}
+
+.block-bs-form {
+  margin: var(--space-2) 0;
+  max-width: 32rem;
+}
+
+.block-bs-scrollspy {
+  margin: var(--space-3) 0;
+}
+
+.block-bs-scrollspy .scrollspy-example {
+  background: #fff;
+  border-color: #dbe4f1 !important;
+}
+
+.block-bs-stretched-link {
+  margin: var(--space-2) 0;
+}
+
+.block-bs-vr {
+  margin: var(--space-2) 0;
+  align-items: stretch;
+}
+
+.block-bs-stacks {
+  margin: var(--space-2) 0;
+  flex-wrap: wrap;
 }
 
 .block-bs-timeline {

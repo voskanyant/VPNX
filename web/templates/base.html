@@ -19,7 +19,7 @@
 <body class="vx-body">
   {% include "partials/_header.html" %}
 
-  <main class="site-main py-4 py-lg-5">
+  <main id="main-content" class="site-main py-4 py-lg-5">
     <div class="container-xxl">
       {% if messages %}
         <section class="mb-4">
@@ -67,6 +67,28 @@
         ) {
           btn.classList.add("btn-primary");
         }
+      });
+    }
+
+    function initBootstrapContent() {
+      if (!window.bootstrap) return;
+
+      document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
+        if (el.dataset.bsInitTooltip === "1") return;
+        window.bootstrap.Tooltip.getOrCreateInstance(el);
+        el.dataset.bsInitTooltip = "1";
+      });
+
+      document.querySelectorAll('[data-bs-toggle="popover"]').forEach((el) => {
+        if (el.dataset.bsInitPopover === "1") return;
+        window.bootstrap.Popover.getOrCreateInstance(el);
+        el.dataset.bsInitPopover = "1";
+      });
+
+      document.querySelectorAll('[data-bs-spy="scroll"]').forEach((el) => {
+        if (el.dataset.bsInitScrollspy === "1") return;
+        window.bootstrap.ScrollSpy.getOrCreateInstance(el);
+        el.dataset.bsInitScrollspy = "1";
       });
     }
 
@@ -217,6 +239,7 @@
     })();
 
     bootstrapizeForms();
+    initBootstrapContent();
     syncTelegramWebAppSession();
   </script>
 </body>

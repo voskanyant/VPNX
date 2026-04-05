@@ -22,7 +22,7 @@ def _safe_url(value: Any) -> str:
 def _render_buttons(items: list[dict[str, Any]]) -> str:
     if not items:
         return ""
-    parts: list[str] = ['<div class="block-buttons">']
+    parts: list[str] = ['<div class="btn-group" role="group" aria-label="Button group">']
     for item in items:
         label = _safe_text(item.get("label"))
         href = _safe_url(item.get("url"))
@@ -183,6 +183,178 @@ def _render_bs_table(block: dict[str, Any]) -> str:
             parts.append("</tr>")
         parts.append("</tbody>")
     parts.append("</table></div>")
+    return "".join(parts)
+
+
+def _render_bs_figure(block: dict[str, Any]) -> str:
+    src = _safe_url(block.get("src"))
+    if not src or src == "#":
+        return ""
+    alt = _safe_text(block.get("alt"))
+    caption = _safe_text(block.get("caption"))
+    align = str(block.get("align") or "start").strip().lower()
+    text_cls = " text-center" if align == "center" else " text-end" if align == "end" else ""
+    parts = [f'<figure class="figure block-bs-figure{text_cls}">']
+    parts.append(f'<img src="{src}" class="figure-img img-fluid rounded" alt="{alt}" loading="lazy" />')
+    if caption:
+        parts.append(f'<figcaption class="figure-caption">{caption}</figcaption>')
+    parts.append("</figure>")
+    return "".join(parts)
+
+
+def _render_bs_form_control(block: dict[str, Any]) -> str:
+    label = _safe_text(block.get("label"))
+    placeholder = _safe_text(block.get("placeholder"))
+    value = _safe_text(block.get("value"))
+    help_text = _safe_text(block.get("help_text"))
+    input_type = _safe_text(block.get("input_type") or "text")
+    control_as = str(block.get("as") or "input").strip().lower()
+    rows = int(block.get("rows") or 4)
+    size = str(block.get("size") or "").strip().lower()
+    state = str(block.get("validation_state") or "").strip().lower()
+    message = _safe_text(block.get("validation_message"))
+    disabled = " disabled" if bool(block.get("disabled")) else ""
+    readonly = " readonly" if bool(block.get("readonly")) else ""
+    size_cls = f" form-control-{size}" if size in {"sm", "lg"} else ""
+    state_cls = " is-valid" if state == "valid" else " is-invalid" if state == "invalid" else ""
+    parts = ['<div class="mb-3 block-bs-form">']
+    if label:
+        parts.append(f'<label class="form-label">{label}</label>')
+    if control_as == "textarea":
+        parts.append(
+            f'<textarea class="form-control{size_cls}{state_cls}" rows="{max(2, min(rows, 12))}" '
+            f'placeholder="{placeholder}"{disabled}{readonly}>{value}</textarea>'
+        )
+    else:
+        parts.append(
+            f'<input type="{input_type}" class="form-control{size_cls}{state_cls}" '
+            f'placeholder="{placeholder}" value="{value}"{disabled}{readonly} />'
+        )
+    if help_text:
+        parts.append(f'<div class="form-text">{help_text}</div>')
+    if message:
+        feedback_cls = "valid-feedback d-block" if state == "valid" else "invalid-feedback d-block" if state == "invalid" else "form-text"
+        parts.append(f'<div class="{feedback_cls}">{message}</div>')
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _render_bs_form_select(block: dict[str, Any]) -> str:
+    label = _safe_text(block.get("label"))
+    options = block.get("options")
+    if not isinstance(options, list) or not options:
+        return ""
+    size = str(block.get("size") or "").strip().lower()
+    state = str(block.get("validation_state") or "").strip().lower()
+    message = _safe_text(block.get("validation_message"))
+    disabled = " disabled" if bool(block.get("disabled")) else ""
+    multiple = " multiple" if bool(block.get("multiple")) else ""
+    size_cls = f" form-select-{size}" if size in {"sm", "lg"} else ""
+    state_cls = " is-valid" if state == "valid" else " is-invalid" if state == "invalid" else ""
+    parts = ['<div class="mb-3 block-bs-form">']
+    if label:
+        parts.append(f'<label class="form-label">{label}</label>')
+    parts.append(f'<select class="form-select{size_cls}{state_cls}"{disabled}{multiple}>')
+    for option in options:
+        if not isinstance(option, dict):
+            continue
+        option_label = _safe_text(option.get("label"))
+        option_value = _safe_text(option.get("value"))
+        selected = " selected" if bool(option.get("selected")) else ""
+        parts.append(f'<option value="{option_value}"{selected}>{option_label}</option>')
+    parts.append("</select>")
+    if message:
+        feedback_cls = "valid-feedback d-block" if state == "valid" else "invalid-feedback d-block" if state == "invalid" else "form-text"
+        parts.append(f'<div class="{feedback_cls}">{message}</div>')
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _render_bs_form_checks(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if not isinstance(items, list) or not items:
+        return ""
+    label = _safe_text(block.get("label"))
+    style = str(block.get("style") or "checkbox").strip().lower()
+    inline = bool(block.get("inline"))
+    name = _safe_text(block.get("name") or "choice-group")
+    input_type = "radio" if style == "radio" else "checkbox"
+    wrapper_cls = "form-check form-switch" if style == "switch" else "form-check"
+    if inline and style != "switch":
+        wrapper_cls += " form-check-inline"
+    parts = ['<div class="mb-3 block-bs-form">']
+    if label:
+        parts.append(f'<div class="form-label">{label}</div>')
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        item_label = _safe_text(item.get("label"))
+        checked = " checked" if bool(item.get("checked")) else ""
+        disabled = " disabled" if bool(item.get("disabled")) else ""
+        item_id = f"check-{uuid4().hex[:8]}-{idx}"
+        parts.append(f'<div class="{wrapper_cls}">')
+        parts.append(
+            f'<input class="form-check-input" type="{input_type}" name="{name}" id="{item_id}"{checked}{disabled} />'
+        )
+        parts.append(f'<label class="form-check-label" for="{item_id}">{item_label}</label>')
+        parts.append("</div>")
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _render_bs_form_range(block: dict[str, Any]) -> str:
+    label = _safe_text(block.get("label"))
+    minimum = _safe_text(block.get("min") or 0)
+    maximum = _safe_text(block.get("max") or 100)
+    step = _safe_text(block.get("step") or 1)
+    value = _safe_text(block.get("value") or 0)
+    disabled = " disabled" if bool(block.get("disabled")) else ""
+    return (
+        '<div class="mb-3 block-bs-form">'
+        f'<label class="form-label">{label}</label>'
+        f'<input type="range" class="form-range" min="{minimum}" max="{maximum}" step="{step}" value="{value}"{disabled} />'
+        "</div>"
+    )
+
+
+def _render_bs_input_group(block: dict[str, Any]) -> str:
+    label = _safe_text(block.get("label"))
+    prefix = _safe_text(block.get("prefix"))
+    suffix = _safe_text(block.get("suffix"))
+    button_text = _safe_text(block.get("button_text"))
+    placeholder = _safe_text(block.get("placeholder"))
+    value = _safe_text(block.get("value"))
+    input_type = _safe_text(block.get("input_type") or "text")
+    parts = ['<div class="mb-3 block-bs-form">']
+    if label:
+        parts.append(f'<label class="form-label">{label}</label>')
+    parts.append('<div class="input-group">')
+    if prefix:
+        parts.append(f'<span class="input-group-text">{prefix}</span>')
+    parts.append(f'<input type="{input_type}" class="form-control" placeholder="{placeholder}" value="{value}" />')
+    if suffix:
+        parts.append(f'<span class="input-group-text">{suffix}</span>')
+    if button_text:
+        parts.append(f'<button class="btn btn-outline-secondary" type="button">{button_text}</button>')
+    parts.append("</div></div>")
+    return "".join(parts)
+
+
+def _render_bs_floating_label(block: dict[str, Any]) -> str:
+    label = _safe_text(block.get("label"))
+    placeholder = _safe_text(block.get("placeholder")) or label
+    value = _safe_text(block.get("value"))
+    control_as = str(block.get("as") or "input").strip().lower()
+    rows = int(block.get("rows") or 4)
+    input_type = _safe_text(block.get("input_type") or "text")
+    parts = ['<div class="form-floating block-bs-form">']
+    if control_as == "textarea":
+        parts.append(
+            f'<textarea class="form-control" placeholder="{placeholder}" rows="{max(2, min(rows, 12))}">{value}</textarea>'
+        )
+    else:
+        parts.append(f'<input type="{input_type}" class="form-control" placeholder="{placeholder}" value="{value}" />')
+    parts.append(f"<label>{label}</label></div>")
     return "".join(parts)
 
 
@@ -507,6 +679,83 @@ def _render_bs_offcanvas(block: dict[str, Any]) -> str:
     )
 
 
+def _render_bs_close_button(block: dict[str, Any]) -> str:
+    white = " btn-close-white" if bool(block.get("white")) else ""
+    disabled = " disabled" if bool(block.get("disabled")) else ""
+    return f'<button type="button" class="btn-close{white}" aria-label="Close"{disabled}></button>'
+
+
+def _render_bs_tooltip(block: dict[str, Any]) -> str:
+    text = _safe_text(block.get("text")) or "Hover for tooltip"
+    title = _safe_text(block.get("title"))
+    if not title:
+        return ""
+    placement = str(block.get("placement") or "top").strip().lower()
+    if placement not in {"top", "right", "bottom", "left"}:
+        placement = "top"
+    variant = _safe_variant(block.get("variant"), default="primary")
+    return (
+        f'<button type="button" class="btn btn-{variant}" data-bs-toggle="tooltip" '
+        f'data-bs-placement="{placement}" title="{title}">{text}</button>'
+    )
+
+
+def _render_bs_popover(block: dict[str, Any]) -> str:
+    button_text = _safe_text(block.get("button_text")) or "Open popover"
+    content = _safe_text(block.get("content"))
+    if not content:
+        return ""
+    title = _safe_text(block.get("title"))
+    placement = str(block.get("placement") or "right").strip().lower()
+    if placement not in {"top", "right", "bottom", "left"}:
+        placement = "right"
+    trigger = str(block.get("trigger") or "focus").strip().lower()
+    variant = _safe_variant(block.get("variant"), default="primary")
+    return (
+        f'<button type="button" class="btn btn-{variant}" data-bs-toggle="popover" '
+        f'data-bs-placement="{placement}" data-bs-trigger="{escape(trigger, quote=True)}" '
+        f'title="{title}" data-bs-content="{content}">{button_text}</button>'
+    )
+
+
+def _render_bs_scrollspy(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if not isinstance(items, list) or not items:
+        return ""
+    nav_style = str(block.get("nav_style") or "pills").strip().lower()
+    scroll_height = int(block.get("height") or 260)
+    scroll_height = 180 if scroll_height < 180 else 600 if scroll_height > 600 else scroll_height
+    spy_id = f"scrollspy-{uuid4().hex[:8]}"
+    nav_id = f"{spy_id}-nav"
+    nav_cls = "list-group" if nav_style == "list-group" else "nav nav-pills flex-column gap-2"
+    parts = ['<div class="row g-3 block-bs-scrollspy">']
+    parts.append('<div class="col-lg-4"><nav id="{}" class="{}">'.format(nav_id, nav_cls))
+    section_parts: list[str] = []
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        label = _safe_text(item.get("label")) or f"Section {idx + 1}"
+        title = _safe_text(item.get("title")) or label
+        text = _safe_text(item.get("text"))
+        section_id = f"{spy_id}-section-{idx}"
+        if nav_style == "list-group":
+            parts.append(f'<a class="list-group-item list-group-item-action{" active" if idx == 0 else ""}" href="#{section_id}">{label}</a>')
+        else:
+            parts.append(f'<a class="nav-link{" active" if idx == 0 else ""}" href="#{section_id}">{label}</a>')
+        section_parts.append(
+            f'<section id="{section_id}" class="mb-4">'
+            f'<h4 class="h6">{title}</h4><p class="mb-0">{text}</p></section>'
+        )
+    parts.append("</nav></div>")
+    parts.append(
+        f'<div class="col-lg-8"><div data-bs-spy="scroll" data-bs-target="#{nav_id}" '
+        f'data-bs-smooth-scroll="true" class="scrollspy-example border rounded-3 p-3" '
+        f'tabindex="0" style="max-height:{scroll_height}px;overflow:auto;">{"".join(section_parts)}</div></div>'
+    )
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def _render_bs_timeline(block: dict[str, Any]) -> str:
     items = block.get("items")
     if not isinstance(items, list):
@@ -671,7 +920,7 @@ def _render_bs_container(block: dict[str, Any]) -> str:
 
 
 def _render_bs_dropdown(block: dict[str, Any]) -> str:
-    button_label = _safe_text(block.get("button_label")) or "Open menu"
+    button_label = _safe_text(block.get("button_text") or block.get("button_label")) or "Open menu"
     button_variant = _safe_variant(block.get("button_variant"), default="primary")
     align = str(block.get("align") or "start").strip().lower()
     align_cls = " dropdown-menu-end" if align == "end" else ""
@@ -686,6 +935,8 @@ def _render_bs_dropdown(block: dict[str, Any]) -> str:
         href = _safe_url(item.get("url"))
         if not label:
             continue
+        if bool(item.get("divider_before")):
+            menu_items.append("<li><hr class=\"dropdown-divider\"></li>")
         menu_items.append(f'<li><a class="dropdown-item" href="{href}">{label}</a></li>')
     if not menu_items:
         return ""
@@ -701,8 +952,9 @@ def _render_bs_dropdown(block: dict[str, Any]) -> str:
 
 def _render_bs_navbar(block: dict[str, Any]) -> str:
     brand = _safe_text(block.get("brand")) or "VXcloud"
+    brand_url = _safe_url(block.get("brand_url"))
     expand = str(block.get("expand") or "lg").strip().lower()
-    variant = str(block.get("variant") or "dark").strip().lower()
+    variant = str(block.get("theme") or block.get("variant") or "dark").strip().lower()
     bg = str(block.get("bg") or "dark").strip().lower()
     items = block.get("items")
     if not isinstance(items, list):
@@ -719,9 +971,9 @@ def _render_bs_navbar(block: dict[str, Any]) -> str:
             continue
         nav_items.append(f'<li class="nav-item"><a class="nav-link{active}" href="{href}">{label}</a></li>')
     return (
-        f'<nav class="navbar navbar-expand-{expand} navbar-{variant} bg-{bg} rounded-3 mb-3">'
+        f'<nav class="navbar {"navbar-expand-" + expand if expand else ""} navbar-{variant} bg-{bg} rounded-3 mb-3">'
         f'<div class="container-fluid">'
-        f'<a class="navbar-brand" href="#">{brand}</a>'
+        f'<a class="navbar-brand" href="{brand_url if brand_url and brand_url != "#" else "#"}">{brand}</a>'
         f'<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#{nav_id}" '
         f'aria-controls="{nav_id}" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>'
         f'<div class="collapse navbar-collapse" id="{nav_id}">'
@@ -735,11 +987,20 @@ def _render_bs_ratio(block: dict[str, Any]) -> str:
     allowed = {"1x1", "4x3", "16x9", "21x9"}
     ratio = ratio if ratio in allowed else "16x9"
     src = _safe_url(block.get("url"))
-    if not src or src == "#":
+    raw_html = str(block.get("html") or "").strip()
+    embed_type = str(block.get("embed_type") or "iframe").strip().lower()
+    if raw_html:
+        inner = raw_html
+    elif src and src != "#":
+        if embed_type == "video":
+            inner = f'<video src="{src}" controls class="w-100 h-100"></video>'
+        else:
+            inner = f'<iframe src="{src}" title="Embedded media" allowfullscreen loading="lazy"></iframe>'
+    else:
         return ""
     return (
         f'<div class="ratio ratio-{ratio}">'
-        f'<iframe src="{src}" title="Embedded media" allowfullscreen loading="lazy"></iframe>'
+        f"{inner}"
         f"</div>"
     )
 
@@ -749,11 +1010,84 @@ def _render_bs_placeholder(block: dict[str, Any]) -> str:
     lines = 1 if lines < 1 else 8 if lines > 8 else lines
     width = int(block.get("width") or 100)
     width = 10 if width < 10 else 100 if width > 100 else width
-    parts = ['<div class="placeholder-glow">']
+    size = str(block.get("size") or "").strip().lower()
+    size_cls = " placeholder-lg" if size == "lg" else " placeholder-sm" if size == "sm" else ""
+    animation = str(block.get("animation") or "").strip().lower()
+    wrapper_cls = "placeholder-wave" if animation == "wave" else "placeholder-glow" if animation == "glow" else ""
+    parts = [f'<div class="{wrapper_cls}">']
     for _ in range(lines):
-        parts.append(f'<span class="placeholder col-{max(1, min(12, round(width / 8.33)))}"></span>')
+        parts.append(f'<span class="placeholder{size_cls} col-{max(1, min(12, round(width / 8.33)))}"></span>')
     parts.append("</div>")
     return "".join(parts)
+
+
+def _render_bs_icon_link(block: dict[str, Any]) -> str:
+    label = _safe_text(block.get("label"))
+    href = _safe_url(block.get("url"))
+    icon = _safe_text(block.get("icon") or "arrow-right")
+    if not label:
+        return ""
+    return f'<a class="icon-link" href="{href}">{label}<i class="bi bi-{icon}" aria-hidden="true"></i></a>'
+
+
+def _render_bs_stretched_link(block: dict[str, Any]) -> str:
+    title = _safe_text(block.get("title"))
+    text = _safe_text(block.get("text"))
+    label = _safe_text(block.get("label")) or "Read more"
+    href = _safe_url(block.get("url"))
+    if not title and not text:
+        return ""
+    return (
+        '<article class="card position-relative shadow-sm border-0 block-bs-stretched-link"><div class="card-body">'
+        f'<h5 class="card-title">{title}</h5><p class="card-text">{text}</p>'
+        f'<a class="stretched-link text-decoration-none" href="{href}">{label}</a>'
+        "</div></article>"
+    )
+
+
+def _render_bs_text_truncation(block: dict[str, Any]) -> str:
+    text = _safe_text(block.get("text"))
+    if not text:
+        return ""
+    width = int(block.get("width") or 220)
+    width = 80 if width < 80 else 640 if width > 640 else width
+    return f'<div class="text-truncate" style="max-width:{width}px;">{text}</div>'
+
+
+def _render_bs_vertical_rule(block: dict[str, Any]) -> str:
+    before_text = _safe_text(block.get("before_text"))
+    after_text = _safe_text(block.get("after_text"))
+    return (
+        '<div class="hstack gap-3 block-bs-vr">'
+        f'<div>{before_text}</div><div class="vr"></div><div>{after_text}</div>'
+        "</div>"
+    )
+
+
+def _render_bs_visually_hidden(block: dict[str, Any]) -> str:
+    text = _safe_text(block.get("text"))
+    if not text:
+        return ""
+    focusable = "-focusable" if bool(block.get("focusable")) else ""
+    return f'<a class="visually-hidden{focusable}" href="#main-content">{text}</a>'
+
+
+def _render_bs_stacks(block: dict[str, Any]) -> str:
+    items = block.get("items")
+    if not isinstance(items, list):
+        return ""
+    direction = str(block.get("direction") or "horizontal").strip().lower()
+    gap = int(block.get("gap") or 3)
+    gap = 1 if gap < 1 else 5 if gap > 5 else gap
+    stack_cls = "vstack" if direction == "vertical" else "hstack"
+    rendered_items = []
+    for item in items:
+        item_text = _safe_text(item)
+        if item_text:
+            rendered_items.append(f'<div class="p-2 border rounded bg-body-tertiary">{item_text}</div>')
+    if not rendered_items:
+        return ""
+    return f'<div class="{stack_cls} gap-{gap} block-bs-stacks">{"".join(rendered_items)}</div>'
 
 
 def _render_cards_slider(block: dict[str, Any]) -> str:
@@ -907,6 +1241,10 @@ def render_content_blocks(blocks: Any, legacy_html: str = ""):
                     figure.append(f"<figcaption>{caption}</figcaption>")
                 figure.append("</figure>")
                 output.append("".join(figure))
+        elif block_type == "bs_figure":
+            rendered = _render_bs_figure(block)
+            if rendered:
+                output.append(rendered)
         elif block_type in {"embed", "bs_embed"}:
             url = _safe_url(block.get("url"))
             if url and url != "#":
@@ -959,6 +1297,30 @@ def render_content_blocks(blocks: Any, legacy_html: str = ""):
             rendered = _render_bs_table(block)
             if rendered:
                 output.append(rendered)
+        elif block_type == "bs_form_control":
+            rendered = _render_bs_form_control(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_form_select":
+            rendered = _render_bs_form_select(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_form_checks":
+            rendered = _render_bs_form_checks(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_form_range":
+            rendered = _render_bs_form_range(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_input_group":
+            rendered = _render_bs_input_group(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_floating_label":
+            rendered = _render_bs_floating_label(block)
+            if rendered:
+                output.append(rendered)
         elif block_type == "bs_divider":
             rendered = _render_bs_divider(block)
             if rendered:
@@ -1007,6 +1369,22 @@ def render_content_blocks(blocks: Any, legacy_html: str = ""):
             rendered = _render_bs_offcanvas(block)
             if rendered:
                 output.append(rendered)
+        elif block_type == "bs_close_button":
+            rendered = _render_bs_close_button(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_tooltip":
+            rendered = _render_bs_tooltip(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_popover":
+            rendered = _render_bs_popover(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_scrollspy":
+            rendered = _render_bs_scrollspy(block)
+            if rendered:
+                output.append(rendered)
         elif block_type == "bs_timeline":
             rendered = _render_bs_timeline(block)
             if rendered:
@@ -1029,6 +1407,30 @@ def render_content_blocks(blocks: Any, legacy_html: str = ""):
                 output.append(rendered)
         elif block_type == "bs_placeholder":
             rendered = _render_bs_placeholder(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_icon_link":
+            rendered = _render_bs_icon_link(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_stretched_link":
+            rendered = _render_bs_stretched_link(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_text_truncation":
+            rendered = _render_bs_text_truncation(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_vertical_rule":
+            rendered = _render_bs_vertical_rule(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_visually_hidden":
+            rendered = _render_bs_visually_hidden(block)
+            if rendered:
+                output.append(rendered)
+        elif block_type == "bs_stacks":
+            rendered = _render_bs_stacks(block)
             if rendered:
                 output.append(rendered)
         elif block_type == "columns":

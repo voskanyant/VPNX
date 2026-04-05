@@ -6,51 +6,89 @@
   ];
 
   const BLOCK_TYPES = [
-    { value: "bs_paragraph", label: "Bootstrap Paragraph", icon: "P", group: "Bootstrap Content" },
-    { value: "bs_heading", label: "Bootstrap Heading", icon: "H", group: "Bootstrap Content" },
-    { value: "bs_list", label: "Bootstrap List", icon: "L", group: "Bootstrap Content" },
-    { value: "bs_quote", label: "Bootstrap Quote", icon: "Q", group: "Bootstrap Content" },
-    { value: "bs_image", label: "Bootstrap Image", icon: "I", group: "Bootstrap Content" },
-    { value: "bs_embed", label: "Bootstrap Embed", icon: "E", group: "Bootstrap Content" },
-    { value: "bs_button", label: "Bootstrap Button", icon: "B", group: "Bootstrap Content" },
-    { value: "bs_button_group", label: "Bootstrap Button Group", icon: "BG", group: "Bootstrap Content" },
-    { value: "bs_alert", label: "Bootstrap Alert", icon: "AL", group: "Bootstrap Components" },
-    { value: "bs_badge", label: "Bootstrap Badge", icon: "BD", group: "Bootstrap Components" },
-    { value: "bs_card", label: "Bootstrap Card", icon: "CD", group: "Bootstrap Components" },
-    { value: "bs_accordion", label: "Bootstrap Accordion", icon: "AC", group: "Bootstrap Components" },
-    { value: "bs_tabs", label: "Bootstrap Tabs", icon: "TB", group: "Bootstrap Components" },
-    { value: "bs_table", label: "Bootstrap Table", icon: "TR", group: "Bootstrap Components" },
-    { value: "bs_list_group", label: "Bootstrap List Group", icon: "LG", group: "Bootstrap Components" },
-    { value: "bs_progress", label: "Bootstrap Progress", icon: "PR", group: "Bootstrap Components" },
-    { value: "bs_breadcrumb", label: "Bootstrap Breadcrumb", icon: "BR", group: "Bootstrap Components" },
-    { value: "bs_pagination", label: "Bootstrap Pagination", icon: "PG", group: "Bootstrap Components" },
-    { value: "bs_collapse", label: "Bootstrap Collapse", icon: "CP", group: "Bootstrap Components" },
-    { value: "bs_spinner", label: "Bootstrap Spinner", icon: "SP", group: "Bootstrap Components" },
-    { value: "bs_carousel", label: "Bootstrap Carousel", icon: "CR", group: "Bootstrap Components" },
-    { value: "bs_nav", label: "Bootstrap Nav", icon: "NV", group: "Bootstrap Components" },
-    { value: "bs_modal", label: "Bootstrap Modal", icon: "MO", group: "Bootstrap Components" },
-    { value: "bs_toast", label: "Bootstrap Toast", icon: "TS", group: "Bootstrap Components" },
-    { value: "bs_offcanvas", label: "Bootstrap Offcanvas", icon: "OF", group: "Bootstrap Components" },
-    { value: "bs_dropdown", label: "Bootstrap Dropdown", icon: "DD", group: "Bootstrap Components" },
-    { value: "bs_navbar", label: "Bootstrap Navbar", icon: "NB", group: "Bootstrap Components" },
-    { value: "bs_ratio", label: "Bootstrap Ratio", icon: "RT", group: "Bootstrap Components" },
-    { value: "bs_placeholder", label: "Bootstrap Placeholder", icon: "PH", group: "Bootstrap Components" },
-    { value: "bs_container", label: "Bootstrap Container", icon: "CT", group: "Bootstrap Layout" },
-    { value: "bs_rows", label: "Bootstrap Rows", icon: "R", group: "Bootstrap Layout" },
-    { value: "bs_spacer", label: "Bootstrap Spacer", icon: "S", group: "Bootstrap Layout" },
+    { value: "bs_container", label: "Container & Grid", icon: "CT", group: "Bootstrap Layout" },
+    { value: "bs_paragraph", label: "Paragraph", icon: "P", group: "Bootstrap Content" },
+    { value: "bs_heading", label: "Heading", icon: "H", group: "Bootstrap Content" },
+    { value: "bs_list", label: "List", icon: "L", group: "Bootstrap Content" },
+    { value: "bs_quote", label: "Blockquote", icon: "Q", group: "Bootstrap Content" },
+    { value: "bs_image", label: "Image", icon: "IM", group: "Bootstrap Content" },
+    { value: "bs_figure", label: "Figure", icon: "FG", group: "Bootstrap Content" },
+    { value: "bs_table", label: "Table", icon: "TB", group: "Bootstrap Content" },
+    { value: "bs_form_control", label: "Form Control", icon: "FC", group: "Bootstrap Forms" },
+    { value: "bs_form_select", label: "Select", icon: "SL", group: "Bootstrap Forms" },
+    { value: "bs_form_checks", label: "Checks & Radios", icon: "CK", group: "Bootstrap Forms" },
+    { value: "bs_form_range", label: "Range", icon: "RG", group: "Bootstrap Forms" },
+    { value: "bs_input_group", label: "Input Group", icon: "IG", group: "Bootstrap Forms" },
+    { value: "bs_floating_label", label: "Floating Label", icon: "FL", group: "Bootstrap Forms" },
+    { value: "bs_button", label: "Button", icon: "BT", group: "Bootstrap Components" },
+    { value: "bs_button_group", label: "Button Group", icon: "BG", group: "Bootstrap Components" },
+    { value: "bs_alert", label: "Alert", icon: "AL", group: "Bootstrap Components" },
+    { value: "bs_badge", label: "Badge", icon: "BD", group: "Bootstrap Components" },
+    { value: "bs_card", label: "Card", icon: "CD", group: "Bootstrap Components" },
+    { value: "bs_accordion", label: "Accordion", icon: "AC", group: "Bootstrap Components" },
+    { value: "bs_tabs", label: "Tabs", icon: "TS", group: "Bootstrap Components" },
+    { value: "bs_list_group", label: "List Group", icon: "LG", group: "Bootstrap Components" },
+    { value: "bs_progress", label: "Progress", icon: "PR", group: "Bootstrap Components" },
+    { value: "bs_breadcrumb", label: "Breadcrumb", icon: "BC", group: "Bootstrap Components" },
+    { value: "bs_pagination", label: "Pagination", icon: "PG", group: "Bootstrap Components" },
+    { value: "bs_collapse", label: "Collapse", icon: "CL", group: "Bootstrap Components" },
+    { value: "bs_spinner", label: "Spinner", icon: "SP", group: "Bootstrap Components" },
+    { value: "bs_carousel", label: "Carousel", icon: "CR", group: "Bootstrap Components" },
+    { value: "bs_nav", label: "Nav", icon: "NV", group: "Bootstrap Components" },
+    { value: "bs_modal", label: "Modal", icon: "MO", group: "Bootstrap Components" },
+    { value: "bs_toast", label: "Toast", icon: "TO", group: "Bootstrap Components" },
+    { value: "bs_offcanvas", label: "Offcanvas", icon: "OF", group: "Bootstrap Components" },
+    { value: "bs_dropdown", label: "Dropdown", icon: "DD", group: "Bootstrap Components" },
+    { value: "bs_navbar", label: "Navbar", icon: "NB", group: "Bootstrap Components" },
+    { value: "bs_close_button", label: "Close Button", icon: "CB", group: "Bootstrap Components" },
+    { value: "bs_tooltip", label: "Tooltip", icon: "TT", group: "Bootstrap Components" },
+    { value: "bs_popover", label: "Popover", icon: "PO", group: "Bootstrap Components" },
+    { value: "bs_scrollspy", label: "Scrollspy", icon: "SS", group: "Bootstrap Components" },
+    { value: "bs_ratio", label: "Ratio", icon: "RT", group: "Bootstrap Helpers" },
+    { value: "bs_placeholder", label: "Placeholder", icon: "PH", group: "Bootstrap Helpers" },
+    { value: "bs_icon_link", label: "Icon Link", icon: "IL", group: "Bootstrap Helpers" },
+    { value: "bs_stretched_link", label: "Stretched Link", icon: "SK", group: "Bootstrap Helpers" },
+    { value: "bs_text_truncation", label: "Text Truncation", icon: "TR", group: "Bootstrap Helpers" },
+    { value: "bs_vertical_rule", label: "Vertical Rule", icon: "VR", group: "Bootstrap Helpers" },
+    { value: "bs_visually_hidden", label: "Visually Hidden", icon: "VH", group: "Bootstrap Helpers" },
+    { value: "bs_stacks", label: "Stacks", icon: "HS", group: "Bootstrap Helpers" },
+
+    { value: "bs_rows", label: "Rows", icon: "RW", group: "Bootstrap Layout", hidden: true },
+    { value: "bs_columns", label: "Columns", icon: "CO", group: "Bootstrap Layout", hidden: true },
+    { value: "bs_embed", label: "Embed", icon: "EM", group: "Bootstrap Content", hidden: true },
+    { value: "bs_spacer", label: "Spacer", icon: "SP", group: "Bootstrap Helpers", hidden: true },
+    { value: "bs_divider", label: "Divider", icon: "DV", group: "Bootstrap Helpers", hidden: true },
+    { value: "bs_cards_slider", label: "Cards Slider", icon: "CS", group: "Legacy", hidden: true },
+    { value: "bs_faq", label: "FAQ", icon: "FQ", group: "Legacy", hidden: true },
+    { value: "bs_html", label: "Custom HTML", icon: "HT", group: "Legacy", hidden: true },
+    { value: "bs_timeline", label: "Timeline", icon: "TL", group: "Legacy", hidden: true },
+    { value: "bs_pricing_table", label: "Pricing Table", icon: "PT", group: "Legacy", hidden: true },
   ];
 
-  const GROUPS = ["Bootstrap Content", "Bootstrap Components", "Bootstrap Layout"];
+  const GROUPS = [
+    "Bootstrap Layout",
+    "Bootstrap Content",
+    "Bootstrap Forms",
+    "Bootstrap Components",
+    "Bootstrap Helpers",
+  ];
   const BLOCK_UID = Symbol("be_uid");
   const COLUMN_CHILD_TYPES = [
     "bs_paragraph",
     "bs_heading",
     "bs_list",
     "bs_quote",
+    "bs_figure",
+    "bs_table",
+    "bs_form_control",
+    "bs_form_select",
+    "bs_form_checks",
+    "bs_form_range",
+    "bs_input_group",
+    "bs_floating_label",
     "bs_button",
     "bs_button_group",
     "bs_image",
-    "bs_embed",
     "bs_alert",
     "bs_badge",
     "bs_card",
@@ -70,11 +108,19 @@
     "bs_offcanvas",
     "bs_dropdown",
     "bs_navbar",
+    "bs_close_button",
+    "bs_tooltip",
+    "bs_popover",
+    "bs_scrollspy",
     "bs_ratio",
     "bs_placeholder",
+    "bs_icon_link",
+    "bs_stretched_link",
+    "bs_text_truncation",
+    "bs_vertical_rule",
+    "bs_visually_hidden",
+    "bs_stacks",
     "bs_container",
-    "bs_rows",
-    "bs_spacer",
   ];
 
   const LEGACY_TO_BOOTSTRAP_TYPE = {
@@ -262,6 +308,48 @@
       .filter((part) => part !== "");
   }
 
+  function parseSimpleLines(raw) {
+    if (!raw) return [];
+    return String(raw)
+      .replace(/\r/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  function parseSelectOptionLines(raw) {
+    return parseSimpleLines(raw).map((line, index) => {
+      const parts = line.split("|").map((part) => part.trim());
+      return {
+        label: parts[0] || `Option ${index + 1}`,
+        value: parts[1] || parts[0] || `option-${index + 1}`,
+        selected: parts[2] === "selected",
+      };
+    });
+  }
+
+  function parseCheckLines(raw) {
+    return parseSimpleLines(raw).map((line) => {
+      const parts = line.split("|").map((part) => part.trim());
+      return {
+        label: parts[0] || "",
+        checked: parts[1] === "checked",
+        disabled: parts[2] === "disabled",
+      };
+    });
+  }
+
+  function parseScrollspyLines(raw) {
+    return parseSimpleLines(raw).map((line, index) => {
+      const parts = line.split("|").map((part) => part.trim());
+      return {
+        label: parts[0] || `Section ${index + 1}`,
+        title: parts[1] || parts[0] || `Section ${index + 1}`,
+        text: parts.slice(2).join("|") || "",
+      };
+    });
+  }
+
   function normalizeNestedBlocks(value) {
     if (Array.isArray(value)) {
       return value
@@ -379,6 +467,71 @@
       block.hover = block.hover !== false;
       block.bordered = !!block.bordered;
     }
+    if (String(block.type || "") === "bs_figure") {
+      block.src = String(block.src || "");
+      block.alt = String(block.alt || "");
+      block.caption = String(block.caption || "");
+      block.align = String(block.align || "start");
+    }
+    if (String(block.type || "") === "bs_form_control") {
+      block.label = String(block.label || "Email address");
+      block.placeholder = String(block.placeholder || "name@example.com");
+      block.help_text = String(block.help_text || "");
+      block.value = String(block.value || "");
+      block.input_type = String(block.input_type || "text");
+      block.as = String(block.as || "input");
+      block.rows = Number(block.rows || 4) || 4;
+      block.size = String(block.size || "");
+      block.validation_state = String(block.validation_state || "");
+      block.validation_message = String(block.validation_message || "");
+      block.disabled = !!block.disabled;
+      block.readonly = !!block.readonly;
+    }
+    if (String(block.type || "") === "bs_form_select") {
+      block.label = String(block.label || "Choose one");
+      if (!Array.isArray(block.options)) {
+        block.options = parseSelectOptionLines(block.options || "");
+      }
+      block.size = String(block.size || "");
+      block.validation_state = String(block.validation_state || "");
+      block.validation_message = String(block.validation_message || "");
+      block.disabled = !!block.disabled;
+      block.multiple = !!block.multiple;
+    }
+    if (String(block.type || "") === "bs_form_checks") {
+      block.label = String(block.label || "Choose options");
+      if (!Array.isArray(block.items)) {
+        block.items = parseCheckLines(block.items || "");
+      }
+      block.style = String(block.style || "checkbox");
+      block.inline = !!block.inline;
+      block.name = String(block.name || "choice-group");
+    }
+    if (String(block.type || "") === "bs_form_range") {
+      block.label = String(block.label || "Range");
+      block.min = Number(block.min ?? 0);
+      block.max = Number(block.max ?? 100);
+      block.step = Number(block.step ?? 1);
+      block.value = Number(block.value ?? 50);
+      block.disabled = !!block.disabled;
+    }
+    if (String(block.type || "") === "bs_input_group") {
+      block.label = String(block.label || "Price");
+      block.prefix = String(block.prefix || "@");
+      block.suffix = String(block.suffix || "");
+      block.placeholder = String(block.placeholder || "Username");
+      block.value = String(block.value || "");
+      block.button_text = String(block.button_text || "");
+      block.input_type = String(block.input_type || "text");
+    }
+    if (String(block.type || "") === "bs_floating_label") {
+      block.label = String(block.label || "Email address");
+      block.placeholder = String(block.placeholder || "name@example.com");
+      block.value = String(block.value || "");
+      block.as = String(block.as || "input");
+      block.input_type = String(block.input_type || "email");
+      block.rows = Number(block.rows || 4) || 4;
+    }
     if (String(block.type || "") === "bs_list_group") {
       if (!Array.isArray(block.items)) {
         block.items = String(block.items || "")
@@ -480,6 +633,97 @@
       block.text = String(block.text || "");
       block.placement = String(block.placement || "end");
     }
+    if (String(block.type || "") === "bs_dropdown") {
+      block.button_text = String(block.button_text || block.button_label || "Menu");
+      block.button_variant = String(block.button_variant || "primary");
+      block.align = String(block.align || "");
+      const items = Array.isArray(block.items) ? block.items : parseTitleTextLines(block.items || "");
+      block.items = items.map((item) => ({
+        label: String(item.label || item.title || ""),
+        url: String(item.url || item.text || "#"),
+        divider_before: !!item.divider_before,
+      }));
+    }
+    if (String(block.type || "") === "bs_navbar") {
+      block.brand = String(block.brand || "VXcloud");
+      block.brand_url = String(block.brand_url || "/");
+      block.expand = String(block.expand || "lg");
+      block.theme = String(block.theme || block.variant || "dark");
+      block.bg = String(block.bg || "dark");
+      const items = Array.isArray(block.items) ? block.items : parseTitleTextLines(block.items || "");
+      block.items = items.map((item) => ({
+        label: String(item.label || item.title || ""),
+        url: String(item.url || item.text || "#"),
+        active: !!item.active,
+      }));
+    }
+    if (String(block.type || "") === "bs_close_button") {
+      block.white = !!block.white;
+      block.disabled = !!block.disabled;
+    }
+    if (String(block.type || "") === "bs_tooltip") {
+      block.text = String(block.text || "Hover for tooltip");
+      block.title = String(block.title || "Helpful context");
+      block.placement = String(block.placement || "top");
+      block.variant = String(block.variant || "primary");
+    }
+    if (String(block.type || "") === "bs_popover") {
+      block.button_text = String(block.button_text || "Open popover");
+      block.title = String(block.title || "Popover title");
+      block.content = String(block.content || "Popover body content.");
+      block.placement = String(block.placement || "right");
+      block.trigger = String(block.trigger || "focus");
+      block.variant = String(block.variant || "primary");
+    }
+    if (String(block.type || "") === "bs_scrollspy") {
+      block.nav_style = String(block.nav_style || "pills");
+      block.height = Number(block.height || 260) || 260;
+      if (!Array.isArray(block.items)) {
+        block.items = parseScrollspyLines(block.items || "");
+      }
+    }
+    if (String(block.type || "") === "bs_ratio") {
+      block.ratio = String(block.ratio || "16x9");
+      block.url = String(block.url || "");
+      block.html = String(block.html || "");
+      block.embed_type = String(block.embed_type || "iframe");
+    }
+    if (String(block.type || "") === "bs_placeholder") {
+      block.lines = Number(block.lines || 3) || 3;
+      block.width = Number(block.width || 100) || 100;
+      block.size = String(block.size || "");
+      block.animation = String(block.animation || (block.glow ? "glow" : ""));
+    }
+    if (String(block.type || "") === "bs_icon_link") {
+      block.label = String(block.label || "Read more");
+      block.url = String(block.url || "#");
+      block.icon = String(block.icon || "arrow-right");
+    }
+    if (String(block.type || "") === "bs_stretched_link") {
+      block.title = String(block.title || "Feature card");
+      block.text = String(block.text || "Use a stretched link to make the whole card feel clickable.");
+      block.label = String(block.label || "Read details");
+      block.url = String(block.url || "#");
+    }
+    if (String(block.type || "") === "bs_text_truncation") {
+      block.text = String(block.text || "Truncated helper text for a narrow content slot.");
+      block.width = Number(block.width || 220) || 220;
+    }
+    if (String(block.type || "") === "bs_vertical_rule") {
+      block.before_text = String(block.before_text || "Left content");
+      block.after_text = String(block.after_text || "Right content");
+    }
+    if (String(block.type || "") === "bs_visually_hidden") {
+      block.text = String(block.text || "Screen reader only text");
+      block.focusable = !!block.focusable;
+    }
+    if (String(block.type || "") === "bs_stacks") {
+      block.direction = String(block.direction || "horizontal");
+      block.gap = Number(block.gap || 3) || 3;
+      if (!Array.isArray(block.items)) {
+        block.items = parseSimpleLines(block.items || "");
+      }
+    }
     if (String(block.type || "") === "bs_timeline") {
       block.title = String(block.title || "");
       if (!Array.isArray(block.items)) {
@@ -509,6 +753,14 @@
         return { type: bsType, text: "Quote text", cite: "" };
       case "image":
         return { type: bsType, src: "", alt: "", caption: "" };
+      case "bs_figure":
+        return {
+          type: bsType,
+          src: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+          alt: "Figure image",
+          caption: "Use figures for media with a descriptive caption.",
+          align: "start",
+        };
       case "embed":
         return { type: bsType, url: "" };
       case "button":
@@ -610,6 +862,81 @@
           striped: true,
           hover: true,
           bordered: false,
+        };
+      case "bs_form_control":
+        return {
+          type: bsType,
+          label: "Email address",
+          placeholder: "name@example.com",
+          help_text: "We only use this to send setup instructions.",
+          value: "",
+          input_type: "email",
+          as: "input",
+          rows: 4,
+          size: "",
+          validation_state: "",
+          validation_message: "",
+          disabled: false,
+          readonly: false,
+        };
+      case "bs_form_select":
+        return {
+          type: bsType,
+          label: "Choose a plan",
+          options: [
+            { label: "Starter", value: "starter", selected: true },
+            { label: "Pro", value: "pro", selected: false },
+            { label: "Team", value: "team", selected: false },
+          ],
+          size: "",
+          validation_state: "",
+          validation_message: "",
+          disabled: false,
+          multiple: false,
+        };
+      case "bs_form_checks":
+        return {
+          type: bsType,
+          label: "Delivery method",
+          style: "radio",
+          inline: false,
+          name: "delivery-method",
+          items: [
+            { label: "Telegram", checked: true, disabled: false },
+            { label: "Email", checked: false, disabled: false },
+            { label: "Dashboard only", checked: false, disabled: false },
+          ],
+        };
+      case "bs_form_range":
+        return {
+          type: bsType,
+          label: "Traffic priority",
+          min: 0,
+          max: 100,
+          step: 5,
+          value: 65,
+          disabled: false,
+        };
+      case "bs_input_group":
+        return {
+          type: bsType,
+          label: "Account handle",
+          prefix: "@",
+          suffix: "",
+          placeholder: "vxcloud",
+          value: "",
+          button_text: "",
+          input_type: "text",
+        };
+      case "bs_floating_label":
+        return {
+          type: bsType,
+          label: "Comment",
+          placeholder: "Leave a note",
+          value: "",
+          as: "textarea",
+          input_type: "text",
+          rows: 4,
         };
       case "bs_list_group":
         return { type: bsType, numbered: false, flush: false, items: ["Item 1", "Item 2", "Item 3"] };
@@ -714,6 +1041,37 @@
           text: "Place useful links and helper instructions here.",
           placement: "end",
         };
+      case "bs_close_button":
+        return { type: bsType, white: false, disabled: false };
+      case "bs_tooltip":
+        return {
+          type: bsType,
+          text: "Hover for help",
+          title: "Tooltip copy goes here.",
+          placement: "top",
+          variant: "primary",
+        };
+      case "bs_popover":
+        return {
+          type: bsType,
+          button_text: "Open popover",
+          title: "More details",
+          content: "Use popovers for short contextual explanations.",
+          placement: "right",
+          trigger: "focus",
+          variant: "primary",
+        };
+      case "bs_scrollspy":
+        return {
+          type: bsType,
+          nav_style: "pills",
+          height: 260,
+          items: [
+            { label: "Overview", title: "Overview", text: "Summarize the section in a few sentences." },
+            { label: "Specs", title: "Specifications", text: "List the details the reader should keep in view." },
+            { label: "Support", title: "Support", text: "Finish with actions, links, or next steps." },
+          ],
+        };
       case "bs_timeline":
         return {
           type: bsType,
@@ -776,19 +1134,60 @@
             { label: "Account", url: "/account/" },
           ],
         };
+      case "bs_icon_link":
+        return {
+          type: bsType,
+          label: "Read the full guide",
+          url: "/guide/",
+          icon: "arrow-right",
+        };
+      case "bs_stretched_link":
+        return {
+          type: bsType,
+          title: "Open the setup guide",
+          text: "This helper makes the card feel clickable while keeping normal Bootstrap markup.",
+          label: "View guide",
+          url: "/guide/",
+        };
+      case "bs_text_truncation":
+        return {
+          type: bsType,
+          text: "This is a deliberately long line to demonstrate Bootstrap text truncation inside a fixed-width slot.",
+          width: 220,
+        };
+      case "bs_vertical_rule":
+        return {
+          type: bsType,
+          before_text: "Left column",
+          after_text: "Right column",
+        };
+      case "bs_visually_hidden":
+        return {
+          type: bsType,
+          text: "Screen reader only hint",
+          focusable: false,
+        };
+      case "bs_stacks":
+        return {
+          type: bsType,
+          direction: "horizontal",
+          gap: 3,
+          items: ["Plan", "Status", "Manage"],
+        };
       case "bs_ratio":
         return {
           type: bsType,
           ratio: "16x9",
-          html: '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Video" allowfullscreen></iframe>',
+          url: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+          embed_type: "iframe",
         };
       case "bs_placeholder":
         return {
           type: bsType,
           lines: 3,
           width: 100,
-          size: "md",
-          glow: false,
+          size: "",
+          animation: "glow",
         };
       case "bs_divider":
         return { type: bsType, spacing: 24, label: "" };
@@ -906,8 +1305,14 @@
     if (legacy === "bs_alert") return "Short notice or warning. Keep title and body compact so the callout stays readable.";
     if (legacy === "bs_badge") return "Small status marker. Use it for labels like New, Pro, Beta, or Active.";
     if (legacy === "bs_card") return "Compact teaser card. Best for features, services, or short content summaries.";
+    if (legacy === "bs_form_control") return "Single Bootstrap input or textarea with help and validation states.";
+    if (legacy === "bs_form_select") return "Dropdown field using Bootstrap select styling and optional validation.";
+    if (legacy === "bs_form_checks") return "Checkboxes, radios, or switches in one grouped field.";
+    if (legacy === "bs_input_group") return "Compose prefixes, suffixes, and buttons around a control.";
+    if (legacy === "bs_tooltip" || legacy === "bs_popover") return "Bootstrap JS-driven helper component. Keep copy concise.";
+    if (legacy === "bs_scrollspy") return "Scrollable section with synced nav items, useful for dense docs.";
     if (legacy === "rows" || legacy === "raws" || legacy === "bs_container") {
-      return "Structural layout block. Arrange rows, columns, and nested bootstrap content here.";
+      return "Bootstrap grid block. Arrange containers, rows, columns, and nested Bootstrap content here.";
     }
     return "Edit the selected block inline. Use compact controls for quick content changes and ordering.";
   }
@@ -1265,6 +1670,7 @@
     if (type === "list") return Array.isArray(block.items) ? block.items.join(" - ") : "List";
     if (type === "quote") return String(block.text || "Quote");
     if (type === "image") return String(block.src || "Image without URL");
+    if (type === "bs_figure") return `${block.caption || block.alt || "Figure"}`;
     if (type === "embed") return String(block.url || "Embed without URL");
     if (type === "button") return `${block.label || "Button"} -> ${block.url || ""}`;
     if (type === "buttons") return "Buttons group";
@@ -1278,6 +1684,12 @@
     if (type === "bs_accordion") return `Accordion (${Array.isArray(block.items) ? block.items.length : 0})`;
     if (type === "bs_tabs") return `Tabs (${Array.isArray(block.items) ? block.items.length : 0})`;
     if (type === "bs_table") return `Table (${Array.isArray(block.rows) ? block.rows.length : 0} rows)`;
+    if (type === "bs_form_control") return `${block.label || "Form control"} (${block.as === "textarea" ? "textarea" : block.input_type || "input"})`;
+    if (type === "bs_form_select") return `Select (${Array.isArray(block.options) ? block.options.length : 0} options)`;
+    if (type === "bs_form_checks") return `${block.style || "checkbox"} group (${Array.isArray(block.items) ? block.items.length : 0})`;
+    if (type === "bs_form_range") return `Range ${block.value || 0}`;
+    if (type === "bs_input_group") return `${block.label || "Input group"}`;
+    if (type === "bs_floating_label") return `${block.label || "Floating label"}`;
     if (type === "bs_list_group") return `List group (${Array.isArray(block.items) ? block.items.length : 0})`;
     if (type === "bs_progress") return `Progress ${Math.max(0, Math.min(100, Number(block.value || 0)))}%`;
     if (type === "bs_breadcrumb") return `Breadcrumb (${Array.isArray(block.items) ? block.items.length : 0})`;
@@ -1289,12 +1701,22 @@
     if (type === "bs_modal") return `${block.button_text || "Modal"} trigger`;
     if (type === "bs_toast") return `${block.title || "Toast"} notification`;
     if (type === "bs_offcanvas") return `${block.button_text || "Offcanvas"} panel`;
+    if (type === "bs_close_button") return "Close button";
+    if (type === "bs_tooltip") return `${block.text || "Tooltip"} button`;
+    if (type === "bs_popover") return `${block.button_text || "Popover"} trigger`;
+    if (type === "bs_scrollspy") return `Scrollspy (${Array.isArray(block.items) ? block.items.length : 0} sections)`;
     if (type === "bs_timeline") return `Timeline (${Array.isArray(block.items) ? block.items.length : 0} items)`;
     if (type === "bs_pricing_table") return `Pricing (${Array.isArray(block.plans) ? block.plans.length : 0} plans)`;
     if (type === "bs_dropdown") return `Dropdown (${Array.isArray(block.items) ? block.items.length : 0} items)`;
     if (type === "bs_navbar") return `${block.brand || "Navbar"}`;
     if (type === "bs_ratio") return `Ratio ${block.ratio || "16x9"}`;
     if (type === "bs_placeholder") return `Placeholder (${block.lines || 3} lines)`;
+    if (type === "bs_icon_link") return `${block.label || "Icon link"}`;
+    if (type === "bs_stretched_link") return `${block.title || "Stretched link"}`;
+    if (type === "bs_text_truncation") return "Text truncation";
+    if (type === "bs_vertical_rule") return "Vertical rule";
+    if (type === "bs_visually_hidden") return "Visually hidden";
+    if (type === "bs_stacks") return `${block.direction || "horizontal"} stack`;
     if (type === "bs_divider") return "Divider";
     if (type === "rows" || type === "raws" || type === "bs_container") {
       const rows = Array.isArray(block.rows) ? block.rows : [];
@@ -1703,7 +2125,7 @@
 
     function displayTypeName(block) {
       const type = toBootstrapType(block && block.type ? block.type : "bs_paragraph");
-      if (type === "bs_container") return "Section";
+      if (type === "bs_container") return "Container & Grid";
       if (type === "bs_rows") return "Row";
       if (type === "bs_columns") return "Columns";
       if (type === "bs_paragraph") return "Text";
@@ -1726,14 +2148,14 @@
 
       const head = document.createElement("header");
       head.className = "be-left-head be-builder-head";
-      head.innerHTML = "<strong>UX Builder</strong><span>VXcloud editor</span>";
+      head.innerHTML = "<strong>Bootstrap Builder</strong><span>Bootstrap 5.3 blocks only</span>";
 
       const quick = document.createElement("div");
       quick.className = "be-builder-quick";
       [
-        { label: "+ Add Section", type: "bs_container" },
-        { label: "+ Add Row", type: "bs_rows" },
+        { label: "+ Add Container", type: "bs_container" },
         { label: "+ Add Text", type: "bs_paragraph" },
+        { label: "+ Add Button", type: "bs_button" },
       ].forEach((item) => {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -1835,6 +2257,7 @@
 
         GROUPS.forEach((group) => {
           const filtered = BLOCK_TYPES.filter((block) => {
+            if (block.hidden) return false;
             if (block.group !== group) return false;
             if (!state.search) return true;
             return (
@@ -1966,7 +2389,7 @@
       [
         { type: "bs_paragraph", label: "+ Paragraph" },
         { type: "bs_heading", label: "+ Heading" },
-        { type: "bs_rows", label: "+ Rows" },
+        { type: "bs_container", label: "+ Container" },
       ].forEach((item) => {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -2288,8 +2711,868 @@
         return normalizeNestedBlocks(value);
       }
 
+      function renderExtendedBootstrapFields(item, holder, type) {
+        if (type === "bs_figure") {
+          const src = textInput(item.src || "");
+          const alt = textInput(item.alt || "");
+          const caption = textInput(item.caption || "");
+          const align = selectInput(
+            [
+              { value: "start", label: "Start" },
+              { value: "center", label: "Center" },
+              { value: "end", label: "End" },
+            ],
+            item.align || "start"
+          );
+          src.addEventListener("input", () => {
+            item.src = src.value;
+            changed();
+          });
+          alt.addEventListener("input", () => {
+            item.alt = alt.value;
+            changed();
+          });
+          caption.addEventListener("input", () => {
+            item.caption = caption.value;
+            changed();
+          });
+          align.addEventListener("change", () => {
+            item.align = align.value;
+            changed();
+          });
+          holder.appendChild(field("Image URL", src));
+          holder.appendChild(field("Alt text", alt));
+          holder.appendChild(field("Caption", caption));
+          holder.appendChild(field("Caption alignment", align));
+          return true;
+        }
+
+        if (type === "bs_form_control") {
+          const label = textInput(item.label || "");
+          const mode = selectInput(
+            [
+              { value: "input", label: "Input" },
+              { value: "textarea", label: "Textarea" },
+            ],
+            item.as || "input"
+          );
+          const inputType = selectInput(
+            [
+              { value: "text", label: "Text" },
+              { value: "email", label: "Email" },
+              { value: "password", label: "Password" },
+              { value: "url", label: "URL" },
+              { value: "tel", label: "Telephone" },
+              { value: "number", label: "Number" },
+            ],
+            item.input_type || "text"
+          );
+          const placeholder = textInput(item.placeholder || "");
+          const value = textInput(item.value || "");
+          const helpText = textInput(item.help_text || "");
+          const rows = numberInput(item.rows || 4, 2, 12);
+          const size = selectInput(
+            [
+              { value: "", label: "Default" },
+              { value: "sm", label: "Small" },
+              { value: "lg", label: "Large" },
+            ],
+            item.size || ""
+          );
+          const validationState = selectInput(
+            [
+              { value: "", label: "None" },
+              { value: "valid", label: "Valid" },
+              { value: "invalid", label: "Invalid" },
+            ],
+            item.validation_state || ""
+          );
+          const validationMessage = textInput(item.validation_message || "");
+          const disabled = document.createElement("input");
+          disabled.type = "checkbox";
+          disabled.checked = !!item.disabled;
+          const readonly = document.createElement("input");
+          readonly.type = "checkbox";
+          readonly.checked = !!item.readonly;
+          [label, placeholder, value, helpText, validationMessage].forEach((control) =>
+            control.addEventListener("input", () => {
+              item.label = label.value;
+              item.placeholder = placeholder.value;
+              item.value = value.value;
+              item.help_text = helpText.value;
+              item.validation_message = validationMessage.value;
+              changed();
+            })
+          );
+          mode.addEventListener("change", () => {
+            item.as = mode.value;
+            changed();
+          });
+          inputType.addEventListener("change", () => {
+            item.input_type = inputType.value;
+            changed();
+          });
+          rows.addEventListener("input", () => {
+            item.rows = Number(rows.value || 4);
+            changed();
+          });
+          size.addEventListener("change", () => {
+            item.size = size.value;
+            changed();
+          });
+          validationState.addEventListener("change", () => {
+            item.validation_state = validationState.value;
+            changed();
+          });
+          disabled.addEventListener("change", () => {
+            item.disabled = disabled.checked;
+            changed();
+          });
+          readonly.addEventListener("change", () => {
+            item.readonly = readonly.checked;
+            changed();
+          });
+          holder.appendChild(field("Label", label));
+          holder.appendChild(field("Control", mode));
+          holder.appendChild(field("Input type", inputType));
+          holder.appendChild(field("Placeholder", placeholder));
+          holder.appendChild(field("Value", value));
+          holder.appendChild(field("Help text", helpText));
+          holder.appendChild(field("Rows", rows));
+          holder.appendChild(field("Size", size));
+          holder.appendChild(field("Validation state", validationState));
+          holder.appendChild(field("Validation message", validationMessage));
+          holder.appendChild(field("Disabled", disabled));
+          holder.appendChild(field("Readonly", readonly));
+          return true;
+        }
+
+        if (type === "bs_form_select") {
+          const label = textInput(item.label || "");
+          const options = textArea(
+            (Array.isArray(item.options) ? item.options : [])
+              .map((option) => `${option.label || ""}|${option.value || ""}|${option.selected ? "selected" : ""}`)
+              .join("\n"),
+            8
+          );
+          const size = selectInput(
+            [
+              { value: "", label: "Default" },
+              { value: "sm", label: "Small" },
+              { value: "lg", label: "Large" },
+            ],
+            item.size || ""
+          );
+          const validationState = selectInput(
+            [
+              { value: "", label: "None" },
+              { value: "valid", label: "Valid" },
+              { value: "invalid", label: "Invalid" },
+            ],
+            item.validation_state || ""
+          );
+          const validationMessage = textInput(item.validation_message || "");
+          const disabled = document.createElement("input");
+          disabled.type = "checkbox";
+          disabled.checked = !!item.disabled;
+          const multiple = document.createElement("input");
+          multiple.type = "checkbox";
+          multiple.checked = !!item.multiple;
+          label.addEventListener("input", () => {
+            item.label = label.value;
+            changed();
+          });
+          options.addEventListener("input", () => {
+            item.options = parseSelectOptionLines(options.value);
+            changed();
+          });
+          size.addEventListener("change", () => {
+            item.size = size.value;
+            changed();
+          });
+          validationState.addEventListener("change", () => {
+            item.validation_state = validationState.value;
+            changed();
+          });
+          validationMessage.addEventListener("input", () => {
+            item.validation_message = validationMessage.value;
+            changed();
+          });
+          disabled.addEventListener("change", () => {
+            item.disabled = disabled.checked;
+            changed();
+          });
+          multiple.addEventListener("change", () => {
+            item.multiple = multiple.checked;
+            changed();
+          });
+          holder.appendChild(field("Label", label));
+          holder.appendChild(field("Options (label|value|selected)", options));
+          holder.appendChild(field("Size", size));
+          holder.appendChild(field("Validation state", validationState));
+          holder.appendChild(field("Validation message", validationMessage));
+          holder.appendChild(field("Disabled", disabled));
+          holder.appendChild(field("Multiple", multiple));
+          return true;
+        }
+
+        if (type === "bs_form_checks") {
+          const label = textInput(item.label || "");
+          const style = selectInput(
+            [
+              { value: "checkbox", label: "Checkboxes" },
+              { value: "radio", label: "Radios" },
+              { value: "switch", label: "Switches" },
+            ],
+            item.style || "checkbox"
+          );
+          const name = textInput(item.name || "choice-group");
+          const items = textArea(
+            (Array.isArray(item.items) ? item.items : [])
+              .map((entry) => `${entry.label || ""}|${entry.checked ? "checked" : ""}|${entry.disabled ? "disabled" : ""}`)
+              .join("\n"),
+            8
+          );
+          const inline = document.createElement("input");
+          inline.type = "checkbox";
+          inline.checked = !!item.inline;
+          label.addEventListener("input", () => {
+            item.label = label.value;
+            changed();
+          });
+          style.addEventListener("change", () => {
+            item.style = style.value;
+            changed();
+          });
+          name.addEventListener("input", () => {
+            item.name = name.value;
+            changed();
+          });
+          items.addEventListener("input", () => {
+            item.items = parseCheckLines(items.value);
+            changed();
+          });
+          inline.addEventListener("change", () => {
+            item.inline = inline.checked;
+            changed();
+          });
+          holder.appendChild(field("Group label", label));
+          holder.appendChild(field("Style", style));
+          holder.appendChild(field("Name", name));
+          holder.appendChild(field("Items (label|checked|disabled)", items));
+          holder.appendChild(field("Inline layout", inline));
+          return true;
+        }
+
+        if (type === "bs_form_range") {
+          const label = textInput(item.label || "");
+          const min = numberInput(item.min ?? 0, 0, 1000);
+          const max = numberInput(item.max ?? 100, 1, 2000);
+          const step = numberInput(item.step ?? 1, 1, 100);
+          const value = numberInput(item.value ?? 50, 0, 2000);
+          const disabled = document.createElement("input");
+          disabled.type = "checkbox";
+          disabled.checked = !!item.disabled;
+          label.addEventListener("input", () => {
+            item.label = label.value;
+            changed();
+          });
+          [min, max, step, value].forEach((control) =>
+            control.addEventListener("input", () => {
+              item.min = Number(min.value || 0);
+              item.max = Number(max.value || 100);
+              item.step = Number(step.value || 1);
+              item.value = Number(value.value || 0);
+              changed();
+            })
+          );
+          disabled.addEventListener("change", () => {
+            item.disabled = disabled.checked;
+            changed();
+          });
+          holder.appendChild(field("Label", label));
+          holder.appendChild(field("Min", min));
+          holder.appendChild(field("Max", max));
+          holder.appendChild(field("Step", step));
+          holder.appendChild(field("Value", value));
+          holder.appendChild(field("Disabled", disabled));
+          return true;
+        }
+
+        if (type === "bs_input_group") {
+          const label = textInput(item.label || "");
+          const prefix = textInput(item.prefix || "");
+          const suffix = textInput(item.suffix || "");
+          const buttonText = textInput(item.button_text || "");
+          const placeholder = textInput(item.placeholder || "");
+          const value = textInput(item.value || "");
+          const inputType = selectInput(
+            [
+              { value: "text", label: "Text" },
+              { value: "email", label: "Email" },
+              { value: "number", label: "Number" },
+              { value: "url", label: "URL" },
+            ],
+            item.input_type || "text"
+          );
+          [label, prefix, suffix, buttonText, placeholder, value].forEach((control) =>
+            control.addEventListener("input", () => {
+              item.label = label.value;
+              item.prefix = prefix.value;
+              item.suffix = suffix.value;
+              item.button_text = buttonText.value;
+              item.placeholder = placeholder.value;
+              item.value = value.value;
+              changed();
+            })
+          );
+          inputType.addEventListener("change", () => {
+            item.input_type = inputType.value;
+            changed();
+          });
+          holder.appendChild(field("Label", label));
+          holder.appendChild(field("Prefix text", prefix));
+          holder.appendChild(field("Suffix text", suffix));
+          holder.appendChild(field("Button text", buttonText));
+          holder.appendChild(field("Placeholder", placeholder));
+          holder.appendChild(field("Value", value));
+          holder.appendChild(field("Input type", inputType));
+          return true;
+        }
+
+        if (type === "bs_floating_label") {
+          const label = textInput(item.label || "");
+          const mode = selectInput(
+            [
+              { value: "input", label: "Input" },
+              { value: "textarea", label: "Textarea" },
+            ],
+            item.as || "input"
+          );
+          const placeholder = textInput(item.placeholder || "");
+          const value = textInput(item.value || "");
+          const inputType = selectInput(
+            [
+              { value: "text", label: "Text" },
+              { value: "email", label: "Email" },
+              { value: "password", label: "Password" },
+            ],
+            item.input_type || "email"
+          );
+          const rows = numberInput(item.rows || 4, 2, 12);
+          [label, placeholder, value].forEach((control) =>
+            control.addEventListener("input", () => {
+              item.label = label.value;
+              item.placeholder = placeholder.value;
+              item.value = value.value;
+              changed();
+            })
+          );
+          mode.addEventListener("change", () => {
+            item.as = mode.value;
+            changed();
+          });
+          inputType.addEventListener("change", () => {
+            item.input_type = inputType.value;
+            changed();
+          });
+          rows.addEventListener("input", () => {
+            item.rows = Number(rows.value || 4);
+            changed();
+          });
+          holder.appendChild(field("Label", label));
+          holder.appendChild(field("Control", mode));
+          holder.appendChild(field("Placeholder", placeholder));
+          holder.appendChild(field("Value", value));
+          holder.appendChild(field("Input type", inputType));
+          holder.appendChild(field("Rows", rows));
+          return true;
+        }
+
+        if (type === "bs_dropdown") {
+          const buttonText = textInput(item.button_text || "Menu");
+          const buttonVariant = selectInput(
+            buildVariantOptions(["primary", "secondary", "success", "danger", "warning", "info", "dark"]),
+            item.button_variant || "primary"
+          );
+          const align = selectInput(
+            [
+              { value: "", label: "Default" },
+              { value: "start", label: "Start" },
+              { value: "end", label: "End" },
+            ],
+            item.align || ""
+          );
+          const items = textArea(
+            (Array.isArray(item.items) ? item.items : [])
+              .map((row) => `${row.label || ""}|${row.url || ""}|${row.divider_before ? "divider" : ""}`)
+              .join("\n"),
+            8
+          );
+          buttonText.addEventListener("input", () => {
+            item.button_text = buttonText.value;
+            changed();
+          });
+          buttonVariant.addEventListener("change", () => {
+            item.button_variant = buttonVariant.value;
+            changed();
+          });
+          align.addEventListener("change", () => {
+            item.align = align.value;
+            changed();
+          });
+          items.addEventListener("input", () => {
+            item.items = parseSimpleLines(items.value).map((line) => {
+              const parts = line.split("|").map((part) => part.trim());
+              return {
+                label: parts[0] || "",
+                url: parts[1] || "#",
+                divider_before: parts[2] === "divider",
+              };
+            });
+            changed();
+          });
+          holder.appendChild(field("Button text", buttonText));
+          holder.appendChild(field("Button variant", buttonVariant));
+          holder.appendChild(field("Alignment", align));
+          holder.appendChild(field("Items (label|url|divider)", items));
+          return true;
+        }
+
+        if (type === "bs_navbar") {
+          const brand = textInput(item.brand || "VXcloud");
+          const brandUrl = textInput(item.brand_url || "/");
+          const expand = selectInput(
+            [
+              { value: "", label: "Always expanded" },
+              { value: "sm", label: "sm" },
+              { value: "md", label: "md" },
+              { value: "lg", label: "lg" },
+              { value: "xl", label: "xl" },
+              { value: "xxl", label: "xxl" },
+            ],
+            item.expand || "lg"
+          );
+          const theme = selectInput(
+            [
+              { value: "dark", label: "Dark" },
+              { value: "light", label: "Light" },
+            ],
+            item.theme || "dark"
+          );
+          const bg = textInput(item.bg || "dark");
+          const links = textArea(
+            (Array.isArray(item.items) ? item.items : [])
+              .map((row) => `${row.label || ""}|${row.url || ""}|${row.active ? "active" : ""}`)
+              .join("\n"),
+            8
+          );
+          [brand, brandUrl, bg].forEach((control) =>
+            control.addEventListener("input", () => {
+              item.brand = brand.value;
+              item.brand_url = brandUrl.value;
+              item.bg = bg.value;
+              changed();
+            })
+          );
+          expand.addEventListener("change", () => {
+            item.expand = expand.value;
+            changed();
+          });
+          theme.addEventListener("change", () => {
+            item.theme = theme.value;
+            changed();
+          });
+          links.addEventListener("input", () => {
+            item.items = parseSimpleLines(links.value).map((line) => {
+              const parts = line.split("|").map((part) => part.trim());
+              return {
+                label: parts[0] || "",
+                url: parts[1] || "#",
+                active: parts[2] === "active",
+              };
+            });
+            changed();
+          });
+          holder.appendChild(field("Brand", brand));
+          holder.appendChild(field("Brand URL", brandUrl));
+          holder.appendChild(field("Expand breakpoint", expand));
+          holder.appendChild(field("Theme", theme));
+          holder.appendChild(field("Background suffix", bg));
+          holder.appendChild(field("Links (label|url|active)", links));
+          return true;
+        }
+
+        if (type === "bs_close_button") {
+          const white = document.createElement("input");
+          white.type = "checkbox";
+          white.checked = !!item.white;
+          const disabled = document.createElement("input");
+          disabled.type = "checkbox";
+          disabled.checked = !!item.disabled;
+          white.addEventListener("change", () => {
+            item.white = white.checked;
+            changed();
+          });
+          disabled.addEventListener("change", () => {
+            item.disabled = disabled.checked;
+            changed();
+          });
+          holder.appendChild(field("White variant", white));
+          holder.appendChild(field("Disabled", disabled));
+          return true;
+        }
+
+        if (type === "bs_tooltip") {
+          const text = textInput(item.text || "");
+          const title = textInput(item.title || "");
+          const placement = selectInput(
+            [
+              { value: "top", label: "Top" },
+              { value: "right", label: "Right" },
+              { value: "bottom", label: "Bottom" },
+              { value: "left", label: "Left" },
+            ],
+            item.placement || "top"
+          );
+          const variant = selectInput(
+            buildVariantOptions(["primary", "secondary", "success", "danger", "warning", "info", "dark"]),
+            item.variant || "primary"
+          );
+          text.addEventListener("input", () => {
+            item.text = text.value;
+            changed();
+          });
+          title.addEventListener("input", () => {
+            item.title = title.value;
+            changed();
+          });
+          placement.addEventListener("change", () => {
+            item.placement = placement.value;
+            changed();
+          });
+          variant.addEventListener("change", () => {
+            item.variant = variant.value;
+            changed();
+          });
+          holder.appendChild(field("Button text", text));
+          holder.appendChild(field("Tooltip text", title));
+          holder.appendChild(field("Placement", placement));
+          holder.appendChild(field("Button variant", variant));
+          return true;
+        }
+
+        if (type === "bs_popover") {
+          const buttonText = textInput(item.button_text || "");
+          const title = textInput(item.title || "");
+          const content = textArea(item.content || "", 5);
+          const placement = selectInput(
+            [
+              { value: "top", label: "Top" },
+              { value: "right", label: "Right" },
+              { value: "bottom", label: "Bottom" },
+              { value: "left", label: "Left" },
+            ],
+            item.placement || "right"
+          );
+          const trigger = selectInput(
+            [
+              { value: "click", label: "Click" },
+              { value: "focus", label: "Focus" },
+              { value: "hover focus", label: "Hover + Focus" },
+            ],
+            item.trigger || "focus"
+          );
+          const variant = selectInput(
+            buildVariantOptions(["primary", "secondary", "success", "danger", "warning", "info", "dark"]),
+            item.variant || "primary"
+          );
+          buttonText.addEventListener("input", () => {
+            item.button_text = buttonText.value;
+            changed();
+          });
+          title.addEventListener("input", () => {
+            item.title = title.value;
+            changed();
+          });
+          content.addEventListener("input", () => {
+            item.content = content.value;
+            changed();
+          });
+          placement.addEventListener("change", () => {
+            item.placement = placement.value;
+            changed();
+          });
+          trigger.addEventListener("change", () => {
+            item.trigger = trigger.value;
+            changed();
+          });
+          variant.addEventListener("change", () => {
+            item.variant = variant.value;
+            changed();
+          });
+          holder.appendChild(field("Button text", buttonText));
+          holder.appendChild(field("Popover title", title));
+          holder.appendChild(field("Popover content", content));
+          holder.appendChild(field("Placement", placement));
+          holder.appendChild(field("Trigger", trigger));
+          holder.appendChild(field("Button variant", variant));
+          return true;
+        }
+
+        if (type === "bs_scrollspy") {
+          const navStyle = selectInput(
+            [
+              { value: "pills", label: "Pills" },
+              { value: "list-group", label: "List group" },
+            ],
+            item.nav_style || "pills"
+          );
+          const height = numberInput(item.height || 260, 180, 600);
+          const items = textArea(
+            (Array.isArray(item.items) ? item.items : [])
+              .map((entry) => `${entry.label || ""}|${entry.title || ""}|${entry.text || ""}`)
+              .join("\n"),
+            8
+          );
+          navStyle.addEventListener("change", () => {
+            item.nav_style = navStyle.value;
+            changed();
+          });
+          height.addEventListener("input", () => {
+            item.height = Number(height.value || 260);
+            changed();
+          });
+          items.addEventListener("input", () => {
+            item.items = parseScrollspyLines(items.value);
+            changed();
+          });
+          holder.appendChild(field("Nav style", navStyle));
+          holder.appendChild(field("Viewport height", height));
+          holder.appendChild(field("Sections (label|title|text)", items));
+          return true;
+        }
+
+        if (type === "bs_ratio") {
+          const ratio = selectInput(
+            [
+              { value: "1x1", label: "1x1" },
+              { value: "4x3", label: "4x3" },
+              { value: "16x9", label: "16x9" },
+              { value: "21x9", label: "21x9" },
+            ],
+            item.ratio || "16x9"
+          );
+          const embedType = selectInput(
+            [
+              { value: "iframe", label: "Iframe" },
+              { value: "video", label: "Video" },
+            ],
+            item.embed_type || "iframe"
+          );
+          const url = textInput(item.url || "");
+          const html = textArea(item.html || "", 4);
+          ratio.addEventListener("change", () => {
+            item.ratio = ratio.value;
+            changed();
+          });
+          embedType.addEventListener("change", () => {
+            item.embed_type = embedType.value;
+            changed();
+          });
+          url.addEventListener("input", () => {
+            item.url = url.value;
+            changed();
+          });
+          html.addEventListener("input", () => {
+            item.html = html.value;
+            changed();
+          });
+          holder.appendChild(field("Ratio", ratio));
+          holder.appendChild(field("Embed type", embedType));
+          holder.appendChild(field("Media URL", url));
+          holder.appendChild(field("Legacy inner HTML", html, "Optional fallback for older saved blocks."));
+          return true;
+        }
+
+        if (type === "bs_placeholder") {
+          const lines = numberInput(item.lines || 3, 1, 12);
+          const width = numberInput(item.width || 100, 10, 100);
+          const size = selectInput(
+            [
+              { value: "", label: "Default" },
+              { value: "sm", label: "Small" },
+              { value: "lg", label: "Large" },
+            ],
+            item.size || ""
+          );
+          const animation = selectInput(
+            [
+              { value: "", label: "None" },
+              { value: "glow", label: "Glow" },
+              { value: "wave", label: "Wave" },
+            ],
+            item.animation || ""
+          );
+          lines.addEventListener("input", () => {
+            item.lines = Number(lines.value || 3);
+            changed();
+          });
+          width.addEventListener("input", () => {
+            item.width = Number(width.value || 100);
+            changed();
+          });
+          size.addEventListener("change", () => {
+            item.size = size.value;
+            changed();
+          });
+          animation.addEventListener("change", () => {
+            item.animation = animation.value;
+            changed();
+          });
+          holder.appendChild(field("Lines", lines));
+          holder.appendChild(field("Line width %", width));
+          holder.appendChild(field("Size", size));
+          holder.appendChild(field("Animation", animation));
+          return true;
+        }
+
+        if (type === "bs_icon_link") {
+          const label = textInput(item.label || "");
+          const url = textInput(item.url || "");
+          const icon = textInput(item.icon || "");
+          label.addEventListener("input", () => {
+            item.label = label.value;
+            changed();
+          });
+          url.addEventListener("input", () => {
+            item.url = url.value;
+            changed();
+          });
+          icon.addEventListener("input", () => {
+            item.icon = icon.value;
+            changed();
+          });
+          holder.appendChild(field("Label", label));
+          holder.appendChild(field("URL", url));
+          holder.appendChild(field("Bootstrap icon suffix", icon, "Example: arrow-right, box-arrow-up-right"));
+          return true;
+        }
+
+        if (type === "bs_stretched_link") {
+          const title = textInput(item.title || "");
+          const text = textArea(item.text || "", 4);
+          const label = textInput(item.label || "");
+          const url = textInput(item.url || "");
+          title.addEventListener("input", () => {
+            item.title = title.value;
+            changed();
+          });
+          text.addEventListener("input", () => {
+            item.text = text.value;
+            changed();
+          });
+          label.addEventListener("input", () => {
+            item.label = label.value;
+            changed();
+          });
+          url.addEventListener("input", () => {
+            item.url = url.value;
+            changed();
+          });
+          holder.appendChild(field("Title", title));
+          holder.appendChild(field("Body text", text));
+          holder.appendChild(field("Link label", label));
+          holder.appendChild(field("URL", url));
+          return true;
+        }
+
+        if (type === "bs_text_truncation") {
+          const text = textArea(item.text || "", 4);
+          const width = numberInput(item.width || 220, 80, 640);
+          text.addEventListener("input", () => {
+            item.text = text.value;
+            changed();
+          });
+          width.addEventListener("input", () => {
+            item.width = Number(width.value || 220);
+            changed();
+          });
+          holder.appendChild(field("Text", text));
+          holder.appendChild(field("Max width", width));
+          return true;
+        }
+
+        if (type === "bs_vertical_rule") {
+          const beforeText = textInput(item.before_text || "");
+          const afterText = textInput(item.after_text || "");
+          beforeText.addEventListener("input", () => {
+            item.before_text = beforeText.value;
+            changed();
+          });
+          afterText.addEventListener("input", () => {
+            item.after_text = afterText.value;
+            changed();
+          });
+          holder.appendChild(field("Before text", beforeText));
+          holder.appendChild(field("After text", afterText));
+          return true;
+        }
+
+        if (type === "bs_visually_hidden") {
+          const text = textInput(item.text || "");
+          const focusable = document.createElement("input");
+          focusable.type = "checkbox";
+          focusable.checked = !!item.focusable;
+          text.addEventListener("input", () => {
+            item.text = text.value;
+            changed();
+          });
+          focusable.addEventListener("change", () => {
+            item.focusable = focusable.checked;
+            changed();
+          });
+          holder.appendChild(field("Text", text));
+          holder.appendChild(field("Focusable helper", focusable));
+          return true;
+        }
+
+        if (type === "bs_stacks") {
+          const direction = selectInput(
+            [
+              { value: "horizontal", label: "Horizontal" },
+              { value: "vertical", label: "Vertical" },
+            ],
+            item.direction || "horizontal"
+          );
+          const gap = numberInput(item.gap || 3, 1, 5);
+          const items = textArea((Array.isArray(item.items) ? item.items : []).join("\n"), 6);
+          direction.addEventListener("change", () => {
+            item.direction = direction.value;
+            changed();
+          });
+          gap.addEventListener("input", () => {
+            item.gap = Number(gap.value || 3);
+            changed();
+          });
+          items.addEventListener("input", () => {
+            item.items = parseSimpleLines(items.value);
+            changed();
+          });
+          holder.appendChild(field("Direction", direction));
+          holder.appendChild(field("Gap", gap));
+          holder.appendChild(field("Items (one per line)", items));
+          return true;
+        }
+
+        return false;
+      }
+
       function renderColumnChildFields(item, holder) {
         const type = toLegacyType(item.type || "bs_paragraph");
+        if (renderExtendedBootstrapFields(item, holder, type)) {
+          return;
+        }
         if (type === "paragraph") {
           const text = textArea(item.text || "", 4);
           text.addEventListener("input", () => {
@@ -4409,6 +5692,9 @@
       }
 
       const type = toLegacyType(selected.type || "bs_paragraph");
+      if (renderExtendedBootstrapFields(selected, form, type)) {
+        return;
+      }
       if (type === "paragraph") {
         const input = textArea(selected.text || "", 8);
         input.addEventListener("input", () => {
