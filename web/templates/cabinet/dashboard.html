@@ -12,7 +12,7 @@
 {% cms_text "cabinet.empty_configs" "Пока нет активных доступов. Оформите первый доступ, чтобы он появился здесь." as cabinet_empty_configs %}
 {% cms_text "cabinet.error_loading" "Не удалось загрузить данные аккаунта. Попробуйте обновить страницу." as cabinet_error_loading %}
 
-<div class="cabinet-page">
+<div class="cabinet-page cabinet-page-dashboard">
 <section class="surface-card cabinet-hero mb-4">
   <div class="cabinet-hero-head d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3">
     <div class="cabinet-hero-copy">
@@ -41,7 +41,7 @@
     <div class="col-12 col-sm-6 col-xl-3">
       <article class="surface-card h-100 stat-card">
         <div class="stat-label">ID клиента</div>
-        <div class="stat-value">{% if bot_user.client_code %}<code>{{ bot_user.client_code }}</code>{% else %}-{% endif %}</div>
+        <div class="stat-value">{% if bot_user.client_code %}<code class="stat-code">{{ bot_user.client_code }}</code>{% else %}-{% endif %}</div>
       </article>
     </div>
     <div class="col-12 col-sm-6 col-xl-3">
@@ -53,13 +53,13 @@
     <div class="col-12 col-sm-6 col-xl-3">
       <article class="surface-card h-100 stat-card">
         <div class="stat-label">Telegram</div>
-        <div class="stat-value">
+        <div class="stat-value stat-stack">
           {% if linked %}
             <span class="vx-pill vx-pill-success status-pill">Привязан</span>
-            <div class="small text-secondary mt-2"><code>{{ linked.telegram_id }}</code></div>
+            <code class="stat-code">{{ linked.telegram_id }}</code>
           {% else %}
             <span class="vx-pill vx-pill-warning status-pill">Не привязан</span>
-            <div class="small mt-2"><a href="/account/link/">Привязать</a> · <span class="text-secondary">{{ inactive_configs }} неактивных</span></div>
+            <div class="small stat-linkline"><a href="/account/link/">Привязать</a><span class="text-secondary"> · {{ inactive_configs }} неактивных</span></div>
           {% endif %}
         </div>
       </article>
@@ -75,13 +75,12 @@
     </summary>
     <div class="cabinet-fold-content">
       {% if subscription_rows %}
-        <div class="config-card-grid">
+        <div class="config-card-grid{% if subscription_rows|length > 1 %} config-card-grid-multi{% endif %}">
           {% for row in subscription_rows %}
             <article class="surface-panel config-card">
               <div class="config-card-head">
                 <div class="config-card-title-wrap">
                   <h3 class="config-card-title">{{ row.display_name }}</h3>
-                  <div class="small text-secondary">ID: {{ row.id }}</div>
                 </div>
                 {% if row.is_active %}
                   <span class="vx-pill vx-pill-success status-pill">{{ row.status_text }}</span>
@@ -91,6 +90,10 @@
               </div>
 
               <div class="config-card-meta">
+                <div class="config-meta-item">
+                  <span class="config-meta-label">ID</span>
+                  <span class="config-meta-value">{{ row.id }}</span>
+                </div>
                 <div class="config-meta-item">
                   <span class="config-meta-label">До</span>
                   <span class="config-meta-value">
@@ -102,7 +105,7 @@
                   </span>
                 </div>
                 <div class="config-meta-item">
-                  <span class="config-meta-label">Доступ</span>
+                  <span class="config-meta-label">Состояние</span>
                   <span class="config-meta-value">{% if row.is_active %}Работает{% else %}Неактивен{% endif %}</span>
                 </div>
               </div>

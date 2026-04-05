@@ -1089,6 +1089,7 @@ textarea,
   flex-direction: column;
   gap: 10px;
   min-height: 100%;
+  justify-content: flex-start;
 }
 
 .cabinet-stats {
@@ -1116,6 +1117,34 @@ textarea,
   line-height: 1.35;
   color: #0f172a;
   overflow-wrap: anywhere;
+}
+
+.stat-stack {
+  gap: 10px;
+}
+
+.stat-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #e2e7f0;
+  background: #f7f9fc;
+  color: #d94686;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.stat-linkline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  line-height: 1.4;
 }
 
 .vx-pill {
@@ -1252,8 +1281,8 @@ textarea,
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 16px;
-  border-radius: 18px;
+  padding: 18px;
+  border-radius: 22px;
   background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
 }
 
@@ -1318,6 +1347,7 @@ textarea,
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  align-items: start;
 }
 
 .config-card-actions .btn {
@@ -1335,6 +1365,10 @@ textarea,
   background: #fff;
   padding: 10px 12px;
   grid-column: 1 / -1;
+}
+
+.config-rename-block[open] {
+  box-shadow: inset 0 0 0 1px #d0dbef;
 }
 
 .config-rename-form {
@@ -1824,12 +1858,22 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
     padding-bottom: 92px;
   }
 
+  .cabinet-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .stat-card {
     min-height: auto;
+    padding: 14px;
   }
 
   .stat-value {
     font-size: 1rem;
+  }
+
+  .stat-code {
+    font-size: 0.9rem;
+    padding: 0.42rem 0.68rem;
   }
 
   .card,
@@ -1946,7 +1990,7 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
   }
 
   .config-card-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr 1fr;
     align-items: stretch;
   }
 
@@ -1993,8 +2037,12 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
     grid-template-columns: 1fr 1fr;
   }
 
-  .config-card-grid {
+  .config-card-grid-multi {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cabinet-page-dashboard .config-card-grid:not(.config-card-grid-multi) .config-card {
+    padding: 22px;
   }
 
   .config-shell-grid {
@@ -2018,7 +2066,7 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
   }
 
   .config-card-meta {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .config-card-actions {
