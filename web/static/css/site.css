@@ -1234,6 +1234,11 @@ textarea,
 
 .config-shell-actions .btn {
   width: 100%;
+  min-height: 72px;
+  padding: 12px 18px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.15;
 }
 
 .config-shell-meta-grid {
@@ -1538,6 +1543,17 @@ body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
 }
 
 @media (max-width: 640px) {
+  .cabinet-stats {
+    --bs-gutter-x: 10px;
+    --bs-gutter-y: 10px;
+  }
+
+  .cabinet-stats > [class*="col-"] {
+    flex: 0 0 50%;
+    width: 50%;
+    max-width: 50%;
+  }
+
   .container {
     padding: 0 12px;
   }
