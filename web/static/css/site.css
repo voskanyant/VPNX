@@ -1021,6 +1021,98 @@ textarea,
   color: #334155 !important;
 }
 
+body.wp-theme-flatsome.vx-body #top-bar,
+body.theme-flatsome.vx-body #top-bar {
+  display: flex !important;
+}
+
+body.wp-theme-flatsome.vx-body #header .row,
+body.wp-theme-flatsome.vx-body #footer .row,
+body.theme-flatsome.vx-body #header .row,
+body.theme-flatsome.vx-body #footer .row {
+  --bs-gutter-x: 0;
+  --bs-gutter-y: 0;
+  margin-left: 0;
+  margin-right: 0;
+  max-width: none;
+}
+
+body.wp-theme-flatsome.vx-body #header .col,
+body.wp-theme-flatsome.vx-body #header [class*=" col-"],
+body.wp-theme-flatsome.vx-body #header [class^="col-"],
+body.wp-theme-flatsome.vx-body #footer .col,
+body.wp-theme-flatsome.vx-body #footer [class*=" col-"],
+body.wp-theme-flatsome.vx-body #footer [class^="col-"],
+body.theme-flatsome.vx-body #header .col,
+body.theme-flatsome.vx-body #header [class*=" col-"],
+body.theme-flatsome.vx-body #header [class^="col-"],
+body.theme-flatsome.vx-body #footer .col,
+body.theme-flatsome.vx-body #footer [class*=" col-"],
+body.theme-flatsome.vx-body #footer [class^="col-"] {
+  width: auto;
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
+  flex: 0 0 auto;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page .row.g-3 > [class*="col-"],
+body.theme-flatsome.vx-body .cabinet-page .row.g-3 > [class*="col-"] {
+  display: flex;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page .row.g-3 > [class*="col-"] > .surface-card,
+body.theme-flatsome.vx-body .cabinet-page .row.g-3 > [class*="col-"] > .surface-card {
+  width: 100%;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page .stat-value,
+body.theme-flatsome.vx-body .cabinet-page .stat-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page .badge,
+body.theme-flatsome.vx-body .cabinet-page .badge {
+  min-height: 28px;
+  padding: 0.35em 0.8em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page code,
+body.theme-flatsome.vx-body .cabinet-page code {
+  white-space: nowrap;
+  font-size: 0.92em;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap input[readonly],
+body.theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap input[readonly] {
+  min-width: 220px;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap,
+body.theme-flatsome.vx-body .cabinet-page .vx-link-input-wrap {
+  min-width: 280px;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page .vx-rename-input,
+body.theme-flatsome.vx-body .cabinet-page .vx-rename-input {
+  min-width: 120px;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page .btn,
+body.theme-flatsome.vx-body .cabinet-page .btn {
+  min-height: 40px;
+}
+
+body.wp-theme-flatsome.vx-body .cabinet-page .vx-config-table td,
+body.theme-flatsome.vx-body .cabinet-page .vx-config-table td {
+  vertical-align: middle;
+}
+
 @media (max-width: 980px) {
   .site-menu-toggle {
     display: inline-flex !important;

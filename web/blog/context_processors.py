@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -13,6 +14,22 @@ _WORDPRESS_SHELL_CACHE: dict[str, object] = {
     "expires_at": 0.0,
     "value": None,
 }
+
+_WORDPRESS_PAGE_CACHE: dict[str, object] = {
+    "expires_at": 0.0,
+    "value": None,
+}
+
+_HEADER_RE = re.compile(r"(<header id=\"header\"[\s\S]*?</header>)", re.IGNORECASE)
+_FOOTER_RE = re.compile(r"(<footer id=\"footer\"[\s\S]*?</footer>)", re.IGNORECASE)
+_BODY_CLASS_RE = re.compile(r"<body\b[^>]*class=(['\"])(.*?)\1", re.IGNORECASE | re.DOTALL)
+_HEAD_RE = re.compile(r"<head\b[^>]*>([\s\S]*?)</head>", re.IGNORECASE)
+_STYLESHEET_RE = re.compile(
+    r"<link\b[^>]*rel=(['\"])[^'\"]*stylesheet[^'\"]*\1[^>]*href=(['\"])(.*?)\2",
+    re.IGNORECASE,
+)
+_STYLE_BLOCK_RE = re.compile(r"(<style\b[\s\S]*?</style>)", re.IGNORECASE)
+_SCRIPT_RE = re.compile(r"<script\b[^>]*src=(['\"])(.*?)\1", re.IGNORECASE)
 
 
 def _format_card_price_label() -> str:
@@ -93,6 +110,95 @@ def _fetch_wordpress_shell() -> dict[str, object] | None:
     return payload
 
 
+def _fetch_wordpress_home_html() -> str | None:
+    now = time.time()
+    expires_at = float(_WORDPRESS_PAGE_CACHE.get("expires_at", 0.0) or 0.0)
+    cached = _WORDPRESS_PAGE_CACHE.get("value")
+    if cached is not None and now < expires_at:
+        return cached if isinstance(cached, str) else None
+
+    wordpress_url = str(getattr(settings, "WORDPRESS_PUBLIC_SITE_URL", "") or "").rstrip("/")
+    if not wordpress_url:
+        _WORDPRESS_PAGE_CACHE["value"] = None
+        _WORDPRESS_PAGE_CACHE["expires_at"] = now + 300
+        return None
+
+    try:
+        with urlopen(f"{wordpress_url}/", timeout=3.0) as response:
+            html = response.read().decode("utf-8", "ignore")
+    except (OSError, URLError, ValueError):
+        _WORDPRESS_PAGE_CACHE["value"] = None
+        _WORDPRESS_PAGE_CACHE["expires_at"] = now + 30
+        return None
+
+    _WORDPRESS_PAGE_CACHE["value"] = html
+    _WORDPRESS_PAGE_CACHE["expires_at"] = now + 60
+    return html
+
+
+def _dedupe_keep_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
+
+
+def _clean_fragment_classes(fragment: str) -> str:
+    for token in [
+        " hide-for-sticky",
+        " current-menu-item",
+        " current_page_item",
+        " current_page_parent",
+        " current-menu-parent",
+        " current-menu-ancestor",
+        " current-page-ancestor",
+        " active",
+    ]:
+        fragment = fragment.replace(token, "")
+    fragment = fragment.replace(' aria-current="page"', "")
+    return fragment
+
+
+def _build_wordpress_shell_fragments() -> dict[str, object] | None:
+    if not getattr(settings, "WORDPRESS_PUBLIC_SITE_ENABLED", False):
+        return None
+
+    html = _fetch_wordpress_home_html()
+    if not html:
+        return None
+
+    header_match = _HEADER_RE.search(html)
+    footer_match = _FOOTER_RE.search(html)
+    body_match = _BODY_CLASS_RE.search(html)
+    head_match = _HEAD_RE.search(html)
+    if not header_match or not footer_match:
+        return None
+
+    head_html = head_match.group(1) if head_match else ""
+    stylesheets = _dedupe_keep_order([match[2] for match in _STYLESHEET_RE.findall(head_html)])
+    inline_styles = _STYLE_BLOCK_RE.findall(head_html)
+    scripts = _dedupe_keep_order(
+        [
+            match[1]
+            for match in _SCRIPT_RE.findall(head_html)
+            if "/wp-content/" in match[1] or "/wp-includes/" in match[1]
+        ]
+    )
+
+    return {
+        "body_class": body_match.group(2) if body_match else "",
+        "header_html": _clean_fragment_classes(header_match.group(1)),
+        "footer_html": footer_match.group(1),
+        "stylesheets": stylesheets,
+        "inline_styles": inline_styles,
+        "scripts": scripts,
+    }
+
+
 def _build_wordpress_shell(request) -> dict[str, object] | None:
     if not getattr(settings, "WORDPRESS_PUBLIC_SITE_ENABLED", False):
         return None
@@ -134,4 +240,5 @@ def site_navigation(request):
         "nav_pages": nav_pages,
         "card_price_label": _format_card_price_label(),
         "wordpress_shell": _build_wordpress_shell(request),
+        "wordpress_shell_fragments": _build_wordpress_shell_fragments(),
     }

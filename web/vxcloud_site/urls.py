@@ -26,9 +26,6 @@ urlpatterns = [
     path("open-app/", open_app_link, name="open_app_link"),
     path("legacy/", include("blog.urls")),
     path("instructions/", blog_views.index, name="instructions"),
-    path("blog/", blog_views.page_by_path, {"path": "blog"}, name="blog_index"),
-    path("blog/category/<slug:slug>/", blog_views.category_detail, name="blog_category_detail"),
-    path("blog/<slug:slug>/", blog_views.post_detail, name="blog_post_detail"),
     path("", blog_views.home, name="home"),
     path("<path:path>/", blog_views.page_by_path, name="site_page"),
 ]
