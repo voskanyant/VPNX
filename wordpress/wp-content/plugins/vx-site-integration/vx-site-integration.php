@@ -282,6 +282,7 @@ function vx_site_account_app_shortcode() {
             src="<?php echo esc_url($iframe_src); ?>"
             loading="eager"
             referrerpolicy="same-origin"
+            scrolling="no"
             allowfullscreen
         ></iframe>
     </div>
@@ -317,6 +318,7 @@ function vx_site_account_app_shortcode() {
 
         if (data.height) {
           frame.style.height = Math.max(640, Number(data.height) || 0) + 'px';
+          host.classList.add('is-ready');
         }
 
         if (data.path && typeof data.path === 'string') {

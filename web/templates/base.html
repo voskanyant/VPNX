@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Gruppo&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  {% if request.GET.embed != '1' and wordpress_shell_fragments %}
+  {% if not account_embed_mode and wordpress_shell_fragments %}
     {% for href in wordpress_shell_fragments.stylesheets %}
       <link rel="stylesheet" href="{{ href }}" />
     {% endfor %}
@@ -22,10 +22,18 @@
     {% endfor %}
   {% endif %}
   <link rel="stylesheet" href="{% static 'css/site.css' %}" />
+  {% if account_embed_mode %}
+  <style>
+    html,
+    body {
+      overflow-x: hidden;
+    }
+  </style>
+  {% endif %}
   {% block extra_head %}{% endblock %}
 </head>
-<body class="{% if request.GET.embed != '1' and wordpress_shell_fragments and wordpress_shell_fragments.body_class %}{{ wordpress_shell_fragments.body_class }} {% endif %}vx-body{% if request.path|slice:':9' == '/account/' %} vx-account-shell{% endif %}{% if request.GET.embed == '1' %} vx-account-embed{% endif %}">
-  {% if request.GET.embed == '1' %}
+<body class="{% if not account_embed_mode and wordpress_shell_fragments and wordpress_shell_fragments.body_class %}{{ wordpress_shell_fragments.body_class }} {% endif %}vx-body{% if request.path|slice:':9' == '/account/' %} vx-account-shell{% endif %}{% if account_embed_mode %} vx-account-embed{% endif %}">
+  {% if account_embed_mode %}
     <main id="vx-embed-main" class="vx-embed-main">
       <div class="vx-embed-container">
   {% elif wordpress_shell_fragments %}
@@ -57,7 +65,7 @@
   {% endif %}
   {% block content %}{% endblock %}
 
-  {% if request.GET.embed == '1' %}
+  {% if account_embed_mode %}
       </div>
     </main>
   {% elif wordpress_shell_fragments %}
@@ -79,7 +87,7 @@
   {% endif %}
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  {% if request.GET.embed != '1' and wordpress_shell_fragments %}
+  {% if not account_embed_mode and wordpress_shell_fragments %}
     {% for src in wordpress_shell_fragments.scripts %}
       <script src="{{ src }}"></script>
     {% endfor %}
@@ -289,37 +297,78 @@
     initBootstrapContent();
     syncTelegramWebAppSession();
   </script>
-  {% if request.GET.embed == '1' %}
+  {% if account_embed_mode %}
   <script>
     (function () {
       const targetOrigin = window.location.origin;
       const toOuterPath = function () {
         const url = new URL(window.location.href);
         url.searchParams.delete('embed');
+        if (url.pathname.startsWith('/accounts/')) {
+          return '/account/';
+        }
+        if (url.pathname.startsWith('/account-app/signup/')) {
+          return '/account/';
+        }
         const outerPath = url.pathname.replace(/^\/account-app\b/, '/account') || '/account/';
         return outerPath + url.search + url.hash;
       };
-      const postState = function () {
-        const height = Math.max(
-          document.documentElement.scrollHeight,
-          document.body ? document.body.scrollHeight : 0
-        );
-        window.parent.postMessage(
-          {
-            type: 'vx-account-embed',
-            height: height,
-            path: toOuterPath(),
-          },
-          targetOrigin
+      const computeHeight = function () {
+        const doc = document.documentElement;
+        const body = document.body;
+        return Math.max(
+          doc ? doc.scrollHeight : 0,
+          doc ? doc.offsetHeight : 0,
+          doc ? doc.clientHeight : 0,
+          body ? body.scrollHeight : 0,
+          body ? body.offsetHeight : 0,
+          body ? body.clientHeight : 0
         );
       };
+      const postState = function () {
+        window.requestAnimationFrame(function () {
+          window.parent.postMessage(
+            {
+              type: 'vx-account-embed',
+              height: computeHeight(),
+              path: toOuterPath(),
+            },
+            targetOrigin
+          );
+        });
+      };
+      document.documentElement.style.overflowX = 'hidden';
+      if (document.body) {
+        document.body.style.overflowX = 'hidden';
+      }
+      if (document.body) {
+        document.body.style.overflowY = 'hidden';
+      }
+      window.addEventListener('DOMContentLoaded', postState);
       window.addEventListener('load', postState);
       window.addEventListener('resize', postState);
       if (window.ResizeObserver) {
         const observer = new ResizeObserver(postState);
         observer.observe(document.documentElement);
+        if (document.body) {
+          observer.observe(document.body);
+        }
       }
-      setTimeout(postState, 120);
+      if (window.MutationObserver && document.body) {
+        const observer = new MutationObserver(postState);
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          characterData: true,
+        });
+      }
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(postState).catch(function () {});
+      }
+      [60, 180, 400, 900, 1600].forEach(function (delay) {
+        window.setTimeout(postState, delay);
+      });
     })();
   </script>
   {% endif %}

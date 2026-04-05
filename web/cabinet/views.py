@@ -119,6 +119,14 @@ class EmailLoginView(LoginView):
     authentication_form = EmailAuthenticationForm
     template_name = "registration/login.html"
 
+    def get_success_url(self) -> str:
+        redirect_to = self.get_redirect_url()
+        if redirect_to:
+            return redirect_to
+        if _account_embed_mode(self.request):
+            return _account_backend_url(self.request)
+        return super().get_success_url()
+
 
 def _format_minor_amount_rub(amount_minor: int | None) -> str:
     value = int(amount_minor or 0)

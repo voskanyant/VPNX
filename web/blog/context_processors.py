@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from urllib.parse import quote
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -30,6 +31,28 @@ _STYLESHEET_RE = re.compile(
 )
 _STYLE_BLOCK_RE = re.compile(r"(<style\b[\s\S]*?</style>)", re.IGNORECASE)
 _SCRIPT_RE = re.compile(r"<script\b[^>]*src=(['\"])(.*?)\1", re.IGNORECASE)
+
+
+def _account_embed_mode(request) -> bool:
+    path = str(getattr(request, "path", "") or "")
+    next_value = str(request.GET.get("next", "") or "")
+    if str(request.GET.get("embed", "") or "").strip() == "1":
+        return True
+    if path.startswith("/account-app/"):
+        return True
+    return path.startswith("/accounts/") and next_value.startswith("/account-app/")
+
+
+def _account_embed_next() -> str:
+    return "/account-app/?embed=1"
+
+
+def _account_embed_login_url() -> str:
+    return "/accounts/login/?embed=1&next=" + quote(_account_embed_next(), safe="/?=&")
+
+
+def _account_embed_password_reset_url() -> str:
+    return "/accounts/password_reset/?embed=1&next=" + quote(_account_embed_next(), safe="/?=&")
 
 
 def _format_card_price_label() -> str:
@@ -254,9 +277,15 @@ def _build_wordpress_shell(request) -> dict[str, object] | None:
 
 def site_navigation(request):
     nav_pages = Page.objects.filter(is_published=True, show_in_nav=True).order_by("nav_order", "id")
+    embed_mode = _account_embed_mode(request)
     return {
         "nav_pages": nav_pages,
         "card_price_label": _format_card_price_label(),
         "wordpress_shell": _build_wordpress_shell(request),
         "wordpress_shell_fragments": _build_wordpress_shell_fragments(),
+        "account_embed_mode": embed_mode,
+        "account_embed_login_url": _account_embed_login_url(),
+        "account_embed_signup_url": "/account-app/signup/?embed=1",
+        "account_embed_password_reset_url": _account_embed_password_reset_url(),
+        "account_embed_dashboard_url": "/account-app/?embed=1",
     }

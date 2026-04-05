@@ -61,12 +61,20 @@
 .vx-account-host {
   width: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 .vx-account-frame {
   display: block;
   width: 100%;
-  min-height: 900px;
+  min-height: 640px;
+  height: 640px;
   border: 0;
   background: transparent;
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.vx-account-frame::-webkit-scrollbar {
+  display: none;
 }

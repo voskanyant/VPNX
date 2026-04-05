@@ -39,6 +39,8 @@ body {
 
 body.vx-account-embed {
   background: transparent;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 a {
@@ -69,12 +71,14 @@ a:hover {
 .vx-embed-main {
   min-height: 100vh;
   padding: 0;
+  overflow: hidden;
 }
 
 .vx-embed-container {
   width: 100%;
   max-width: 100%;
   padding: 0;
+  overflow: hidden;
 }
 
 .content-shell > * + * {

@@ -18,7 +18,7 @@
     {{ form.as_p }}
     <button type="submit" class="btn btn-primary w-100">{{ login_submit }}</button>
   </form>
-  <p class="mt-3 mb-1"><a href="/accounts/password_reset/">{{ login_forgot_password }}</a></p>
-  <p class="mb-0 text-secondary">{{ login_no_account }} <a href="/account/signup/">{{ login_signup_action }}</a></p>
+  <p class="mt-3 mb-1"><a href="{% if account_embed_mode %}{{ account_embed_password_reset_url }}{% else %}/accounts/password_reset/{% endif %}">{{ login_forgot_password }}</a></p>
+  <p class="mb-0 text-secondary">{{ login_no_account }} <a href="{% if account_embed_mode %}{{ account_embed_signup_url }}{% else %}/account/signup/{% endif %}">{{ login_signup_action }}</a></p>
 </section>
 {% endblock %}
