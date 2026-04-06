@@ -21,11 +21,28 @@
       .replace(/'/g, "&#39;");
   }
 
+  function iconSvg(kind) {
+    if (kind === "copy") {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="5" width="10" height="10" rx="1.5"></rect><rect x="9" y="9" width="10" height="10" rx="1.5"></rect></svg>';
+    }
+    if (kind === "rename") {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z"></path><path d="M13.5 6l4.5 4.5"></path></svg>';
+    }
+    if (kind === "check") {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>';
+    }
+    return "";
+  }
+
   function readCookie(name) {
     const cookie = document.cookie
       .split(";")
-      .map((part) => part.trim())
-      .find((part) => part.startsWith(name + "="));
+      .map(function (part) {
+        return part.trim();
+      })
+      .find(function (part) {
+        return part.startsWith(name + "=");
+      });
     return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : "";
   }
 
@@ -41,7 +58,6 @@
 
   function currentRoute() {
     const path = window.location.pathname;
-    const accountPath = normalizePath(cfg.accountPath);
     const configMatch = path.match(/^\/account\/config\/(\d+)\/?$/);
     if (configMatch) {
       return {
@@ -53,8 +69,13 @@
     return {
       view: "dashboard",
       subscriptionId: null,
-      path: accountPath,
+      path: normalizePath(cfg.accountPath || "/account/"),
     };
+  }
+
+  function subscriptionRenameUrl(subscriptionId) {
+    const base = String(cfg.apiSubscriptionBaseUrl || "/account-app/api/subscriptions/");
+    return base.replace(/\/?$/, "/") + String(subscriptionId) + "/rename/";
   }
 
   function apiFetch(url, options) {
@@ -149,7 +170,7 @@
 
   function showToast(message) {
     const toast = ensureToast();
-    toast.textContent = "✓ " + String(message || "Ссылка скопирована");
+    toast.textContent = String(message || "Ссылка скопирована");
     toast.classList.add("is-visible");
     window.clearTimeout(state.toastTimer);
     state.toastTimer = window.setTimeout(function () {
@@ -161,20 +182,20 @@
     if (!button) return;
     button.classList.add("is-copied");
     if (button.classList.contains("vx-icon-button")) {
-      const original = button.dataset.originalLabel || button.textContent;
-      button.dataset.originalLabel = original;
-      button.textContent = "✓";
+      const originalMarkup = button.dataset.originalMarkup || button.innerHTML;
+      button.dataset.originalMarkup = originalMarkup;
+      button.innerHTML = iconSvg("check");
       window.setTimeout(function () {
-        button.textContent = button.dataset.originalLabel || original;
+        button.innerHTML = button.dataset.originalMarkup || originalMarkup;
         button.classList.remove("is-copied");
       }, 1200);
       return;
     }
-    const original = button.dataset.originalLabel || button.textContent;
-    button.dataset.originalLabel = original;
-    button.textContent = "✓ " + original;
+    const originalLabel = button.dataset.originalLabel || button.textContent;
+    button.dataset.originalLabel = originalLabel;
+    button.textContent = "✓ " + originalLabel;
     window.setTimeout(function () {
-      button.textContent = button.dataset.originalLabel || original;
+      button.textContent = button.dataset.originalLabel || originalLabel;
       button.classList.remove("is-copied");
     }, 1200);
   }
@@ -186,19 +207,40 @@
   function renderDashboard(model) {
     const subscriptions = Array.isArray(model.subscriptions) ? model.subscriptions : [];
     const telegramLinked = model.telegram && model.telegram.linked;
-    const telegramPill = '<span class="' + pillClass(telegramLinked) + '">' + escapeHtml(model.telegram && model.telegram.status_text ? model.telegram.status_text : "Не привязан") + "</span>";
+    const telegramPill =
+      '<span class="' +
+      pillClass(telegramLinked) +
+      '">' +
+      escapeHtml(model.telegram && model.telegram.status_text ? model.telegram.status_text : "Не привязан") +
+      "</span>";
 
     const summaryHtml = [
-      { label: "Пользователь", value: escapeHtml(model.user && model.user.username ? model.user.username : "—") },
-      { label: "ID клиента", value: model.user && model.user.client_code ? '<code class="vx-stat-code">' + escapeHtml(model.user.client_code) + "</code>" : "—" },
-      { label: "Активные", value: escapeHtml(String(model.stats && model.stats.active_configs != null ? model.stats.active_configs : 0)) },
+      {
+        label: "Пользователь",
+        value: escapeHtml(model.user && model.user.username ? model.user.username : "—"),
+      },
+      {
+        label: "ID клиента",
+        value:
+          model.user && model.user.client_code
+            ? '<code class="vx-stat-code">' + escapeHtml(model.user.client_code) + "</code>"
+            : "—",
+      },
+      {
+        label: "Активные",
+        value: escapeHtml(String(model.stats && model.stats.active_configs != null ? model.stats.active_configs : 0)),
+      },
       {
         label: "Telegram",
         value:
           '<div class="vx-stat-stack">' +
           telegramPill +
-          (telegramLinked && model.telegram.telegram_id ? '<code class="vx-stat-code">' + escapeHtml(String(model.telegram.telegram_id)) + "</code>" : "") +
-          (!telegramLinked && model.telegram && model.telegram.link_url ? '<a class="vx-inline-link" href="' + escapeHtml(model.telegram.link_url) + '">Привязать</a>' : "") +
+          (telegramLinked && model.telegram.telegram_id
+            ? '<code class="vx-stat-code">' + escapeHtml(String(model.telegram.telegram_id)) + "</code>"
+            : "") +
+          (!telegramLinked && model.telegram && model.telegram.link_url
+            ? '<a class="vx-inline-link" href="' + escapeHtml(model.telegram.link_url) + '">Привязать</a>'
+            : "") +
           "</div>",
       },
     ]
@@ -219,14 +261,36 @@
             return [
               '<article class="vx-config-card">',
               '<div class="vx-config-card__head">',
-              '<div><h3 class="vx-config-card__title"><span class="vx-config-card__name-icon" aria-hidden="true">✎</span><span>' + escapeHtml(sub.display_name) + '</span></h3><div class="vx-config-card__sub">ID: ' + escapeHtml(String(sub.id)) + "</div></div>",
+              '<div class="vx-config-card__title-wrap">',
+              '<h3 class="vx-config-card__title"><span class="vx-config-card__name-icon" aria-hidden="true">✎</span><span>' +
+                escapeHtml(sub.display_name) +
+                "</span></h3>",
+              '<div class="vx-config-card__sub">ID: ' + escapeHtml(String(sub.id)) + "</div>",
+              '<form class="vx-rename-row vx-rename-row--card" data-rename-form data-subscription-id="' +
+                escapeHtml(String(sub.id)) +
+                '"><input type="text" class="vx-rename-input" name="display_name" maxlength="80" placeholder="Имя устройства" value="' +
+                escapeHtml(sub.display_name || "") +
+                '"><button type="submit" class="vx-icon-button" aria-label="Переименовать">' +
+                iconSvg("rename") +
+                "</button></form>",
+              "</div>",
               '<span class="' + pillClass(!!sub.is_active) + '">' + escapeHtml(sub.status_text) + "</span>",
               "</div>",
               '<div class="vx-config-card__meta">',
-              '<div class="vx-config-meta"><span>До</span><strong>' + escapeHtml(sub.expires_at || "—") + "</strong></div>",
+              '<div class="vx-config-meta"><span>До</span><strong>' +
+                escapeHtml(sub.expires_at || "—") +
+                "</strong></div>",
               "</div>",
-              '<div class="vx-config-card__field"><label>Ссылка</label><div class="vx-copy-row"><input type="text" readonly value="' + escapeHtml(sub.vless_url || "") + '"><button type="button" class="vx-icon-button" data-copy-text="' + escapeHtml(sub.vless_url || "") + '" aria-label="Скопировать ссылку">⧉</button></div></div>',
-              '<div class="vx-config-card__actions"><button type="button" class="vx-button vx-button--ghost" data-nav="' + escapeHtml(sub.config_url) + '">QR и конфиг</button></div>',
+              '<div class="vx-config-card__field"><label>Ссылка</label><div class="vx-copy-row"><input type="text" readonly value="' +
+                escapeHtml(sub.vless_url || "") +
+                '"><button type="button" class="vx-icon-button" data-copy-text="' +
+                escapeHtml(sub.vless_url || "") +
+                '" aria-label="Скопировать ссылку">' +
+                iconSvg("copy") +
+                "</button></div></div>",
+              '<div class="vx-config-card__actions"><button type="button" class="vx-button vx-button--ghost" data-nav="' +
+                escapeHtml(sub.config_url) +
+                '">QR и конфиг</button></div>',
               "</article>",
             ].join("");
           })
@@ -238,17 +302,33 @@
       '<section class="vx-account-app__shell">',
       '<section class="vx-account-hero">',
       '<div class="vx-account-hero__head">',
-      '<div><h1 class="vx-account-title">' + escapeHtml(model.title || "Личный кабинет") + '</h1><p class="vx-account-subtitle">' + escapeHtml(model.subtitle || "") + "</p></div>",
+      '<div><h1 class="vx-account-title">' +
+        escapeHtml(model.title || "Личный кабинет") +
+        '</h1><p class="vx-account-subtitle">' +
+        escapeHtml(model.subtitle || "") +
+        "</p></div>",
       '<span class="vx-status-pill is-muted">' + escapeHtml(accessLabel(model.access_count)) + "</span>",
       "</div>",
       '<div class="vx-account-actions">',
-      '<button type="button" class="vx-button vx-button--primary" data-checkout="buy">Купить доступ · ' + escapeHtml(model.card_price_label || "") + "</button>",
-      '<button type="button" class="vx-button vx-button--ghost" data-checkout="renew">Продлить · ' + escapeHtml(model.card_price_label || "") + "</button>",
-      '<a class="vx-button vx-button--ghost" href="' + escapeHtml((model.urls && model.urls.support) || cfg.supportUrl || "/instructions/") + '">Поддержка</a>',
+      '<button type="button" class="vx-button vx-button--primary" data-checkout="buy">Купить доступ · ' +
+        escapeHtml(model.card_price_label || "") +
+        "</button>",
+      '<button type="button" class="vx-button vx-button--ghost" data-checkout="renew">Продлить · ' +
+        escapeHtml(model.card_price_label || "") +
+        "</button>",
+      '<a class="vx-button vx-button--ghost" href="' +
+        escapeHtml((model.urls && model.urls.support) || cfg.supportUrl || "/instructions/") +
+        '">Поддержка</a>',
       "</div>",
       "</section>",
       '<section class="vx-account-summary"><div class="vx-account-summary__grid">' + summaryHtml + "</div></section>",
-      '<section class="vx-section-card"><div class="vx-section-card__head"><h2>Устройства</h2><span>Активных: ' + escapeHtml(String(model.stats && model.stats.active_configs != null ? model.stats.active_configs : 0)) + " · Неактивных: " + escapeHtml(String(model.stats && model.stats.inactive_configs != null ? model.stats.inactive_configs : 0)) + '</span></div><div class="vx-config-list">' + cardsHtml + "</div></section>",
+      '<section class="vx-section-card"><div class="vx-section-card__head"><h2>Устройства</h2><span>Активных: ' +
+        escapeHtml(String(model.stats && model.stats.active_configs != null ? model.stats.active_configs : 0)) +
+        " · Неактивных: " +
+        escapeHtml(String(model.stats && model.stats.inactive_configs != null ? model.stats.inactive_configs : 0)) +
+        '</span></div><div class="vx-config-list">' +
+        cardsHtml +
+        "</div></section>",
       "</section>",
     ].join("");
   }
@@ -268,25 +348,54 @@
       '<section class="vx-config-view">',
       '<div class="vx-config-view__main">',
       '<div class="vx-config-view__head">',
-      '<div><h1 class="vx-account-title">Конфиг и QR</h1><p class="vx-account-subtitle vx-account-subtitle--config-name"><span class="vx-config-card__name-icon" aria-hidden="true">✎</span><span>' + escapeHtml(model.display_name || "") + "</span></p></div>",
+      '<div><h1 class="vx-account-title">Конфиг и QR</h1><p class="vx-account-subtitle vx-account-subtitle--config-name"><span class="vx-config-card__name-icon" aria-hidden="true">✎</span><span>' +
+        escapeHtml(model.display_name || "") +
+        "</span></p></div>",
       '<span class="' + pillClass(!!model.is_active) + '">' + escapeHtml(model.status_text || "") + "</span>",
       "</div>",
       '<div class="vx-config-qr"><img src="' + escapeHtml(model.qr_image_data_url || "") + '" alt="QR конфиг"></div>',
       '<div class="vx-config-view__actions">',
-      '<button type="button" class="vx-button vx-button--primary" data-copy-text="' + escapeHtml(model.copy_text || "") + '">Скопировать ссылку</button>',
-      '<button type="button" class="vx-button vx-button--ghost" data-nav="' + escapeHtml(model.dashboard_url || cfg.accountUrl) + '">Назад в кабинет</button>',
+      '<button type="button" class="vx-button vx-button--primary" data-copy-text="' +
+        escapeHtml(model.copy_text || "") +
+        '">Скопировать ссылку</button>',
+      '<button type="button" class="vx-button vx-button--ghost" data-nav="' +
+        escapeHtml(model.dashboard_url || cfg.accountUrl) +
+        '">Назад в кабинет</button>',
       "</div>",
       "</div>",
       '<aside class="vx-config-view__side">',
       '<div class="vx-config-info-grid">',
-      '<article class="vx-info-card"><div class="vx-stat-label">Статус</div><div class="vx-stat-value"><span class="' + pillClass(!!model.is_active) + '">' + escapeHtml(model.status_text || "") + "</span></div></article>",
-      '<article class="vx-info-card"><div class="vx-stat-label">Действует до</div><div class="vx-stat-value">' + escapeHtml(model.expires_at || "—") + "</div></article>",
-      '<article class="vx-info-card vx-info-card--wide"><div class="vx-stat-label">ID клиента</div><div class="vx-stat-value">' + (model.client_code ? '<code class="vx-stat-code">' + escapeHtml(model.client_code) + "</code>" : "—") + "</div></article>",
+      '<article class="vx-info-card"><div class="vx-stat-label">Статус</div><div class="vx-stat-value"><span class="' +
+        pillClass(!!model.is_active) +
+        '">' +
+        escapeHtml(model.status_text || "") +
+        "</span></div></article>",
+      '<article class="vx-info-card"><div class="vx-stat-label">Действует до</div><div class="vx-stat-value">' +
+        escapeHtml(model.expires_at || "—") +
+        "</div></article>",
+      '<article class="vx-info-card vx-info-card--wide"><div class="vx-stat-label">ID клиента</div><div class="vx-stat-value">' +
+        (model.client_code ? '<code class="vx-stat-code">' + escapeHtml(model.client_code) + "</code>" : "—") +
+        "</div></article>",
       "</div>",
       (switchHtml
-        ? '<div class="vx-field-card"><label for="vx-config-switch">Все конфиги</label><select id="vx-config-switch" class="vx-select">' + switchHtml + "</select></div>"
+        ? '<div class="vx-field-card"><label for="vx-config-switch">Все конфиги</label><select id="vx-config-switch" class="vx-select">' +
+          switchHtml +
+          "</select></div>"
         : ""),
-      '<div class="vx-field-card"><label>Ссылка конфигурации</label><div class="vx-copy-row"><input type="text" readonly value="' + escapeHtml(model.copy_text || "") + '"><button type="button" class="vx-icon-button" data-copy-text="' + escapeHtml(model.copy_text || "") + '" aria-label="Скопировать ссылку">⧉</button></div><p class="vx-field-hint">Скопируйте ссылку и импортируйте ее в клиент VPN.</p></div>',
+      '<div class="vx-field-card"><label>Ссылка конфигурации</label><div class="vx-copy-row"><input type="text" readonly value="' +
+        escapeHtml(model.copy_text || "") +
+        '"><button type="button" class="vx-icon-button" data-copy-text="' +
+        escapeHtml(model.copy_text || "") +
+        '" aria-label="Скопировать ссылку">' +
+        iconSvg("copy") +
+        '</button></div><p class="vx-field-hint">Скопируйте ссылку и импортируйте ее в клиент VPN.</p></div>',
+      '<div class="vx-field-card"><label>Имя устройства</label><form class="vx-rename-row" data-rename-form data-subscription-id="' +
+        escapeHtml(String(model.id || "")) +
+        '"><input type="text" class="vx-rename-input" name="display_name" maxlength="80" placeholder="Имя устройства" value="' +
+        escapeHtml(model.display_name || "") +
+        '"><button type="submit" class="vx-icon-button" aria-label="Переименовать">' +
+        iconSvg("rename") +
+        '</button></form><p class="vx-field-hint">Измените название, чтобы проще различать конфиги в кабинете.</p></div>',
       "</aside>",
       "</section>",
       "</section>",
@@ -300,12 +409,18 @@
       '<section class="vx-account-app__shell">',
       '<section class="vx-auth-card">',
       '<div class="vx-auth-card__tabs">',
-      '<button type="button" class="vx-auth-tab' + (!isSignup ? " is-active" : "") + '" data-auth-tab="login">Вход</button>',
-      '<button type="button" class="vx-auth-tab' + (isSignup ? " is-active" : "") + '" data-auth-tab="signup">Регистрация</button>',
+      '<button type="button" class="vx-auth-tab' +
+        (!isSignup ? " is-active" : "") +
+        '" data-auth-tab="login">Вход</button>',
+      '<button type="button" class="vx-auth-tab' +
+        (isSignup ? " is-active" : "") +
+        '" data-auth-tab="signup">Регистрация</button>',
       "</div>",
       '<div class="vx-auth-card__body">',
-      '<h1 class="vx-account-title">' + escapeHtml((model && model.title) || "Вход") + '</h1>',
-      '<p class="vx-account-subtitle">' + escapeHtml((model && model.subtitle) || "Войдите в аккаунт, чтобы управлять доступами.") + "</p>",
+      '<h1 class="vx-account-title">' + escapeHtml((model && model.title) || "Вход") + "</h1>",
+      '<p class="vx-account-subtitle">' +
+        escapeHtml((model && model.subtitle) || "Войдите в аккаунт, чтобы управлять доступами и конфигами.") +
+        "</p>",
       '<div class="vx-auth-errors" data-auth-errors></div>',
       !isSignup
         ? [
@@ -324,7 +439,11 @@
             '<button type="submit" class="vx-button vx-button--primary vx-button--block">Создать аккаунт</button>',
             "</form>",
           ].join(""),
-      '<div class="vx-auth-links"><a href="' + escapeHtml(cfg.supportUrl || "/instructions/") + '">Нужна помощь?</a><a href="' + escapeHtml((model && model.password_reset_url) || "/accounts/password_reset/") + '">Забыли пароль?</a></div>',
+      '<div class="vx-auth-links"><a href="' +
+        escapeHtml(cfg.supportUrl || "/instructions/") +
+        '">Нужна помощь?</a><a href="' +
+        escapeHtml((model && model.password_reset_url) || "/accounts/password_reset/") +
+        '">Забыли пароль?</a></div>',
       "</div>",
       "</section>",
       "</section>",
@@ -391,6 +510,41 @@
       });
     }
 
+    mount.querySelectorAll("[data-rename-form]").forEach(function (form) {
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        if (state.pending) return;
+
+        const input = form.querySelector("input[name='display_name']");
+        const submitButton = form.querySelector("button[type='submit']");
+        const subscriptionId = form.getAttribute("data-subscription-id") || "";
+        const displayName = input ? String(input.value || "").trim() : "";
+        if (!subscriptionId) return;
+        if (!displayName) {
+          if (input) input.focus();
+          showToast("Введите имя устройства");
+          return;
+        }
+
+        state.pending = true;
+        if (submitButton) submitButton.setAttribute("disabled", "disabled");
+        try {
+          await apiFetch(subscriptionRenameUrl(subscriptionId), {
+            method: "POST",
+            body: { display_name: displayName },
+          });
+          showToast("Имя устройства обновлено");
+          await loadCurrentView();
+        } catch (error) {
+          if (input) input.focus();
+          showToast((error.payload && error.payload.error) || "Не удалось обновить имя");
+        } finally {
+          state.pending = false;
+          if (submitButton) submitButton.removeAttribute("disabled");
+        }
+      });
+    });
+
     mount.querySelectorAll("[data-auth-tab]").forEach(function (button) {
       button.addEventListener("click", function () {
         state.authMode = button.getAttribute("data-auth-tab") === "signup" ? "signup" : "login";
@@ -415,9 +569,11 @@
       return;
     }
     box.style.display = "block";
-    box.innerHTML = values.map(function (value) {
-      return '<div class="vx-auth-error">' + escapeHtml(value) + "</div>";
-    }).join("");
+    box.innerHTML = values
+      .map(function (value) {
+        return '<div class="vx-auth-error">' + escapeHtml(value) + "</div>";
+      })
+      .join("");
   }
 
   function bindAuthInteractions() {
@@ -438,7 +594,11 @@
           await apiFetch(endpoint, { method: "POST", body: body });
           await loadCurrentView();
         } catch (error) {
-          setAuthErrors((error.payload && error.payload.errors) || { form: (error.payload && error.payload.error) || "Не удалось выполнить запрос." });
+          setAuthErrors(
+            (error.payload && error.payload.errors) || {
+              form: (error.payload && error.payload.error) || "Не удалось выполнить запрос.",
+            }
+          );
         } finally {
           state.pending = false;
           if (submitButton) submitButton.removeAttribute("disabled");
@@ -457,13 +617,16 @@
         renderLoading();
       }
     }, 140);
+
     const params = new URLSearchParams();
     params.set("view", route.view);
     if (route.subscriptionId) params.set("subscription_id", String(route.subscriptionId));
+
     try {
       const payload = await apiFetch(cfg.apiStateUrl + "?" + params.toString());
       if (loadToken !== state.loadToken) return;
       window.clearTimeout(state.loadingTimer);
+
       if (!payload.authenticated) {
         renderAuth(payload.auth || {});
         bindSharedInteractions();
@@ -471,6 +634,7 @@
         releaseMountHeight();
         return;
       }
+
       if (payload.view === "config" && payload.config) {
         renderConfig(payload.config);
       } else {

@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('VX_SITE_INTEGRATION_VERSION', '0.2.12');
+define('VX_SITE_INTEGRATION_VERSION', '0.2.13');
 define('VX_SITE_INTEGRATION_DIR', plugin_dir_path(__FILE__));
 define('VX_SITE_INTEGRATION_URL', plugin_dir_url(__FILE__));
 define('VX_SITE_SHELL_MARKER', '<!--VX_SITE_SHELL_CONTENT-->');
@@ -285,6 +285,7 @@ function vx_site_account_app_config() {
         'apiSignupUrl' => esc_url_raw(home_url('/account-app/api/signup/')),
         'apiBuyUrl' => esc_url_raw(home_url('/account-app/api/buy/')),
         'apiRenewUrl' => esc_url_raw(home_url('/account-app/api/renew/')),
+        'apiSubscriptionBaseUrl' => esc_url_raw(home_url('/account-app/api/subscriptions/')),
         'supportUrl' => esc_url_raw(home_url('/instructions/')),
     );
 }

@@ -939,6 +939,36 @@ def account_api_renew(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"ok": True, "redirect_url": pay_url})
 
 
+@require_POST
+def account_api_rename_subscription(request: HttpRequest, subscription_id: int) -> JsonResponse:
+    if not request.user.is_authenticated:
+        return _json_error("Требуется вход в аккаунт.", status=401)
+
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
+    if not bot_user:
+        return _json_error("Не удалось загрузить данные аккаунта.", status=404)
+
+    subscription = BotSubscription.objects.filter(id=subscription_id, user_id=bot_user.id).first()
+    if not subscription:
+        return _json_error("Конфиг не найден.", status=404)
+
+    data = _json_body(request)
+    new_name = str(data.get("display_name") or "").strip()
+    if not new_name:
+        return _json_error("Введите имя устройства.")
+
+    subscription.display_name = new_name[:80]
+    subscription.updated_at = timezone.now()
+    subscription.save(update_fields=["display_name", "updated_at"])
+    return JsonResponse(
+        {
+            "ok": True,
+            "subscription_id": int(subscription.id),
+            "display_name": _subscription_display_name(subscription),
+        }
+    )
+
+
 @login_required
 @require_POST
 def rename_subscription(request: HttpRequest, subscription_id: int) -> HttpResponse:
