@@ -782,6 +782,15 @@ def _start_checkout_flow(
             )
             return pay_url, None
 
+    # We keep at most one pending web card order per user. When the user switches
+    # between "buy new" and "renew", cancel the other pending checkout first.
+    BotOrder.objects.filter(
+        user_id=bot_user.id,
+        status="pending",
+        channel="web",
+        payment_method=pending_method,
+    ).exclude(payload__startswith=pending_payload_prefix).update(status="cancelled")
+
     used_non_pending = BotOrder.objects.filter(user_id=bot_user.id, idempotency_key=idempotency_key).exclude(status="pending").exists()
     if used_non_pending:
         idempotency_key = _new_web_idempotency_key()
