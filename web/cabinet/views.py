@@ -114,11 +114,18 @@ def _telegram_login_bot_username() -> str:
 
 
 def _telegram_login_auth_url(request: HttpRequest) -> str:
+    return _telegram_login_auth_url_for_return_to(request, request.get_full_path())
+
+
+def _telegram_login_auth_url_for_return_to(request: HttpRequest, return_to: str | None) -> str:
     bot_username = _telegram_login_bot_username()
     if not bot_username:
         return ""
 
-    params: dict[str, str] = {"return_to": request.get_full_path()}
+    fallback_return_to = _account_default_redirect_url(request)
+    safe_return_to = _safe_local_redirect_url(request, return_to, fallback_return_to)
+
+    params: dict[str, str] = {"return_to": safe_return_to}
     next_url = (request.GET.get("next") or "").strip()
     if next_url:
         params["next"] = next_url
@@ -143,6 +150,22 @@ def _account_template_urls(request: HttpRequest) -> dict[str, object]:
         "telegram_login_enabled": bool(telegram_login_bot_username),
         "telegram_login_bot_username": telegram_login_bot_username,
         "telegram_login_auth_url": _telegram_login_auth_url(request) if telegram_login_bot_username else "",
+    }
+
+
+def _account_telegram_auth_context(request: HttpRequest, *, return_to: str | None = None) -> dict[str, object]:
+    telegram_login_bot_username = _telegram_login_bot_username()
+    if not telegram_login_bot_username:
+        return {
+            "enabled": False,
+            "bot_username": "",
+            "auth_url": "",
+        }
+
+    return {
+        "enabled": True,
+        "bot_username": telegram_login_bot_username,
+        "auth_url": _telegram_login_auth_url_for_return_to(request, return_to),
     }
 
 
@@ -876,6 +899,7 @@ def account_api_state(request: HttpRequest) -> JsonResponse:
     }
 
     if not request.user.is_authenticated:
+        referer = (request.headers.get("Referer") or "").strip()
         payload["view"] = "auth"
         payload["auth"] = {
             "title": "Вход",
@@ -883,6 +907,7 @@ def account_api_state(request: HttpRequest) -> JsonResponse:
             "login_label": "Войти",
             "signup_label": "Регистрация",
             "forgot_password_label": "Забыли пароль?",
+            "telegram": _account_telegram_auth_context(request, return_to=referer),
         }
         return JsonResponse(payload)
 

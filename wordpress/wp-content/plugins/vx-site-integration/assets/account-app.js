@@ -6,6 +6,7 @@
 
   const state = {
     authMode: "login",
+    authModel: null,
     pending: false,
     toastTimer: null,
     loadingTimer: null,
@@ -262,13 +263,13 @@
               '<article class="vx-config-card">',
               '<div class="vx-config-card__head">',
               '<div class="vx-config-card__header-main">',
-              '<div class="vx-config-card__title-row"><h3 class="vx-config-card__title"><span>' +
+              '<div class="vx-config-card__title-row"><div class="vx-config-card__name-group"><h3 class="vx-config-card__title"><span>' +
                 escapeHtml(sub.display_name) +
                 '</span></h3><button type="button" class="vx-title-edit" data-rename-toggle data-target="rename-card-' +
                 escapeHtml(String(sub.id)) +
                 '" aria-expanded="false" aria-label="Переименовать">' +
                 iconSvg("rename") +
-                '</button><span class="' + pillClass(!!sub.is_active) + '">' + escapeHtml(sub.status_text) + "</span></div>",
+                '</button></div><span class="' + pillClass(!!sub.is_active) + '">' + escapeHtml(sub.status_text) + "</span></div>",
               '<div class="vx-config-card__sub">ID: ' + escapeHtml(String(sub.id)) + "</div>",
               '<form id="rename-card-' +
                 escapeHtml(String(sub.id)) +
@@ -411,6 +412,8 @@
 
   function renderAuth(model) {
     const isSignup = state.authMode === "signup";
+    const telegram = (model && model.telegram) || {};
+    const hasTelegram = !!(telegram && telegram.enabled && telegram.bot_username && telegram.auth_url);
     mount.className = "vx-native-account";
     mount.innerHTML = [
       '<section class="vx-account-app__shell">',
@@ -428,6 +431,20 @@
       '<p class="vx-account-subtitle">' +
         escapeHtml((model && model.subtitle) || "Войдите в аккаунт, чтобы управлять доступами и конфигами.") +
         "</p>",
+      hasTelegram
+        ? [
+            '<section class="vx-auth-telegram">',
+            '<div class="vx-auth-telegram__eyebrow">Telegram Login</div>',
+            '<p class="vx-auth-telegram__copy">Sign in or create an account in one click with Telegram.</p>',
+            '<div class="vx-auth-telegram__widget" data-telegram-login-widget data-bot-username="' +
+              escapeHtml(telegram.bot_username || "") +
+              '" data-auth-url="' +
+              escapeHtml(telegram.auth_url || "") +
+              '"></div>',
+            '<div class="vx-auth-divider"><span>or use email</span></div>',
+            "</section>",
+          ].join("")
+        : "",
       '<div class="vx-auth-errors" data-auth-errors></div>',
       !isSignup
         ? [
@@ -455,6 +472,30 @@
       "</section>",
       "</section>",
     ].join("");
+  }
+
+  function initTelegramLoginWidget() {
+    mount.querySelectorAll("[data-telegram-login-widget]").forEach(function (node) {
+      if (!node || node.dataset.widgetReady === "1") return;
+
+      const botUsername = node.getAttribute("data-bot-username") || "";
+      const authUrl = node.getAttribute("data-auth-url") || "";
+      if (!botUsername || !authUrl) return;
+
+      node.dataset.widgetReady = "1";
+      node.innerHTML = "";
+
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = "https://telegram.org/js/telegram-widget.js?22";
+      script.setAttribute("data-telegram-login", botUsername);
+      script.setAttribute("data-size", "large");
+      script.setAttribute("data-radius", "10");
+      script.setAttribute("data-userpic", "false");
+      script.setAttribute("data-request-access", "write");
+      script.setAttribute("data-auth-url", authUrl);
+      node.appendChild(script);
+    });
   }
 
   function bindSharedInteractions() {
@@ -573,13 +614,16 @@
     mount.querySelectorAll("[data-auth-tab]").forEach(function (button) {
       button.addEventListener("click", function () {
         state.authMode = button.getAttribute("data-auth-tab") === "signup" ? "signup" : "login";
-        renderAuth({
+        renderAuth(
+          state.authModel || {
           title: "Вход",
           subtitle: "Войдите в аккаунт, чтобы управлять доступами и конфигами.",
           password_reset_url: "/accounts/password_reset/",
-        });
+          }
+        );
         bindSharedInteractions();
         bindAuthInteractions();
+        initTelegramLoginWidget();
       });
     });
   }
@@ -653,9 +697,11 @@
       window.clearTimeout(state.loadingTimer);
 
       if (!payload.authenticated) {
-        renderAuth(payload.auth || {});
+        state.authModel = payload.auth || {};
+        renderAuth(state.authModel);
         bindSharedInteractions();
         bindAuthInteractions();
+        initTelegramLoginWidget();
         releaseMountHeight();
         return;
       }
