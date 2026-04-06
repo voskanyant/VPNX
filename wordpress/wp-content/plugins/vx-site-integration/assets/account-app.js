@@ -261,15 +261,13 @@
             return [
               '<article class="vx-config-card">',
               '<div class="vx-config-card__head">',
-              '<div class="vx-config-card__title-wrap">',
-              '<div class="vx-config-card__title-bar"><h3 class="vx-config-card__title"><span>' +
+              '<div class="vx-config-card__header-main">',
+              '<div class="vx-config-card__title-row"><h3 class="vx-config-card__title"><span>' +
                 escapeHtml(sub.display_name) +
-                '</span></h3><button type="button" class="vx-icon-button vx-icon-button--action" data-rename-toggle data-target="rename-card-' +
+                '</span></h3><button type="button" class="vx-inline-action" data-rename-toggle data-target="rename-card-' +
                 escapeHtml(String(sub.id)) +
-                '" aria-expanded="false" aria-label="Переименовать">' +
-                iconSvg("rename") +
-                "</button></div>",
-              '<div class="vx-config-card__sub">ID: ' + escapeHtml(String(sub.id)) + "</div>",
+                '" aria-expanded="false">Изменить</button></div>',
+              '<div class="vx-config-card__subrow"><div class="vx-config-card__sub">ID: ' + escapeHtml(String(sub.id)) + '</div><span class="' + pillClass(!!sub.is_active) + '">' + escapeHtml(sub.status_text) + "</span></div>",
               '<form id="rename-card-' +
                 escapeHtml(String(sub.id)) +
                 '" class="vx-rename-panel vx-rename-panel--card" data-rename-form data-subscription-id="' +
@@ -278,12 +276,9 @@
                 escapeHtml(sub.display_name || "") +
                 '"><button type="submit" class="vx-button vx-button--ghost vx-button--compact">Сохранить</button></div></form>',
               "</div>",
-              '<span class="' + pillClass(!!sub.is_active) + '">' + escapeHtml(sub.status_text) + "</span>",
               "</div>",
-              '<div class="vx-config-card__meta">',
-              '<div class="vx-config-meta"><span>До</span><strong>' +
-                escapeHtml(sub.expires_at || "—") +
-                "</strong></div>",
+              '<div class="vx-config-card__meta vx-config-card__meta--single">',
+              '<div class="vx-config-meta"><span>До</span><strong>' + escapeHtml(sub.expires_at || "—") + "</strong></div>",
               "</div>",
               '<div class="vx-config-card__field"><label>Ссылка</label><div class="vx-copy-row"><input type="text" readonly value="' +
                 escapeHtml(sub.vless_url || "") +
@@ -393,11 +388,9 @@
         '" aria-label="Скопировать ссылку">' +
         iconSvg("copy") +
         '</button></div><p class="vx-field-hint">Скопируйте ссылку и импортируйте ее в клиент VPN.</p></div>',
-      '<div class="vx-field-card"><div class="vx-field-card__head"><label>Имя устройства</label><button type="button" class="vx-icon-button vx-icon-button--action" data-rename-toggle data-target="rename-config-' +
+      '<div class="vx-field-card"><div class="vx-field-card__head"><label>Имя устройства</label><button type="button" class="vx-inline-action" data-rename-toggle data-target="rename-config-' +
         escapeHtml(String(model.id || "")) +
-        '" aria-expanded="false" aria-label="Переименовать">' +
-        iconSvg("rename") +
-        '</button></div><div class="vx-field-value">' +
+        '" aria-expanded="false">Изменить</button></div><div class="vx-field-value">' +
         escapeHtml(model.display_name || "") +
         '</div><form id="rename-config-' +
         escapeHtml(String(model.id || "")) +
