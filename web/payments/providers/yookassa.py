@@ -25,6 +25,10 @@ class YooKassaPaymentProvider(PaymentProvider):
         except ImproperlyConfigured:
             shop_id = os.getenv("PAYMENT_YOOKASSA_SHOP_ID", "")
             api_key = os.getenv("PAYMENT_YOOKASSA_API_KEY", "")
+        if not shop_id.strip():
+            shop_id = os.getenv("PAYMENT_YOOKASSA_SHOP_ID", "")
+        if not api_key.strip():
+            api_key = os.getenv("PAYMENT_YOOKASSA_API_KEY", "")
 
         self.shop_id = shop_id.strip()
         self.api_key = api_key.strip()
