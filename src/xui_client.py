@@ -136,6 +136,7 @@ class XUIClient:
         expiry: datetime,
         enable: bool,
         limit_ip: int,
+        flow: str = "",
         sub_id: str | None = None,
         comment: str | None = None,
     ) -> dict[str, Any]:
@@ -147,7 +148,7 @@ class XUIClient:
             "totalGB": 0,
             "expiryTime": expiry_ms,
             "enable": bool(enable),
-            "flow": "",
+            "flow": str(flow or ""),
         }
         if sub_id:
             client["subId"] = sub_id
@@ -162,6 +163,7 @@ class XUIClient:
         email: str,
         expiry: datetime,
         limit_ip: int = 0,
+        flow: str = "",
         comment: str | None = None,
         sub_id: str | None = None,
     ) -> None:
@@ -171,6 +173,7 @@ class XUIClient:
             expiry=expiry,
             enable=True,
             limit_ip=limit_ip,
+            flow=flow,
             sub_id=sub_id,
             comment=comment,
         )
@@ -184,6 +187,7 @@ class XUIClient:
         email: str,
         expiry: datetime,
         limit_ip: int = 0,
+        flow: str = "",
         comment: str | None = None,
         sub_id: str | None = None,
     ) -> None:
@@ -193,6 +197,7 @@ class XUIClient:
             expiry=expiry,
             enable=True,
             limit_ip=limit_ip,
+            flow=flow,
             sub_id=sub_id,
             comment=comment,
         )
@@ -208,6 +213,7 @@ class XUIClient:
         *,
         enable: bool,
         limit_ip: int = 0,
+        flow: str = "",
         comment: str | None = None,
         sub_id: str | None = None,
     ) -> None:
@@ -217,6 +223,7 @@ class XUIClient:
             expiry=expiry,
             enable=enable,
             limit_ip=limit_ip,
+            flow=flow,
             sub_id=sub_id,
             comment=comment,
         )
@@ -231,6 +238,7 @@ class XUIClient:
         email: str | None = None,
         expiry: datetime | None = None,
         limit_ip: int = 0,
+        flow: str = "",
         comment: str | None = None,
         sub_id: str | None = None,
     ) -> str:
@@ -247,6 +255,7 @@ class XUIClient:
                 expiry,
                 enable=False,
                 limit_ip=limit_ip,
+                flow=flow,
                 comment=comment,
                 sub_id=sub_id,
             )
@@ -260,6 +269,7 @@ class XUIClient:
         email: str | None = None,
         expiry: datetime | None = None,
         limit_ip: int = 0,
+        flow: str = "",
         comment: str | None = None,
         sub_id: str | None = None,
     ) -> str:
@@ -269,6 +279,7 @@ class XUIClient:
             email=email,
             expiry=expiry,
             limit_ip=limit_ip,
+            flow=flow,
             comment=comment,
             sub_id=sub_id,
         )

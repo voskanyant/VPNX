@@ -85,6 +85,7 @@ async def sync_tick(db: DB, settings: Any) -> dict[str, int]:
 
     batch_size = max(1, int(getattr(settings, "vpn_cluster_sync_batch_size", 200)))
     limit_ip = int(getattr(settings, "max_devices_per_sub", 1))
+    flow = str(getattr(settings, "vpn_flow", "xtls-rprx-vision") or "")
 
     processed = 0
     ok_count = 0
@@ -114,6 +115,7 @@ async def sync_tick(db: DB, settings: Any) -> dict[str, int]:
                             sub_id,
                             desired_expires_at,
                             limit_ip=limit_ip,
+                            flow=flow,
                         )
                     except Exception as exc:
                         if not _is_duplicate_error(exc):
@@ -125,6 +127,7 @@ async def sync_tick(db: DB, settings: Any) -> dict[str, int]:
                             sub_id,
                             desired_expires_at,
                             limit_ip=limit_ip,
+                            flow=flow,
                         )
                     observed_enabled = True
                     observed_expires_at = desired_expires_at
@@ -136,6 +139,7 @@ async def sync_tick(db: DB, settings: Any) -> dict[str, int]:
                         sub_id,
                         desired_expires_at,
                         limit_ip=limit_ip,
+                        flow=flow,
                     )
                     observed_enabled = False
                     observed_expires_at = desired_expires_at

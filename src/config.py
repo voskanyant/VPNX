@@ -39,6 +39,7 @@ class Settings:
     vpn_cluster_sync_interval_seconds: int
     vpn_cluster_sync_batch_size: int
     vpn_tag: str
+    vpn_flow: str
     plan_days: int
     plan_price_stars: int
     card_payment_amount_minor: int
@@ -77,6 +78,7 @@ def load_settings() -> Settings:
         vpn_cluster_sync_interval_seconds=int(_get("VPN_CLUSTER_SYNC_INTERVAL_SECONDS", "60")),
         vpn_cluster_sync_batch_size=int(_get("VPN_CLUSTER_SYNC_BATCH_SIZE", "200")),
         vpn_tag=_get("VPN_TAG", "VPN"),
+        vpn_flow=_get("VPN_FLOW", "xtls-rprx-vision"),
         plan_days=int(_get("PLAN_DAYS", "30")),
         plan_price_stars=int(_get("PLAN_PRICE_STARS", "250")),
         card_payment_amount_minor=int(_get("CARD_PAYMENT_AMOUNT_MINOR", "24900")),

@@ -228,6 +228,7 @@ async def activate_subscription(
                     client_email,
                     new_exp,
                     limit_ip=settings.max_devices_per_sub,
+                    flow=settings.vpn_flow,
                 )
             vless_url = build_vless_url(
                 uuid=client_uuid,
@@ -238,6 +239,7 @@ async def activate_subscription(
                 short_id=reality.short_id,
                 sni=reality.sni,
                 fingerprint=reality.fingerprint,
+                flow=settings.vpn_flow,
             )
             sub_id = await db.create_subscription(
                 user_id=user_id,
@@ -323,6 +325,7 @@ async def activate_subscription(
                 client_email,
                 new_exp,
                 limit_ip=settings.max_devices_per_sub,
+                flow=settings.vpn_flow,
             )
         vless_url = build_vless_url(
             uuid=client_uuid,
@@ -333,6 +336,7 @@ async def activate_subscription(
             short_id=reality.short_id,
             sni=reality.sni,
             fingerprint=reality.fingerprint,
+            flow=settings.vpn_flow,
         )
         await db.extend_subscription(int(current_sub["id"]), new_exp, vless_url)
         if not cluster_mode:

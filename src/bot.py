@@ -1850,6 +1850,7 @@ class VPNBot:
                     client_email,
                     expires_at,
                     limit_ip=self.settings.max_devices_per_sub,
+                    flow=self.settings.vpn_flow,
                 )
             except Exception:
                 LOGGER.exception(
@@ -1863,6 +1864,7 @@ class VPNBot:
                     client_email,
                     expires_at,
                     limit_ip=self.settings.max_devices_per_sub,
+                    flow=self.settings.vpn_flow,
                 )
 
             sub_id = await self.xui.get_client_sub_id(inbound_id, client_uuid)
@@ -1877,6 +1879,7 @@ class VPNBot:
                 short_id=reality.short_id,
                 sni=reality.sni,
                 fingerprint=reality.fingerprint,
+                flow=self.settings.vpn_flow,
             )
             await self.db.extend_subscription(int(sub["id"]), expires_at, vless_url)
             return vless_url, sub_id
@@ -2196,6 +2199,7 @@ class VPNBot:
             client_email,
             new_exp,
             limit_ip=self.settings.max_devices_per_sub,
+            flow=self.settings.vpn_flow,
             comment="trial",
         )
 
@@ -2208,6 +2212,7 @@ class VPNBot:
             short_id=reality.short_id,
             sni=reality.sni,
             fingerprint=reality.fingerprint,
+            flow=self.settings.vpn_flow,
         )
         await self.db.create_subscription(
             user_id=user_id,
@@ -2259,6 +2264,7 @@ class VPNBot:
                 client_email,
                 new_exp,
                 limit_ip=self.settings.max_devices_per_sub,
+                flow=self.settings.vpn_flow,
                 comment=customer_name,
             )
 
@@ -2271,6 +2277,7 @@ class VPNBot:
                 short_id=reality.short_id,
                 sni=reality.sni,
                 fingerprint=reality.fingerprint,
+                flow=self.settings.vpn_flow,
             )
             await self.db.create_subscription(
                 user_id=user_id,
@@ -2307,6 +2314,7 @@ class VPNBot:
             client_email,
             new_exp,
             limit_ip=self.settings.max_devices_per_sub,
+            flow=self.settings.vpn_flow,
         )
 
         vless_url = build_vless_url(
@@ -2318,6 +2326,7 @@ class VPNBot:
             short_id=reality.short_id,
             sni=reality.sni,
             fingerprint=reality.fingerprint,
+            flow=self.settings.vpn_flow,
         )
         await self.db.extend_subscription(sub["id"], new_exp, vless_url)
         sub_id = await self.xui.get_client_sub_id(self.settings.xui_inbound_id, client_uuid)

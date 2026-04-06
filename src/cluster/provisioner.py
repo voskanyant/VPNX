@@ -57,6 +57,7 @@ async def create_client_on_node(
     sub_id: str | None,
     expires_at: datetime,
     limit_ip: int,
+    flow: str = "",
     *,
     xui_client_factory: XUIClientFactory | None = None,
 ) -> dict[str, Any]:
@@ -69,6 +70,7 @@ async def create_client_on_node(
             client_email,
             expires,
             limit_ip=limit_ip,
+            flow=flow,
             sub_id=sub_id,
         )
         node_sub_id = sub_id or await xui.get_client_sub_id(inbound_id, client_uuid)
@@ -84,6 +86,7 @@ async def update_client_on_node(
     sub_id: str | None,
     expires_at: datetime,
     limit_ip: int,
+    flow: str = "",
     *,
     xui_client_factory: XUIClientFactory | None = None,
 ) -> dict[str, Any]:
@@ -96,6 +99,7 @@ async def update_client_on_node(
             client_email,
             expires,
             limit_ip=limit_ip,
+            flow=flow,
             sub_id=sub_id,
         )
         node_sub_id = sub_id or await xui.get_client_sub_id(inbound_id, client_uuid)
@@ -111,6 +115,7 @@ async def delete_or_disable_client_on_node(
     sub_id: str | None,
     expires_at: datetime,
     limit_ip: int,
+    flow: str = "",
     *,
     xui_client_factory: XUIClientFactory | None = None,
 ) -> dict[str, Any]:
@@ -123,6 +128,7 @@ async def delete_or_disable_client_on_node(
             email=client_email,
             expiry=expires,
             limit_ip=limit_ip,
+            flow=flow,
             sub_id=sub_id,
         )
         return {"action": action, "xui_sub_id": sub_id}
@@ -151,6 +157,7 @@ async def ensure_client_on_all_active_nodes(
     revoked_at = subscription_row.get("revoked_at")
     desired_enabled = is_active and expires_at > datetime.now(timezone.utc) and revoked_at is None
     limit_ip = int(getattr(settings, "max_devices_per_sub", 1))
+    flow = str(getattr(settings, "vpn_flow", "xtls-rprx-vision") or "")
 
     semaphore = asyncio.Semaphore(max(1, int(semaphore_limit)))
 
@@ -167,6 +174,7 @@ async def ensure_client_on_all_active_nodes(
                             sub_id,
                             expires_at,
                             limit_ip,
+                            flow=flow,
                             xui_client_factory=xui_client_factory,
                         )
                     except Exception as exc:
@@ -179,6 +187,7 @@ async def ensure_client_on_all_active_nodes(
                             sub_id,
                             expires_at,
                             limit_ip,
+                            flow=flow,
                             xui_client_factory=xui_client_factory,
                         )
                     observed_enabled = True
@@ -193,6 +202,7 @@ async def ensure_client_on_all_active_nodes(
                         sub_id,
                         expires_at,
                         limit_ip,
+                        flow=flow,
                         xui_client_factory=xui_client_factory,
                     )
                     observed_enabled = False
