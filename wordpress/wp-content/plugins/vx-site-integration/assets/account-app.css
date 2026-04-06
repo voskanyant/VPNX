@@ -440,17 +440,17 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .vx-config-card__title {
   margin: 0;
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   font-size: 1.24rem;
   line-height: 1.05;
   font-weight: 800;
+  flex-wrap: wrap;
 }
 
 .vx-account-subtitle--config-name {
@@ -557,6 +557,13 @@
   color: var(--vx-ink);
 }
 
+.vx-field-value-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .vx-copy-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 46px;
@@ -643,26 +650,38 @@
   white-space: nowrap;
 }
 
-.vx-inline-action {
+.vx-title-edit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 30px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid #d6dfef;
-  background: #f7f9fd;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #52627b;
-  font-size: 12px;
-  line-height: 1;
-  font-weight: 700;
-  white-space: nowrap;
   cursor: pointer;
+  vertical-align: middle;
 }
 
-.vx-inline-action:hover {
-  background: #eef3fb;
-  border-color: #c8d4e7;
+.vx-title-edit svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.vx-title-edit:hover {
+  color: #10213f;
+}
+
+.vx-title-edit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(17, 27, 68, 0.12);
+  border-radius: 4px;
 }
 
 .vx-icon-button.is-copied {
@@ -1012,10 +1031,9 @@
     border-radius: 18px;
   }
 
-  .vx-inline-action {
-    min-height: 28px;
-    padding: 4px 9px;
-    font-size: 11px;
+  .vx-title-edit {
+    width: 16px;
+    height: 16px;
   }
 
   .vx-config-card__title-row,
