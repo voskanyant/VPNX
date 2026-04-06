@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import qrcode
 from PIL import Image
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, LabeledPrice, Message, ReplyKeyboardMarkup, Update, WebAppInfo
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, LabeledPrice, Message, ReplyKeyboardMarkup, Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -117,10 +117,7 @@ class VPNBot:
         rows: list[list[KeyboardButton]] = []
         row: list[KeyboardButton] = []
         for key, label in buttons:
-            if key == "menu_site":
-                row.append(KeyboardButton(label, web_app=WebAppInfo(url=self._site_url())))
-            else:
-                row.append(KeyboardButton(label))
+            row.append(KeyboardButton(label))
             if len(row) == 2:
                 rows.append(row)
                 row = []
@@ -1272,6 +1269,22 @@ class VPNBot:
             await self._show_support_hub(update.message, user_id)
             return
         if selected_menu_key == "menu_site":
+            await update.message.reply_text(
+                self._content_text(
+                    "menu_site_response",
+                    "Откройте личный кабинет на сайте.",
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                text=self._button_label("menu_site", "🌐 Личный кабинет"),
+                                url=self._site_url().rstrip("/"),
+                            )
+                        ]
+                    ]
+                ),
+            )
             return
 
         if selected_menu_key:
