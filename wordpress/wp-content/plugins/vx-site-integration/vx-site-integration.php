@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VX Site Integration
  * Description: WordPress integration layer for the VXcloud public-site migration.
- * Version: 0.1.0
+ * Version: 0.2.0
  * Author: OpenAI Codex
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('VX_SITE_INTEGRATION_VERSION', '0.1.0');
+define('VX_SITE_INTEGRATION_VERSION', '0.2.0');
 define('VX_SITE_INTEGRATION_DIR', plugin_dir_path(__FILE__));
 define('VX_SITE_INTEGRATION_URL', plugin_dir_url(__FILE__));
 define('VX_SITE_SHELL_MARKER', '<!--VX_SITE_SHELL_CONTENT-->');
@@ -272,67 +272,68 @@ function vx_site_register_rest_routes() {
 }
 add_action('rest_api_init', 'vx_site_register_rest_routes');
 
+function vx_site_account_app_config() {
+    $options = vx_site_get_options();
+    $account_url = vx_site_build_shell_url((string) ($options['django_account_url'] ?: '/account/'));
+    $account_path = rtrim((string) wp_parse_url($account_url, PHP_URL_PATH), '/') . '/';
+
+    return array(
+        'accountUrl' => esc_url_raw($account_url),
+        'accountPath' => $account_path,
+        'apiStateUrl' => esc_url_raw(home_url('/account-app/api/state/')),
+        'apiLoginUrl' => esc_url_raw(home_url('/account-app/api/login/')),
+        'apiSignupUrl' => esc_url_raw(home_url('/account-app/api/signup/')),
+        'apiBuyUrl' => esc_url_raw(home_url('/account-app/api/buy/')),
+        'apiRenewUrl' => esc_url_raw(home_url('/account-app/api/renew/')),
+        'supportUrl' => esc_url_raw(home_url('/instructions/')),
+    );
+}
+
+function vx_site_enqueue_account_app_assets() {
+    wp_enqueue_style(
+        'vx-site-account-app',
+        VX_SITE_INTEGRATION_URL . 'assets/account-app.css',
+        array('vx-site-integration'),
+        VX_SITE_INTEGRATION_VERSION
+    );
+    wp_enqueue_script(
+        'vx-site-account-app',
+        VX_SITE_INTEGRATION_URL . 'assets/account-app.js',
+        array(),
+        VX_SITE_INTEGRATION_VERSION,
+        true
+    );
+    wp_add_inline_script(
+        'vx-site-account-app',
+        'window.VXAccountAppConfig = ' . wp_json_encode(vx_site_account_app_config()) . ';',
+        'before'
+    );
+}
+
 function vx_site_account_app_shortcode() {
-    $iframe_src = home_url('/account-app/?embed=1');
+    vx_site_enqueue_account_app_assets();
     ob_start();
     ?>
-    <div class="vx-account-host" data-vx-account-host>
-        <iframe
-            class="vx-account-frame"
-            src="<?php echo esc_url($iframe_src); ?>"
-            loading="eager"
-            referrerpolicy="same-origin"
-            scrolling="no"
-            allowfullscreen
-        ></iframe>
+    <div class="vx-native-account" data-vx-account-app>
+        <div class="vx-native-account__skeleton" aria-hidden="true">
+            <div class="vx-native-account__hero">
+                <div class="vx-native-account__line vx-native-account__line-title"></div>
+                <div class="vx-native-account__line vx-native-account__line-subtitle"></div>
+                <div class="vx-native-account__chips">
+                    <span class="vx-native-account__chip"></span>
+                    <span class="vx-native-account__chip"></span>
+                    <span class="vx-native-account__chip"></span>
+                </div>
+            </div>
+            <div class="vx-native-account__grid">
+                <div class="vx-native-account__card"></div>
+                <div class="vx-native-account__card"></div>
+                <div class="vx-native-account__card"></div>
+                <div class="vx-native-account__card"></div>
+            </div>
+            <div class="vx-native-account__panel"></div>
+        </div>
     </div>
-    <script>
-    (function () {
-      const host = document.currentScript.previousElementSibling;
-      if (!host || host.dataset.vxAccountMounted === '1') return;
-      host.dataset.vxAccountMounted = '1';
-
-      const frame = host.querySelector('.vx-account-frame');
-      if (!frame) return;
-
-      const mapToBackend = function () {
-        const url = new URL(window.location.href);
-        let backendPath = url.pathname.replace(/^\/account\b/, '/account-app');
-        if (backendPath === url.pathname) backendPath = '/account-app/';
-        url.pathname = backendPath || '/account-app/';
-        url.searchParams.set('embed', '1');
-        return url.toString();
-      };
-
-      const setFrameSrc = function () {
-        const nextSrc = mapToBackend();
-        if (frame.src !== nextSrc) {
-          frame.src = nextSrc;
-        }
-      };
-
-      window.addEventListener('message', function (event) {
-        if (event.origin !== window.location.origin) return;
-        const data = event.data || {};
-        if (data.type !== 'vx-account-embed') return;
-
-        if (data.height) {
-          frame.style.height = Math.max(640, Number(data.height) || 0) + 'px';
-          host.classList.add('is-ready');
-        }
-
-        if (data.path && typeof data.path === 'string') {
-          const current = window.location.pathname + window.location.search + window.location.hash;
-          if (current !== data.path) {
-            window.history.replaceState({}, '', data.path);
-          }
-        }
-      });
-
-      window.addEventListener('popstate', setFrameSrc);
-      setFrameSrc();
-    })();
-    </script>
     <?php
     return (string) ob_get_clean();
 }

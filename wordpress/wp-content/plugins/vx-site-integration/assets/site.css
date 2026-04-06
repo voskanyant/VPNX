@@ -62,6 +62,26 @@
   width: 100%;
   margin: 0;
   overflow: hidden;
+  position: relative;
+  min-height: 640px;
+}
+
+.vx-account-host::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background:
+    linear-gradient(110deg, rgba(244, 247, 252, 0.92) 8%, rgba(255, 255, 255, 0.98) 18%, rgba(244, 247, 252, 0.92) 33%) 0 0 / 220% 100%,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.96));
+  animation: vxAccountSkeleton 1.15s linear infinite;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.vx-account-host.is-ready::before {
+  opacity: 0;
 }
 
 .vx-account-frame {
@@ -73,8 +93,23 @@
   background: transparent;
   overflow: hidden;
   scrollbar-width: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.vx-account-host.is-ready .vx-account-frame {
+  opacity: 1;
 }
 
 .vx-account-frame::-webkit-scrollbar {
   display: none;
+}
+
+@keyframes vxAccountSkeleton {
+  0% {
+    background-position: 100% 0, 0 0;
+  }
+  100% {
+    background-position: -100% 0, 0 0;
+  }
 }

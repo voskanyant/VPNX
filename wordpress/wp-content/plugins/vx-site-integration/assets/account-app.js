@@ -1,0 +1,425 @@
+(function () {
+  const mount = document.querySelector("[data-vx-account-app]");
+  const cfg = window.VXAccountAppConfig || null;
+  if (!mount || !cfg || mount.dataset.vxAccountMounted === "1") return;
+  mount.dataset.vxAccountMounted = "1";
+
+  const state = {
+    authMode: "login",
+    pending: false,
+  };
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function readCookie(name) {
+    const cookie = document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(name + "="));
+    return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : "";
+  }
+
+  function getCsrfToken() {
+    return readCookie("csrftoken");
+  }
+
+  function normalizePath(path) {
+    let next = String(path || cfg.accountPath || "/account/");
+    if (!next.startsWith("/")) next = "/" + next;
+    return next.endsWith("/") ? next : next + "/";
+  }
+
+  function currentRoute() {
+    const path = window.location.pathname;
+    const accountPath = normalizePath(cfg.accountPath);
+    const configMatch = path.match(/^\/account\/config\/(\d+)\/?$/);
+    if (configMatch) {
+      return {
+        view: "config",
+        subscriptionId: Number(configMatch[1]),
+        path: normalizePath("/account/config/" + configMatch[1]),
+      };
+    }
+    return {
+      view: "dashboard",
+      subscriptionId: null,
+      path: accountPath,
+    };
+  }
+
+  function apiFetch(url, options) {
+    const opts = options || {};
+    const headers = Object.assign(
+      {
+        Accept: "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      opts.headers || {}
+    );
+
+    if (opts.method && opts.method.toUpperCase() !== "GET") {
+      headers["Content-Type"] = "application/json";
+      const csrfToken = getCsrfToken();
+      if (csrfToken) headers["X-CSRFToken"] = csrfToken;
+    }
+
+    return fetch(url, {
+      method: opts.method || "GET",
+      credentials: "same-origin",
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    }).then(async function (response) {
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = {};
+      }
+      if (!response.ok) {
+        const err = new Error((data && data.error) || "Request failed");
+        err.status = response.status;
+        err.payload = data;
+        throw err;
+      }
+      return data;
+    });
+  }
+
+  function accessLabel(count) {
+    const value = Number(count || 0);
+    return value + " доступ" + (value === 1 ? "" : value > 1 && value < 5 ? "а" : "ов");
+  }
+
+  function renderLoading() {
+    mount.className = "vx-native-account is-loading";
+    mount.innerHTML = [
+      '<div class="vx-native-account__skeleton" aria-hidden="true">',
+      '<div class="vx-native-account__hero">',
+      '<div class="vx-native-account__line vx-native-account__line-title"></div>',
+      '<div class="vx-native-account__line vx-native-account__line-subtitle"></div>',
+      '<div class="vx-native-account__chips"><span class="vx-native-account__chip"></span><span class="vx-native-account__chip"></span><span class="vx-native-account__chip"></span></div>',
+      "</div>",
+      '<div class="vx-native-account__grid"><div class="vx-native-account__card"></div><div class="vx-native-account__card"></div><div class="vx-native-account__card"></div><div class="vx-native-account__card"></div></div>',
+      '<div class="vx-native-account__panel"></div>',
+      "</div>",
+    ].join("");
+  }
+
+  function renderError(message) {
+    mount.className = "vx-native-account";
+    mount.innerHTML =
+      '<section class="vx-account-app__shell"><div class="vx-account-error">' +
+      escapeHtml(message || "Не удалось загрузить аккаунт.") +
+      "</div></section>";
+  }
+
+  function pillClass(active) {
+    return active ? "vx-status-pill is-success" : "vx-status-pill is-muted";
+  }
+
+  function renderDashboard(model) {
+    const subscriptions = Array.isArray(model.subscriptions) ? model.subscriptions : [];
+    const telegramLinked = model.telegram && model.telegram.linked;
+    const telegramPill = '<span class="' + pillClass(telegramLinked) + '">' + escapeHtml(model.telegram && model.telegram.status_text ? model.telegram.status_text : "Не привязан") + "</span>";
+
+    const statsHtml = [
+      { label: "Пользователь", value: escapeHtml(model.user && model.user.username ? model.user.username : "—") },
+      { label: "ID клиента", value: model.user && model.user.client_code ? '<code class="vx-stat-code">' + escapeHtml(model.user.client_code) + "</code>" : "—" },
+      { label: "Активные", value: escapeHtml(String(model.stats && model.stats.active_configs != null ? model.stats.active_configs : 0)) },
+      {
+        label: "Telegram",
+        value:
+          '<div class="vx-stat-stack">' +
+          telegramPill +
+          (telegramLinked && model.telegram.telegram_id ? '<code class="vx-stat-code">' + escapeHtml(String(model.telegram.telegram_id)) + "</code>" : "") +
+          (!telegramLinked && model.telegram && model.telegram.link_url ? '<a class="vx-inline-link" href="' + escapeHtml(model.telegram.link_url) + '">Привязать</a>' : "") +
+          "</div>",
+      },
+    ]
+      .map(function (item) {
+        return (
+          '<article class="vx-stat-card"><div class="vx-stat-label">' +
+          item.label +
+          '</div><div class="vx-stat-value">' +
+          item.value +
+          "</div></article>"
+        );
+      })
+      .join("");
+
+    const cardsHtml = subscriptions.length
+      ? subscriptions
+          .map(function (sub) {
+            return [
+              '<article class="vx-config-card">',
+              '<div class="vx-config-card__head">',
+              '<div><h3 class="vx-config-card__title">' + escapeHtml(sub.display_name) + '</h3><div class="vx-config-card__sub">ID: ' + escapeHtml(String(sub.id)) + "</div></div>",
+              '<span class="' + pillClass(!!sub.is_active) + '">' + escapeHtml(sub.status_text) + "</span>",
+              "</div>",
+              '<div class="vx-config-card__meta">',
+              '<div class="vx-config-meta"><span>До</span><strong>' + escapeHtml(sub.expires_at || "—") + "</strong></div>",
+              '<div class="vx-config-meta"><span>Состояние</span><strong>' + escapeHtml(sub.is_active ? "Работает" : "Неактивен") + "</strong></div>",
+              "</div>",
+              '<div class="vx-config-card__field"><label>Ссылка</label><div class="vx-copy-row"><input type="text" readonly value="' + escapeHtml(sub.vless_url || "") + '"><button type="button" class="vx-icon-button" data-copy-text="' + escapeHtml(sub.vless_url || "") + '" aria-label="Скопировать ссылку">⧉</button></div></div>',
+              '<div class="vx-config-card__actions"><button type="button" class="vx-button vx-button--ghost" data-nav="' + escapeHtml(sub.config_url) + '">QR и конфиг</button></div>',
+              "</article>",
+            ].join("");
+          })
+          .join("")
+      : '<div class="vx-account-empty">Пока нет активных доступов. Оформите первый доступ, чтобы он появился здесь.</div>';
+
+    mount.className = "vx-native-account";
+    mount.innerHTML = [
+      '<section class="vx-account-app__shell">',
+      '<section class="vx-account-hero">',
+      '<div class="vx-account-hero__head">',
+      '<div><h1 class="vx-account-title">' + escapeHtml(model.title || "Личный кабинет") + '</h1><p class="vx-account-subtitle">' + escapeHtml(model.subtitle || "") + "</p></div>",
+      '<span class="vx-status-pill is-muted">' + escapeHtml(accessLabel(model.access_count)) + "</span>",
+      "</div>",
+      '<div class="vx-account-actions">',
+      '<button type="button" class="vx-button vx-button--primary" data-checkout="buy">Купить доступ · ' + escapeHtml(model.card_price_label || "") + "</button>",
+      '<button type="button" class="vx-button vx-button--ghost" data-checkout="renew">Продлить · ' + escapeHtml(model.card_price_label || "") + "</button>",
+      '<a class="vx-button vx-button--ghost" href="' + escapeHtml((model.urls && model.urls.support) || cfg.supportUrl || "/instructions/") + '">Поддержка</a>',
+      "</div>",
+      "</section>",
+      '<section class="vx-stats-grid">' + statsHtml + "</section>",
+      '<section class="vx-section-card"><div class="vx-section-card__head"><h2>Устройства</h2><span>Активных: ' + escapeHtml(String(model.stats && model.stats.active_configs != null ? model.stats.active_configs : 0)) + " · Неактивных: " + escapeHtml(String(model.stats && model.stats.inactive_configs != null ? model.stats.inactive_configs : 0)) + '</span></div><div class="vx-config-list">' + cardsHtml + "</div></section>",
+      "</section>",
+    ].join("");
+  }
+
+  function renderConfig(model) {
+    const switchHtml = Array.isArray(model.subscriptions)
+      ? model.subscriptions
+          .map(function (item) {
+            return '<option value="' + escapeHtml(item.url) + '"' + (item.selected ? " selected" : "") + ">" + escapeHtml(item.label) + "</option>";
+          })
+          .join("")
+      : "";
+
+    mount.className = "vx-native-account";
+    mount.innerHTML = [
+      '<section class="vx-account-app__shell">',
+      '<section class="vx-config-view">',
+      '<div class="vx-config-view__main">',
+      '<div class="vx-config-view__head">',
+      '<div><h1 class="vx-account-title">Конфиг и QR</h1><p class="vx-account-subtitle">' + escapeHtml(model.display_name || "") + "</p></div>",
+      '<span class="' + pillClass(!!model.is_active) + '">' + escapeHtml(model.status_text || "") + "</span>",
+      "</div>",
+      '<div class="vx-config-qr"><img src="' + escapeHtml(model.qr_image_data_url || "") + '" alt="QR конфиг"></div>',
+      '<div class="vx-config-view__actions">',
+      '<button type="button" class="vx-button vx-button--primary" data-copy-text="' + escapeHtml(model.copy_text || "") + '">Скопировать ссылку</button>',
+      '<button type="button" class="vx-button vx-button--ghost" data-nav="' + escapeHtml(model.dashboard_url || cfg.accountUrl) + '">Назад в кабинет</button>',
+      "</div>",
+      "</div>",
+      '<aside class="vx-config-view__side">',
+      '<div class="vx-config-info-grid">',
+      '<article class="vx-info-card"><div class="vx-stat-label">Статус</div><div class="vx-stat-value"><span class="' + pillClass(!!model.is_active) + '">' + escapeHtml(model.status_text || "") + "</span></div></article>",
+      '<article class="vx-info-card"><div class="vx-stat-label">Действует до</div><div class="vx-stat-value">' + escapeHtml(model.expires_at || "—") + "</div></article>",
+      '<article class="vx-info-card vx-info-card--wide"><div class="vx-stat-label">ID клиента</div><div class="vx-stat-value">' + (model.client_code ? '<code class="vx-stat-code">' + escapeHtml(model.client_code) + "</code>" : "—") + "</div></article>",
+      "</div>",
+      (switchHtml
+        ? '<div class="vx-field-card"><label for="vx-config-switch">Все конфиги</label><select id="vx-config-switch" class="vx-select">' + switchHtml + "</select></div>"
+        : ""),
+      '<div class="vx-field-card"><label>Ссылка конфигурации</label><div class="vx-copy-row"><input type="text" readonly value="' + escapeHtml(model.copy_text || "") + '"><button type="button" class="vx-icon-button" data-copy-text="' + escapeHtml(model.copy_text || "") + '" aria-label="Скопировать ссылку">⧉</button></div><p class="vx-field-hint">Скопируйте ссылку и импортируйте ее в клиент VPN.</p></div>',
+      "</aside>",
+      "</section>",
+      "</section>",
+    ].join("");
+  }
+
+  function renderAuth(model) {
+    const isSignup = state.authMode === "signup";
+    mount.className = "vx-native-account";
+    mount.innerHTML = [
+      '<section class="vx-account-app__shell">',
+      '<section class="vx-auth-card">',
+      '<div class="vx-auth-card__tabs">',
+      '<button type="button" class="vx-auth-tab' + (!isSignup ? " is-active" : "") + '" data-auth-tab="login">Вход</button>',
+      '<button type="button" class="vx-auth-tab' + (isSignup ? " is-active" : "") + '" data-auth-tab="signup">Регистрация</button>',
+      "</div>",
+      '<div class="vx-auth-card__body">',
+      '<h1 class="vx-account-title">' + escapeHtml((model && model.title) || "Вход") + '</h1>',
+      '<p class="vx-account-subtitle">' + escapeHtml((model && model.subtitle) || "Войдите в аккаунт, чтобы управлять доступами.") + "</p>",
+      '<div class="vx-auth-errors" data-auth-errors></div>',
+      !isSignup
+        ? [
+            '<form class="vx-auth-form" data-auth-form="login">',
+            '<label>Логин или email<input type="text" name="username" autocomplete="username" required></label>',
+            '<label>Пароль<input type="password" name="password" autocomplete="current-password" required></label>',
+            '<button type="submit" class="vx-button vx-button--primary vx-button--block">Войти</button>',
+            "</form>",
+          ].join("")
+        : [
+            '<form class="vx-auth-form" data-auth-form="signup">',
+            '<label>Логин<input type="text" name="username" autocomplete="username" required></label>',
+            '<label>Email<input type="email" name="email" autocomplete="email" required></label>',
+            '<label>Пароль<input type="password" name="password" autocomplete="new-password" required></label>',
+            '<label>Повторите пароль<input type="password" name="password_confirm" autocomplete="new-password" required></label>',
+            '<button type="submit" class="vx-button vx-button--primary vx-button--block">Создать аккаунт</button>',
+            "</form>",
+          ].join(""),
+      '<div class="vx-auth-links"><a href="' + escapeHtml(cfg.supportUrl || "/instructions/") + '">Нужна помощь?</a><a href="' + escapeHtml((model && model.password_reset_url) || "/accounts/password_reset/") + '">Забыли пароль?</a></div>',
+      "</div>",
+      "</section>",
+      "</section>",
+    ].join("");
+  }
+
+  function bindSharedInteractions() {
+    mount.querySelectorAll("[data-copy-text]").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        const text = button.getAttribute("data-copy-text") || "";
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          const original = button.textContent;
+          button.textContent = "Скопировано";
+          window.setTimeout(function () {
+            button.textContent = original;
+          }, 1200);
+        } catch (error) {
+          console.debug("copy failed", error);
+        }
+      });
+    });
+
+    mount.querySelectorAll("[data-nav]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        const nextPath = button.getAttribute("data-nav") || cfg.accountUrl;
+        window.history.pushState({}, "", nextPath);
+        loadCurrentView();
+      });
+    });
+
+    mount.querySelectorAll("[data-checkout]").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        const mode = button.getAttribute("data-checkout");
+        if (!mode || state.pending) return;
+        state.pending = true;
+        button.setAttribute("disabled", "disabled");
+        try {
+          const endpoint = mode === "buy" ? cfg.apiBuyUrl : cfg.apiRenewUrl;
+          const result = await apiFetch(endpoint, { method: "POST", body: {} });
+          if (result && result.redirect_url) {
+            window.location.assign(result.redirect_url);
+            return;
+          }
+        } catch (error) {
+          if (error.status === 401) {
+            state.authMode = "login";
+            await loadCurrentView();
+            return;
+          }
+          renderError((error.payload && error.payload.error) || "Не удалось открыть оплату.");
+          return;
+        } finally {
+          state.pending = false;
+          button.removeAttribute("disabled");
+        }
+      });
+    });
+
+    const select = mount.querySelector("#vx-config-switch");
+    if (select) {
+      select.addEventListener("change", function () {
+        if (!select.value) return;
+        window.history.pushState({}, "", select.value);
+        loadCurrentView();
+      });
+    }
+
+    mount.querySelectorAll("[data-auth-tab]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        state.authMode = button.getAttribute("data-auth-tab") === "signup" ? "signup" : "login";
+        renderAuth({
+          title: "Вход",
+          subtitle: "Войдите в аккаунт, чтобы управлять доступами и конфигами.",
+          password_reset_url: "/accounts/password_reset/",
+        });
+        bindSharedInteractions();
+        bindAuthInteractions();
+      });
+    });
+  }
+
+  function setAuthErrors(errors) {
+    const box = mount.querySelector("[data-auth-errors]");
+    if (!box) return;
+    const values = Object.values(errors || {}).filter(Boolean);
+    if (!values.length) {
+      box.innerHTML = "";
+      box.style.display = "none";
+      return;
+    }
+    box.style.display = "block";
+    box.innerHTML = values.map(function (value) {
+      return '<div class="vx-auth-error">' + escapeHtml(value) + "</div>";
+    }).join("");
+  }
+
+  function bindAuthInteractions() {
+    mount.querySelectorAll("[data-auth-form]").forEach(function (form) {
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        if (state.pending) return;
+        state.pending = true;
+        const submitButton = form.querySelector("button[type='submit']");
+        if (submitButton) submitButton.setAttribute("disabled", "disabled");
+        setAuthErrors({});
+
+        const formData = new FormData(form);
+        const body = Object.fromEntries(formData.entries());
+        const endpoint = form.getAttribute("data-auth-form") === "signup" ? cfg.apiSignupUrl : cfg.apiLoginUrl;
+
+        try {
+          await apiFetch(endpoint, { method: "POST", body: body });
+          await loadCurrentView();
+        } catch (error) {
+          setAuthErrors((error.payload && error.payload.errors) || { form: (error.payload && error.payload.error) || "Не удалось выполнить запрос." });
+        } finally {
+          state.pending = false;
+          if (submitButton) submitButton.removeAttribute("disabled");
+        }
+      });
+    });
+  }
+
+  async function loadCurrentView() {
+    const route = currentRoute();
+    renderLoading();
+    const params = new URLSearchParams();
+    params.set("view", route.view);
+    if (route.subscriptionId) params.set("subscription_id", String(route.subscriptionId));
+    try {
+      const payload = await apiFetch(cfg.apiStateUrl + "?" + params.toString());
+      if (!payload.authenticated) {
+        renderAuth(payload.auth || {});
+        bindSharedInteractions();
+        bindAuthInteractions();
+        return;
+      }
+      if (payload.view === "config" && payload.config) {
+        renderConfig(payload.config);
+      } else {
+        renderDashboard(payload.dashboard || {});
+      }
+      bindSharedInteractions();
+    } catch (error) {
+      renderError((error.payload && error.payload.error) || "Не удалось загрузить страницу аккаунта.");
+    }
+  }
+
+  window.addEventListener("popstate", function () {
+    loadCurrentView();
+  });
+
+  loadCurrentView();
+})();

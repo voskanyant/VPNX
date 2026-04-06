@@ -31,7 +31,8 @@ from django.core.cache import cache
 from django.db import IntegrityError
 from django.db import transaction
 from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt
+from django.middleware.csrf import get_token
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 from django.http import HttpRequest, HttpResponse
 from django.http import JsonResponse
@@ -92,6 +93,154 @@ def _account_template_urls(request: HttpRequest) -> dict[str, object]:
         "support_url": "/instructions/",
     }
 
+
+def _json_body(request: HttpRequest) -> dict[str, object]:
+    if not request.body:
+        return {}
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _json_error(message: str, *, status: int = 400, errors: dict[str, str] | None = None) -> JsonResponse:
+    payload: dict[str, object] = {"ok": False, "error": message}
+    if errors:
+        payload["errors"] = errors
+    return JsonResponse(payload, status=status)
+
+
+def _serialize_form_errors(form) -> dict[str, str]:
+    serialized: dict[str, str] = {}
+    for field, field_errors in form.errors.items():
+        key = "form" if field == "__all__" else str(field)
+        serialized[key] = " ".join(str(item) for item in field_errors)
+    return serialized
+
+
+def _format_dt_label(value: datetime | None) -> str:
+    if not value:
+        return ""
+    return timezone.localtime(value).strftime("%d.%m.%Y %H:%M")
+
+
+def _build_subscription_rows(bot_user: BotUser | None) -> tuple[list[dict[str, object]], int, int]:
+    subscriptions = _list_subscriptions_for_bot_user(bot_user)
+    now = timezone.now()
+    rows: list[dict[str, object]] = []
+    for item in subscriptions:
+        expires_at = getattr(item, "expires_at", None)
+        is_active = bool(getattr(item, "is_active", False) and expires_at and expires_at > now and getattr(item, "revoked_at", None) is None)
+        status_text = "Активна" if is_active else ("Отключена" if getattr(item, "revoked_at", None) else "Истекла")
+        rows.append(
+            {
+                "obj": item,
+                "id": int(item.id),
+                "display_name": _subscription_display_name(item),
+                "is_active": is_active,
+                "status_text": status_text,
+                "expires_at": expires_at,
+            }
+        )
+    active_configs = sum(1 for row in rows if bool(row["is_active"]))
+    inactive_configs = max(len(rows) - active_configs, 0)
+    return rows, active_configs, inactive_configs
+
+
+def _serialize_subscription_row(row: dict[str, object]) -> dict[str, object]:
+    subscription = row["obj"]
+    return {
+        "id": int(row["id"]),
+        "display_name": str(row["display_name"]),
+        "is_active": bool(row["is_active"]),
+        "status_text": str(row["status_text"]),
+        "expires_at": _format_dt_label(row.get("expires_at")),
+        "config_url": _account_frontend_url(f"config/{int(row['id'])}/"),
+        "vless_url": getattr(subscription, "vless_url", "") or "",
+    }
+
+
+def _build_dashboard_payload(request: HttpRequest) -> dict[str, object]:
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
+    rows, active_configs, inactive_configs = _build_subscription_rows(bot_user)
+    subscriptions_payload = [_serialize_subscription_row(row) for row in rows]
+    telegram_payload: dict[str, object] = {
+        "linked": bool(linked),
+        "status_text": "Привязан" if linked else "Не привязан",
+        "telegram_id": int(linked.telegram_id) if linked else None,
+        "link_url": _account_frontend_url("link/"),
+    }
+    return {
+        "title": "Личный кабинет",
+        "subtitle": "Управляйте доступами, конфигами и подключением в одном месте.",
+        "card_price_label": _format_minor_amount_rub(settings.CARD_PAYMENT_AMOUNT_MINOR),
+        "access_count": len(subscriptions_payload),
+        "user": {
+            "username": request.user.username,
+            "client_code": (getattr(bot_user, "client_code", "") or ""),
+        },
+        "stats": {
+            "active_configs": active_configs,
+            "inactive_configs": inactive_configs,
+        },
+        "telegram": telegram_payload,
+        "subscriptions": subscriptions_payload,
+        "urls": {
+            "dashboard": _account_frontend_url(),
+            "buy": _account_frontend_url("buy/"),
+            "renew": _account_frontend_url("renew/"),
+            "support": "/instructions/",
+            "password_reset": "/accounts/password_reset/",
+        },
+    }
+
+
+def _build_config_payload(request: HttpRequest, subscription_id: int) -> tuple[dict[str, object] | None, str | None]:
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
+    if not bot_user:
+        return None, "Не удалось загрузить данные аккаунта."
+
+    rows, _, _ = _build_subscription_rows(bot_user)
+    row_map = {int(row["id"]): row for row in rows}
+    current_row = row_map.get(int(subscription_id))
+    if current_row is None:
+        return None, "Конфиг не найден."
+
+    sub = current_row["obj"]
+    qr_data = getattr(sub, "vless_url", "") or ""
+    img = qrcode.make(qr_data)
+    buff = io.BytesIO()
+    img.save(buff, format="PNG")
+    qr_b64 = base64.b64encode(buff.getvalue()).decode("ascii")
+
+    return (
+        {
+            "id": int(sub.id),
+            "display_name": _subscription_display_name(sub),
+            "status_text": str(current_row["status_text"]),
+            "is_active": bool(current_row["is_active"]),
+            "expires_at": _format_dt_label(getattr(sub, "expires_at", None)),
+            "client_code": (getattr(getattr(sub, "user", None), "client_code", "") or ""),
+            "copy_text": qr_data,
+            "qr_image_data_url": f"data:image/png;base64,{qr_b64}",
+            "dashboard_url": _account_frontend_url(),
+            "subscriptions": [
+                {
+                    "id": int(row["id"]),
+                    "label": f"#{int(row['id'])} — {_format_dt_label(row.get('expires_at'))}" + (" (active)" if bool(row["is_active"]) else ""),
+                    "url": _account_frontend_url(f"config/{int(row['id'])}/"),
+                    "selected": int(row["id"]) == int(sub.id),
+                }
+                for row in rows
+            ],
+            "telegram": {
+                "linked": bool(linked),
+                "telegram_id": int(linked.telegram_id) if linked else None,
+            },
+        },
+        None,
+    )
 
 def _log_payment_event(
     *,
@@ -461,20 +610,20 @@ def account_config(request: HttpRequest, subscription_id: int | None = None) -> 
     )
 
 
-@login_required
-def create_order_stub(request: HttpRequest) -> HttpResponse:
+def _start_checkout_flow(
+    request: HttpRequest,
+    *,
+    flow_mode: str,
+    requested_subscription_id: int | None = None,
+) -> tuple[str | None, str | None]:
     linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
     if not bot_user:
-        messages.error(request, "Не удалось подготовить аккаунт для оплаты. Попробуйте снова через 1-2 минуты.")
-        return _account_redirect(request)
+        return None, "Не удалось подготовить аккаунт для оплаты. Попробуйте снова через 1-2 минуты."
 
     now = timezone.now()
-    is_buy_route = request.resolver_match and request.resolver_match.url_name == "account_buy"
-    flow_mode = "buynew" if is_buy_route else "renew"
     target_subscription_id: int | None = None
     if flow_mode == "renew":
-        requested_subscription_id = (request.GET.get("subscription_id") or request.POST.get("subscription_id") or "").strip()
-        if requested_subscription_id.isdigit():
+        if requested_subscription_id is not None:
             candidate_id = int(requested_subscription_id)
             if BotSubscription.objects.filter(id=candidate_id, user_id=bot_user.id).exists():
                 target_subscription_id = candidate_id
@@ -539,8 +688,7 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
                 existing_pending.save(update_fields=["card_payment_id"])
                 pay_url = create_result.pay_url
             except Exception:
-                messages.error(request, "Не удалось восстановить ссылку оплаты. Попробуйте снова через 1-2 минуты.")
-                return _account_redirect(request)
+                return None, "Не удалось восстановить ссылку оплаты. Попробуйте снова через 1-2 минуты."
         if pay_url:
             _save_web_order_session_state(
                 request,
@@ -549,8 +697,7 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
                 order_id=int(existing_pending.id),
                 pay_url=pay_url,
             )
-            messages.info(request, "Используем уже созданный ожидающий платеж.")
-            return redirect(pay_url)
+            return pay_url, None
 
     used_non_pending = BotOrder.objects.filter(user_id=bot_user.id, idempotency_key=idempotency_key).exclude(status="pending").exists()
     if used_non_pending:
@@ -602,13 +749,11 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
                     request,
                     user_id=bot_user.id,
                     idempotency_key=str(existing_pending.idempotency_key or idempotency_key),
-                    order_id=int(existing_pending.id),
-                    pay_url=pay_url,
-                )
-                messages.info(request, "Оплата уже создаётся. Открываем существующий платеж.")
-                return redirect(pay_url)
-        messages.error(request, "Не удалось создать платеж. Попробуйте снова через 1-2 минуты.")
-        return _account_redirect(request)
+                order_id=int(existing_pending.id),
+                pay_url=pay_url,
+            )
+                return pay_url, None
+        return None, "Не удалось создать платеж. Попробуйте снова через 1-2 минуты."
 
     provider = get_payment_provider(provider_name=provider_name)
     try:
@@ -622,8 +767,7 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
             }
         )
     except Exception:
-        messages.error(request, "Не удалось создать платеж. Попробуйте снова через 1-2 минуты.")
-        return redirect("account_dashboard")
+        return None, "Не удалось создать платеж. Попробуйте снова через 1-2 минуты."
 
     order.card_payment_id = create_result.payment_id
     order.save(update_fields=["card_payment_id"])
@@ -634,7 +778,153 @@ def create_order_stub(request: HttpRequest) -> HttpResponse:
         order_id=int(order.id),
         pay_url=create_result.pay_url,
     )
-    return redirect(create_result.pay_url)
+    return create_result.pay_url, None
+
+
+@login_required
+def create_order_stub(request: HttpRequest) -> HttpResponse:
+    is_buy_route = request.resolver_match and request.resolver_match.url_name == "account_buy"
+    flow_mode = "buynew" if is_buy_route else "renew"
+    requested_subscription_id_raw = (request.GET.get("subscription_id") or request.POST.get("subscription_id") or "").strip()
+    requested_subscription_id = int(requested_subscription_id_raw) if requested_subscription_id_raw.isdigit() else None
+    pay_url, error_message = _start_checkout_flow(
+        request,
+        flow_mode=flow_mode,
+        requested_subscription_id=requested_subscription_id,
+    )
+    if error_message:
+        messages.error(request, error_message)
+        return _account_redirect(request)
+    if not pay_url:
+        messages.error(request, "Не удалось создать платеж. Попробуйте снова через 1-2 минуты.")
+        return _account_redirect(request)
+    return redirect(pay_url)
+
+
+@ensure_csrf_cookie
+def account_api_state(request: HttpRequest) -> JsonResponse:
+    if request.method != "GET":
+        return _json_error("Method not allowed", status=405)
+
+    view_name = (request.GET.get("view") or "dashboard").strip().lower()
+    subscription_id_raw = (request.GET.get("subscription_id") or "").strip()
+    subscription_id = int(subscription_id_raw) if subscription_id_raw.isdigit() else None
+
+    payload: dict[str, object] = {
+        "ok": True,
+        "authenticated": bool(request.user.is_authenticated),
+        "csrf_token": get_token(request),
+        "account_url": _account_frontend_url(),
+        "password_reset_url": "/accounts/password_reset/",
+    }
+
+    if not request.user.is_authenticated:
+        payload["view"] = "auth"
+        payload["auth"] = {
+            "title": "Вход",
+            "subtitle": "Войдите в аккаунт, чтобы управлять доступами и конфигами.",
+            "login_label": "Войти",
+            "signup_label": "Регистрация",
+            "forgot_password_label": "Забыли пароль?",
+        }
+        return JsonResponse(payload)
+
+    if view_name == "config" and subscription_id is not None:
+        config_payload, error_message = _build_config_payload(request, subscription_id)
+        if error_message:
+            return _json_error(error_message, status=404)
+        payload["view"] = "config"
+        payload["config"] = config_payload
+        return JsonResponse(payload)
+
+    payload["view"] = "dashboard"
+    payload["dashboard"] = _build_dashboard_payload(request)
+    return JsonResponse(payload)
+
+
+@require_POST
+def account_api_login(request: HttpRequest) -> JsonResponse:
+    if request.user.is_authenticated:
+        return JsonResponse({"ok": True})
+
+    data = _json_body(request)
+    form = EmailAuthenticationForm(
+        request=request,
+        data={
+            "username": (data.get("username") or "").strip(),
+            "password": data.get("password") or "",
+        },
+    )
+    if not form.is_valid():
+        return _json_error("Не удалось выполнить вход.", errors=_serialize_form_errors(form))
+
+    user = form.get_user()
+    if user is None:
+        return _json_error("Не удалось выполнить вход.")
+
+    login(request, user)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def account_api_signup(request: HttpRequest) -> JsonResponse:
+    if request.user.is_authenticated:
+        return JsonResponse({"ok": True})
+
+    data = _json_body(request)
+    form = SignUpForm(
+        {
+            "username": (data.get("username") or "").strip(),
+            "email": (data.get("email") or "").strip(),
+            "password": data.get("password") or "",
+            "password_confirm": data.get("password_confirm") or "",
+        }
+    )
+    if not form.is_valid():
+        return _json_error("Не удалось создать аккаунт.", errors=_serialize_form_errors(form))
+
+    username = form.cleaned_data["username"].strip()
+    email = form.cleaned_data["email"].strip().lower()
+    password = form.cleaned_data["password"]
+    if User.objects.filter(username=username).exists():
+        return _json_error("Не удалось создать аккаунт.", errors={"username": "Пользователь с таким логином уже существует"})
+
+    user = User.objects.create_user(username=username, email=email, password=password)
+    auth_user = authenticate(request, username=username, password=password)
+    if auth_user is None:
+        return _json_error("Аккаунт создан, но не удалось выполнить вход.", status=500)
+
+    login(request, auth_user)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def account_api_buy(request: HttpRequest) -> JsonResponse:
+    if not request.user.is_authenticated:
+        return _json_error("Требуется вход в аккаунт.", status=401)
+
+    pay_url, error_message = _start_checkout_flow(request, flow_mode="buynew")
+    if error_message:
+        return _json_error(error_message)
+    return JsonResponse({"ok": True, "redirect_url": pay_url})
+
+
+@require_POST
+def account_api_renew(request: HttpRequest) -> JsonResponse:
+    if not request.user.is_authenticated:
+        return _json_error("Требуется вход в аккаунт.", status=401)
+
+    data = _json_body(request)
+    subscription_id_raw = str(data.get("subscription_id") or "").strip()
+    subscription_id = int(subscription_id_raw) if subscription_id_raw.isdigit() else None
+    pay_url, error_message = _start_checkout_flow(
+        request,
+        flow_mode="renew",
+        requested_subscription_id=subscription_id,
+    )
+    if error_message:
+        return _json_error(error_message)
+    return JsonResponse({"ok": True, "redirect_url": pay_url})
 
 
 @login_required

@@ -3,6 +3,11 @@
 from . import views
 
 urlpatterns = [
+    path("api/state/", views.account_api_state, name="account_api_state"),
+    path("api/login/", views.account_api_login, name="account_api_login"),
+    path("api/signup/", views.account_api_signup, name="account_api_signup"),
+    path("api/buy/", views.account_api_buy, name="account_api_buy"),
+    path("api/renew/", views.account_api_renew, name="account_api_renew"),
     path("signup/", views.signup_view, name="signup"),
     path("", views.account_dashboard, name="account_dashboard"),
     path("link/", views.link_telegram, name="account_link"),
