@@ -26,7 +26,7 @@
       return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="5" width="10" height="10" rx="1.5"></rect><rect x="9" y="9" width="10" height="10" rx="1.5"></rect></svg>';
     }
     if (kind === "rename") {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z"></path><path d="M13.5 6l4.5 4.5"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25z"></path><path d="M14.05 6.2l3.75 3.75"></path></svg>';
     }
     if (kind === "check") {
       return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>';
