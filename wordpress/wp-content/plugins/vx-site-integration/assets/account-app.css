@@ -196,6 +196,13 @@
   pointer-events: none;
 }
 
+.vx-button.is-copied {
+  border-color: var(--vx-success-border);
+  background: var(--vx-success-bg);
+  color: var(--vx-success-ink);
+  box-shadow: none;
+}
+
 .vx-button:hover {
   text-decoration: none;
   transform: translateY(-1px);

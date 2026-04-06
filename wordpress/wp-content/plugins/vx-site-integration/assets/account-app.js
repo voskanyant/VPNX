@@ -8,6 +8,8 @@
     authMode: "login",
     pending: false,
     toastTimer: null,
+    loadingTimer: null,
+    loadToken: 0,
   };
 
   function escapeHtml(value) {
@@ -113,6 +115,19 @@
     ].join("");
   }
 
+  function preserveMountHeight() {
+    const height = Math.ceil(mount.getBoundingClientRect().height || 0);
+    if (height > 0) {
+      mount.style.minHeight = height + "px";
+    }
+  }
+
+  function releaseMountHeight() {
+    window.requestAnimationFrame(function () {
+      mount.style.minHeight = "";
+    });
+  }
+
   function renderError(message) {
     mount.className = "vx-native-account";
     mount.innerHTML =
@@ -134,7 +149,7 @@
 
   function showToast(message) {
     const toast = ensureToast();
-    toast.textContent = "V " + String(message || "Done");
+    toast.textContent = "✓ " + String(message || "Ссылка скопирована");
     toast.classList.add("is-visible");
     window.clearTimeout(state.toastTimer);
     state.toastTimer = window.setTimeout(function () {
@@ -148,14 +163,18 @@
     if (button.classList.contains("vx-icon-button")) {
       const original = button.dataset.originalLabel || button.textContent;
       button.dataset.originalLabel = original;
-      button.textContent = "V";
+      button.textContent = "✓";
       window.setTimeout(function () {
         button.textContent = button.dataset.originalLabel || original;
         button.classList.remove("is-copied");
       }, 1200);
       return;
     }
+    const original = button.dataset.originalLabel || button.textContent;
+    button.dataset.originalLabel = original;
+    button.textContent = "✓ " + original;
     window.setTimeout(function () {
+      button.textContent = button.dataset.originalLabel || original;
       button.classList.remove("is-copied");
     }, 1200);
   }
@@ -321,7 +340,7 @@
         try {
           await navigator.clipboard.writeText(text);
           markCopySuccess(button);
-          showToast("Link copied");
+          showToast("Ссылка скопирована");
         } catch (error) {
           console.debug("copy failed", error);
         }
@@ -430,17 +449,27 @@
   }
 
   async function loadCurrentView() {
+    const loadToken = ++state.loadToken;
     const route = currentRoute();
-    renderLoading();
+    preserveMountHeight();
+    window.clearTimeout(state.loadingTimer);
+    state.loadingTimer = window.setTimeout(function () {
+      if (loadToken === state.loadToken) {
+        renderLoading();
+      }
+    }, 140);
     const params = new URLSearchParams();
     params.set("view", route.view);
     if (route.subscriptionId) params.set("subscription_id", String(route.subscriptionId));
     try {
       const payload = await apiFetch(cfg.apiStateUrl + "?" + params.toString());
+      if (loadToken !== state.loadToken) return;
+      window.clearTimeout(state.loadingTimer);
       if (!payload.authenticated) {
         renderAuth(payload.auth || {});
         bindSharedInteractions();
         bindAuthInteractions();
+        releaseMountHeight();
         return;
       }
       if (payload.view === "config" && payload.config) {
@@ -449,8 +478,12 @@
         renderDashboard(payload.dashboard || {});
       }
       bindSharedInteractions();
+      releaseMountHeight();
     } catch (error) {
+      if (loadToken !== state.loadToken) return;
+      window.clearTimeout(state.loadingTimer);
       renderError((error.payload && error.payload.error) || "Не удалось загрузить страницу аккаунта.");
+      releaseMountHeight();
     }
   }
 
