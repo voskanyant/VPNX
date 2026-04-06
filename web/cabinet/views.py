@@ -23,7 +23,7 @@ from urllib.request import urlopen
 
 import qrcode
 from django.contrib import messages
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -977,6 +977,12 @@ def account_api_signup(request: HttpRequest) -> JsonResponse:
         return _json_error("Аккаунт создан, но не удалось выполнить вход.", status=500)
 
     login(request, auth_user)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def account_api_logout(request: HttpRequest) -> JsonResponse:
+    logout(request)
     return JsonResponse({"ok": True})
 
 

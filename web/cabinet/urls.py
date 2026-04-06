@@ -6,6 +6,7 @@ urlpatterns = [
     path("api/state/", views.account_api_state, name="account_api_state"),
     path("api/login/", views.account_api_login, name="account_api_login"),
     path("api/signup/", views.account_api_signup, name="account_api_signup"),
+    path("api/logout/", views.account_api_logout, name="account_api_logout"),
     path("api/buy/", views.account_api_buy, name="account_api_buy"),
     path("api/renew/", views.account_api_renew, name="account_api_renew"),
     path("api/subscriptions/<int:subscription_id>/rename/", views.account_api_rename_subscription, name="account_api_subscription_rename"),

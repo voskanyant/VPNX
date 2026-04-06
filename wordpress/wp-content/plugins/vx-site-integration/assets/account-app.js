@@ -312,6 +312,7 @@
       '<span class="vx-status-pill is-muted">' + escapeHtml(accessLabel(model.access_count)) + "</span>",
       "</div>",
       '<div class="vx-account-actions">',
+      '<button type="button" class="vx-button vx-button--ghost" data-logout>\u0412\u044b\u0439\u0442\u0438</button>',
       '<button type="button" class="vx-button vx-button--primary" data-checkout="buy">Купить доступ · ' +
         escapeHtml(model.card_price_label || "") +
         "</button>",
@@ -543,6 +544,25 @@
           }
           renderError((error.payload && error.payload.error) || "Не удалось открыть оплату.");
           return;
+        } finally {
+          state.pending = false;
+          button.removeAttribute("disabled");
+        }
+      });
+    });
+
+    mount.querySelectorAll("[data-logout]").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        if (state.pending || !cfg.apiLogoutUrl) return;
+        state.pending = true;
+        button.setAttribute("disabled", "disabled");
+        try {
+          await apiFetch(cfg.apiLogoutUrl, { method: "POST", body: {} });
+          window.history.pushState({}, "", normalizePath(cfg.accountPath || "/account/"));
+          state.authMode = "login";
+          await loadCurrentView();
+        } catch (error) {
+          showToast((error.payload && error.payload.error) || "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0432\u044b\u0439\u0442\u0438 \u0438\u0437 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430");
         } finally {
           state.pending = false;
           button.removeAttribute("disabled");
