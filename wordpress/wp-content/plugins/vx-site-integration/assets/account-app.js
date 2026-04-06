@@ -224,7 +224,6 @@
               "</div>",
               '<div class="vx-config-card__meta">',
               '<div class="vx-config-meta"><span>До</span><strong>' + escapeHtml(sub.expires_at || "—") + "</strong></div>",
-              '<div class="vx-config-meta"><span>Состояние</span><strong>' + escapeHtml(sub.is_active ? "Работает" : "Неактивен") + "</strong></div>",
               "</div>",
               '<div class="vx-config-card__field"><label>Ссылка</label><div class="vx-copy-row"><input type="text" readonly value="' + escapeHtml(sub.vless_url || "") + '"><button type="button" class="vx-icon-button" data-copy-text="' + escapeHtml(sub.vless_url || "") + '" aria-label="Скопировать ссылку">⧉</button></div></div>',
               '<div class="vx-config-card__actions"><button type="button" class="vx-button vx-button--ghost" data-nav="' + escapeHtml(sub.config_url) + '">QR и конфиг</button></div>',
