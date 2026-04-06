@@ -307,17 +307,6 @@ class VPNBot:
                 "Ниже есть подробная инструкция и видео — мы покажем всё по шагам."
             )
             return self._content_text(response_key, self._content_text(legacy_key, default))
-        if node_key == "instructions_stars":
-            default = (
-                "Как оплатить через Telegram Stars\n\n"
-                "Оплата проходит прямо в Telegram.\n\n"
-                "Если вы используете iPhone в России:\n\n"
-                "• привяжите номер МТС к вашему Apple ID\n"
-                "• после этого оплата будет списываться с баланса телефона\n\n"
-                "Далее просто нажмите оплату в боте — Telegram сам предложит купить Stars.\n\n"
-                "После оплаты доступ сразу заработает."
-            )
-            return self._content_text(response_key, self._content_text(legacy_key, default))
         if node_key == "site_about":
             default = (
                 "Что можно делать на сайте\n\n"
@@ -343,7 +332,6 @@ class VPNBot:
             return InlineKeyboardMarkup(
                 [
                     [InlineKeyboardButton(text="📱 Установить приложение", callback_data="nav|instructions_install|menu_instructions")],
-                    [InlineKeyboardButton(text="⭐ Оплатить Stars", callback_data="nav|instructions_stars|menu_instructions")],
                     [
                         InlineKeyboardButton(text="📊 Мой доступ", callback_data="act|start_mysub|_"),
                         InlineKeyboardButton(text="📷 QR-код", callback_data="act|start_mysub|_"),
@@ -360,17 +348,6 @@ class VPNBot:
                     [InlineKeyboardButton(text="⬅️ Назад", callback_data="nav|menu_instructions|_")],
                 ]
             )
-        if node_key == "instructions_stars":
-            stars_help_url = f"{self._site_url().rstrip('/')}/help/stars"
-            return InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton(text="⭐ Купить новый доступ", callback_data="act|buy_new|_")],
-                    [InlineKeyboardButton(text="📖 Подробная инструкция", url=stars_help_url)],
-                    [InlineKeyboardButton(text="🆘 Поддержка", callback_data="act|support_hub|_")],
-                    [InlineKeyboardButton(text="⬅️ Назад", callback_data="nav|menu_instructions|_")],
-                ]
-            )
-
         raw = self._cms_content.get(f"{node_key}_buttons")
         if not raw:
             if node_key == "menu_instructions":
@@ -518,22 +495,11 @@ class VPNBot:
     def _buy_offer_markup(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="⭐ Оплатить звёздами", callback_data="act|buy_stars_info|_")],
                 [InlineKeyboardButton(text=self._with_card_price("💳 Оплатить картой"), callback_data="act|buy_card|_")],
+                [InlineKeyboardButton(text="⭐ Оплатить через Stars", callback_data="act|buy_stars_continue|_")],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
                     InlineKeyboardButton(text="⬅️ Назад", callback_data="act|start_back|_"),
-                ],
-            ]
-        )
-
-    def _buy_stars_info_markup(self) -> InlineKeyboardMarkup:
-        return InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton(text="⭐ Продолжить через Stars", callback_data="act|buy_stars_continue|_")],
-                [
-                    InlineKeyboardButton(text=self._with_card_price("💳 Оплатить картой"), callback_data="act|buy_card|_"),
-                    InlineKeyboardButton(text="⬅️ Назад", callback_data="act|buy_back|_"),
                 ],
             ]
         )
@@ -571,17 +537,8 @@ class VPNBot:
     def _renew_offer_markup(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="⭐ Продлить через Stars", callback_data="act|renew_stars_info|_")],
                 [InlineKeyboardButton(text=self._with_card_price("💳 Продлить картой"), callback_data="act|renew_card|_")],
-                [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_")],
-            ]
-        )
-
-    def _renew_stars_info_markup(self) -> InlineKeyboardMarkup:
-        return InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton(text="⭐ Продолжить через Stars", callback_data="act|renew_stars_continue|_")],
-                [InlineKeyboardButton(text=self._with_card_price("💳 Продлить картой"), callback_data="act|renew_card|_")],
+                [InlineKeyboardButton(text="⭐ Продлить через Stars", callback_data="act|renew_stars_continue|_")],
                 [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_")],
             ]
         )
@@ -691,21 +648,12 @@ class VPNBot:
         await message.reply_text(
             "Продление доступа\n\n"
             "Здесь вы можете продлить текущий доступ, чтобы продолжить пользоваться без перерыва.\n\n"
+            "Рекомендуем оплату картой на сайте.\n\n"
             "Текущее устройство:\n"
             f"{self._subscription_name(target_sub)}\n\n"
             "Действует до:\n"
             f"{expires_text}",
             reply_markup=self._renew_offer_markup(),
-        )
-
-    async def _show_renew_stars_info(self, message: Message) -> None:
-        await message.reply_text(
-            "Оплата через звёзды Telegram\n\n"
-            "Оплата проходит внутри Telegram.\n\n"
-            "Если вы используете iPhone в России, звёзды обычно покупаются через App Store.\n"
-            "Для этого может понадобиться номер МТС и оплата с баланса телефона.\n\n"
-            "Если вам это неудобно, можно выбрать оплату картой на сайте.",
-            reply_markup=self._renew_stars_info_markup(),
         )
 
     async def _show_renew_card_info(self, message: Message) -> None:
@@ -721,6 +669,7 @@ class VPNBot:
         await message.reply_text(
             "Оформление доступа\n\n"
             "Здесь вы можете купить новый доступ для подключения.\n\n"
+            "Рекомендуем оплату картой на сайте.\n\n"
             "Это подойдёт, если вы:\n"
             "• подключаете ещё одно устройство\n"
             "• хотите отдельный доступ\n"
@@ -740,16 +689,6 @@ class VPNBot:
             )
             return
         await self._show_buy_checkout_options(message)
-
-    async def _show_buy_stars_info(self, message: Message) -> None:
-        await message.reply_text(
-            "Оплата через звёзды Telegram\n\n"
-            "Оплата проходит внутри Telegram.\n\n"
-            "Если вы используете iPhone в России, звёзды обычно покупаются через App Store.\n"
-            "Для этого может понадобиться номер МТС и оплата с баланса телефона.\n\n"
-            "Если вам это неудобно, можно выбрать оплату картой на сайте.",
-            reply_markup=self._buy_stars_info_markup(),
-        )
 
     async def _show_buy_card_info(self, message: Message) -> None:
         pay_url = f"{self._site_url().rstrip('/')}/account/renew/"
@@ -1618,7 +1557,7 @@ class VPNBot:
             if target == "buy_stars_info":
                 await query.answer()
                 if query.message is not None:
-                    await self._show_buy_stars_info(query.message)
+                    await self._start_buy_flow(update, context)
                 return
             if target == "buy_stars_continue":
                 await query.answer()
@@ -1638,7 +1577,20 @@ class VPNBot:
             if target == "renew_stars_info":
                 await query.answer()
                 if query.message is not None:
-                    await self._show_renew_stars_info(query.message)
+                    user_id = await self._ensure_user(update)
+                    target_subscription_id, _ = await self._resolve_renew_target(user_id, context)
+                    if not target_subscription_id:
+                        await query.message.reply_text(
+                            "Не удалось определить доступ для продления.",
+                            reply_markup=self._renew_no_active_markup(),
+                        )
+                    else:
+                        await self._send_stars_invoice_for_message(
+                            query.message,
+                            user_id=user_id,
+                            mode="renew",
+                            subscription_id=target_subscription_id,
+                        )
                 return
             if target == "renew_stars_continue":
                 await query.answer()
