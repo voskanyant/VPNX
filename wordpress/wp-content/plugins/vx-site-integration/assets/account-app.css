@@ -171,6 +171,8 @@
 
 .vx-button,
 .vx-button:visited {
+  appearance: none;
+  -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -184,6 +186,7 @@
   font-weight: 700;
   text-align: center;
   text-decoration: none;
+  margin: 0;
   cursor: pointer;
   transition:
     transform 0.18s ease,
