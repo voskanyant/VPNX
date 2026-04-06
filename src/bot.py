@@ -493,9 +493,10 @@ class VPNBot:
         )
 
     def _buy_offer_markup(self) -> InlineKeyboardMarkup:
+        pay_url = f"{self._site_url().rstrip('/')}/account/buy/"
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text=self._with_card_price("💳 Оплатить картой"), callback_data="act|buy_card|_")],
+                [InlineKeyboardButton(text=self._with_card_price("💳 Оплатить картой"), url=pay_url)],
                 [InlineKeyboardButton(text="⭐ Оплатить через Stars", callback_data="act|buy_stars_continue|_")],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
@@ -534,10 +535,13 @@ class VPNBot:
             ]
         )
 
-    def _renew_offer_markup(self) -> InlineKeyboardMarkup:
+    def _renew_offer_markup(self, subscription_id: int | None = None) -> InlineKeyboardMarkup:
+        pay_url = f"{self._site_url().rstrip('/')}/account/renew/"
+        if isinstance(subscription_id, int) and subscription_id > 0:
+            pay_url = f"{pay_url}?subscription_id={subscription_id}"
         return InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text=self._with_card_price("💳 Продлить картой"), callback_data="act|renew_card|_")],
+                [InlineKeyboardButton(text=self._with_card_price("💳 Продлить картой"), url=pay_url)],
                 [InlineKeyboardButton(text="⭐ Продлить через Stars", callback_data="act|renew_stars_continue|_")],
                 [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|renew_back|_")],
             ]
@@ -653,7 +657,7 @@ class VPNBot:
             f"{self._subscription_name(target_sub)}\n\n"
             "Действует до:\n"
             f"{expires_text}",
-            reply_markup=self._renew_offer_markup(),
+            reply_markup=self._renew_offer_markup(target_subscription_id),
         )
 
     async def _show_renew_card_info(self, message: Message) -> None:
