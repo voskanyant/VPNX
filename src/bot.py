@@ -339,7 +339,7 @@ class VPNBot:
                 ]
             )
         if node_key == "instructions_install":
-            install_help_url = f"{self._site_url().rstrip('/')}/help/install"
+            install_help_url = "https://vxcloud.ru/2026/04/06/kak-podklyuchitsya-k-vpn-vxcloud-polnyj-poshagovyj-gajd/"
             return InlineKeyboardMarkup(
                 [
                     [InlineKeyboardButton(text="📖 Подробная инструкция", url=install_help_url)],
