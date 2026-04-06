@@ -204,7 +204,7 @@ class VPNBot:
             ),
             (
                 "menu_site",
-                self._button_label("menu_site", "🌐 Личный кабинет").strip() or "🌐 Личный кабинет",
+                self._button_label("menu_site", "🌐 Личный кабинет на сайте").strip() or "🌐 Личный кабинет на сайте",
             ),
         ]
         if has_active_subscription:
@@ -355,7 +355,7 @@ class VPNBot:
                     [
                         [InlineKeyboardButton(text="🍏 Айфон", url=STREISAND_APPSTORE_URL)],
                         [InlineKeyboardButton(text="🤖 Андроид", url=V2BOX_PLAYSTORE_URL)],
-                        [InlineKeyboardButton(text="🌐 Личный кабинет", url=f"{self._site_url().rstrip('/')}")],
+                        [InlineKeyboardButton(text="🌐 Личный кабинет на сайте", url=f"{self._site_url().rstrip('/')}")],
                     ]
                 )
             return None
@@ -432,7 +432,7 @@ class VPNBot:
                 ],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
-                    InlineKeyboardButton(text="🌐 Личный кабинет", url=self._site_url().rstrip("/")),
+                    InlineKeyboardButton(text="🌐 Личный кабинет на сайте", url=self._site_url().rstrip("/")),
                 ],
             ]
         )
@@ -526,7 +526,7 @@ class VPNBot:
                 ],
                 [
                     InlineKeyboardButton(text="📊 Мой доступ", callback_data="act|start_mysub|_"),
-                    InlineKeyboardButton(text="🌐 Личный кабинет", url=account_url),
+                    InlineKeyboardButton(text="🌐 Личный кабинет на сайте", url=account_url),
                 ],
             ]
         )
@@ -605,7 +605,7 @@ class VPNBot:
                 ],
                 [
                     InlineKeyboardButton(text="📊 Мой доступ", callback_data="act|start_mysub|_"),
-                    InlineKeyboardButton(text="🌐 Личный кабинет", url=account_url),
+                    InlineKeyboardButton(text="🌐 Личный кабинет на сайте", url=account_url),
                 ],
             ]
         )
@@ -1213,7 +1213,7 @@ class VPNBot:
                     [
                         [
                             InlineKeyboardButton(
-                                text=self._button_label("menu_site", "🌐 Личный кабинет"),
+                                text=self._button_label("menu_site", "🌐 Личный кабинет на сайте"),
                                 url=self._site_url().rstrip("/"),
                             )
                         ]
@@ -2405,7 +2405,7 @@ class VPNBot:
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=self._button_label("open_account", "🌐 Личный кабинет"),
+                    text=self._button_label("open_account", "🌐 Личный кабинет на сайте"),
                     url=account_url,
                 )
             ]
