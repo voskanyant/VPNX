@@ -214,12 +214,15 @@ class VPNBot:
     def _site_url(self) -> str:
         return self._content_text("site_url", "https://vxcloud.ru").strip() or "https://vxcloud.ru"
 
+    def _account_fallback_url(self) -> str:
+        return f"{self._site_url().rstrip('/')}/account/"
+
     async def _account_url(self, user_id: int | None) -> str:
         explicit = self._content_text("account_page_url", "").strip()
         if explicit:
             return explicit
         site_url = self._site_url().rstrip("/")
-        fallback = f"{site_url}/account/"
+        fallback = self._account_fallback_url()
         if user_id is None:
             return fallback
 
@@ -355,7 +358,7 @@ class VPNBot:
                     [
                         [InlineKeyboardButton(text="🍏 Айфон", url=STREISAND_APPSTORE_URL)],
                         [InlineKeyboardButton(text="🤖 Андроид", url=V2BOX_PLAYSTORE_URL)],
-                        [InlineKeyboardButton(text="🌐 Личный кабинет на сайте", url=f"{self._site_url().rstrip('/')}")],
+                        [InlineKeyboardButton(text="🌐 Личный кабинет на сайте", url=self._account_fallback_url())],
                     ]
                 )
             return None
@@ -423,7 +426,7 @@ class VPNBot:
             return None
         return InlineKeyboardMarkup(rows)
 
-    def _start_inline_keyboard(self) -> InlineKeyboardMarkup:
+    def _start_inline_keyboard(self, account_url: str) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
                 [
@@ -432,7 +435,7 @@ class VPNBot:
                 ],
                 [
                     InlineKeyboardButton(text="💬 Как подключить", callback_data="nav|menu_instructions|_"),
-                    InlineKeyboardButton(text="🌐 Личный кабинет на сайте", url=self._site_url().rstrip("/")),
+                    InlineKeyboardButton(text="🌐 Личный кабинет на сайте", url=account_url),
                 ],
             ]
         )
@@ -450,7 +453,8 @@ class VPNBot:
 
     async def _send_start_screen(self, message: Message, user_id: int) -> None:
         await self._menu_keyboard_for_user(user_id)
-        await message.reply_text(self._start_message_text(), reply_markup=self._start_inline_keyboard())
+        account_url = await self._account_url(user_id)
+        await message.reply_text(self._start_message_text(), reply_markup=self._start_inline_keyboard(account_url))
 
     def _trial_offer_markup(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
@@ -1204,6 +1208,7 @@ class VPNBot:
             await self._show_support_hub(update.message, user_id)
             return
         if selected_menu_key == "menu_site":
+            account_url = await self._account_url(user_id)
             await update.message.reply_text(
                 self._content_text(
                     "menu_site_response",
@@ -1214,7 +1219,7 @@ class VPNBot:
                         [
                             InlineKeyboardButton(
                                 text=self._button_label("menu_site", "🌐 Личный кабинет на сайте"),
-                                url=self._site_url().rstrip("/"),
+                                url=account_url,
                             )
                         ]
                     ]
