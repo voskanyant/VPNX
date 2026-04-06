@@ -17,6 +17,9 @@
   --vx-danger-bg: #fff6f7;
   --vx-danger-border: #f1d8dc;
   --vx-danger-ink: #9f1239;
+  --vx-title-size: clamp(1.85rem, 5.4vw, 3rem);
+  --vx-subtitle-size: clamp(0.96rem, 2.2vw, 1.05rem);
+  --vx-section-title-size: 1.14rem;
   width: 100%;
   color: var(--vx-ink);
   position: relative;
@@ -125,9 +128,9 @@
 }
 
 .vx-account-hero {
-  padding: clamp(18px, 3vw, 30px);
+  padding: clamp(16px, 2.6vw, 28px);
   display: grid;
-  gap: 18px;
+  gap: 14px;
   background:
     radial-gradient(circle at top right, rgba(241, 245, 252, 0.9), transparent 34%),
     var(--vx-surface);
@@ -141,18 +144,18 @@
 
 .vx-account-title {
   margin: 0;
-  font-size: clamp(1.9rem, 6vw, 3.25rem);
-  line-height: 0.95;
+  font-size: var(--vx-title-size);
+  line-height: 0.98;
   letter-spacing: -0.045em;
   font-weight: 800;
   color: var(--vx-ink);
 }
 
 .vx-account-subtitle {
-  margin: 10px 0 0;
-  max-width: 58ch;
-  font-size: clamp(0.98rem, 2.6vw, 1.08rem);
-  line-height: 1.55;
+  margin: 8px 0 0;
+  max-width: 54ch;
+  font-size: var(--vx-subtitle-size);
+  line-height: 1.5;
   color: var(--vx-muted);
 }
 
@@ -245,7 +248,7 @@
   border-radius: 22px;
   background: var(--vx-surface);
   box-shadow: var(--vx-shadow-card);
-  padding: 18px;
+  padding: 16px;
 }
 
 .vx-stat-label {
@@ -258,9 +261,9 @@
 }
 
 .vx-stat-value {
-  margin-top: 10px;
+  margin-top: 8px;
   font-size: 16px;
-  line-height: 1.45;
+  line-height: 1.4;
   font-weight: 700;
   color: var(--vx-ink);
 }
@@ -325,13 +328,13 @@
 .vx-section-card__head {
   display: grid;
   gap: 6px;
-  padding: 18px 20px 14px;
+  padding: 16px 18px 12px;
   border-bottom: 1px solid #edf1f7;
 }
 
 .vx-section-card__head h2 {
   margin: 0;
-  font-size: 1.22rem;
+  font-size: var(--vx-section-title-size);
   font-weight: 800;
   color: var(--vx-ink);
 }
@@ -344,8 +347,8 @@
 
 .vx-config-list {
   display: grid;
-  gap: 14px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .vx-config-list > * {
@@ -360,9 +363,9 @@
   border-radius: 24px;
   background:
     linear-gradient(180deg, #ffffff, #fbfdff);
-  padding: 18px;
+  padding: 16px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
   box-shadow: none;
 }
 
@@ -376,13 +379,13 @@
 
 .vx-config-card__title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.24rem;
   line-height: 1.05;
   font-weight: 800;
 }
 
 .vx-config-card__sub {
-  margin-top: 6px;
+  margin-top: 4px;
   color: var(--vx-muted);
   font-weight: 600;
 }
@@ -412,8 +415,8 @@
 
 .vx-config-meta strong {
   display: block;
-  margin-top: 8px;
-  font-size: 1.02rem;
+  margin-top: 6px;
+  font-size: 1rem;
   color: var(--vx-ink);
 }
 
@@ -451,7 +454,7 @@
 .vx-select {
   width: 100%;
   min-width: 0;
-  min-height: 48px;
+  min-height: 46px;
   border-radius: 16px;
   border: 1px solid var(--vx-border-strong);
   background: #fff;
@@ -590,21 +593,21 @@
 }
 
 .vx-config-view {
-  padding: clamp(18px, 3vw, 28px);
+  padding: clamp(16px, 2.6vw, 24px);
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .vx-config-view__main,
 .vx-config-view__side {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 
 .vx-config-view__head {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .vx-config-qr {
@@ -612,17 +615,17 @@
   border: 1px solid #e5ebf4;
   border-radius: 24px;
   background: var(--vx-surface-soft);
-  padding: 14px;
+  padding: 12px;
   overflow: hidden;
 }
 
 .vx-config-qr img {
   display: block;
   width: 100%;
-  max-width: 420px;
+  max-width: 360px;
   height: auto;
   margin: 0 auto;
-  border-radius: 18px;
+  border-radius: 16px;
   background: #fff;
 }
 
@@ -644,7 +647,8 @@
 .vx-field-hint {
   margin: 0;
   color: var(--vx-muted);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .vx-account-toast {
@@ -692,9 +696,96 @@
 }
 
 @media (max-width: 479px) {
+  .vx-native-account {
+    --vx-title-size: 1.6rem;
+    --vx-subtitle-size: 0.95rem;
+    --vx-section-title-size: 1.08rem;
+  }
+
+  .vx-account-app__shell {
+    gap: 12px;
+  }
+
+  .vx-account-hero {
+    padding: 14px;
+    gap: 12px;
+    border-radius: 24px;
+  }
+
+  .vx-account-title {
+    letter-spacing: -0.04em;
+  }
+
+  .vx-account-subtitle {
+    max-width: none;
+    line-height: 1.45;
+  }
+
+  .vx-account-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+    border-radius: 22px;
+    background: linear-gradient(180deg, #f7f9fd, #f3f6fb);
+    border: 1px solid #e7edf7;
+  }
+
+  .vx-account-actions > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .vx-account-actions .vx-button {
+    min-height: 52px;
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.25;
+    white-space: normal;
+    text-wrap: balance;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
+  .vx-stats-grid {
+    gap: 10px;
+  }
+
+  .vx-stat-card,
+  .vx-info-card,
+  .vx-field-card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .vx-stat-value {
+    font-size: 15px;
+  }
+
+  .vx-section-card {
+    border-radius: 24px;
+  }
+
+  .vx-section-card__head {
+    padding: 14px 14px 10px;
+  }
+
+  .vx-config-list {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .vx-config-card {
+    padding: 14px;
+    gap: 10px;
+    border-radius: 20px;
+  }
+
   .vx-config-card__meta,
   .vx-config-info-grid {
     grid-template-columns: 1fr;
+  }
+
+  .vx-config-card__title {
+    font-size: 1.15rem;
   }
 
   .vx-copy-row {
@@ -713,6 +804,76 @@
     min-height: 42px;
     padding: 10px 14px;
     font-size: 13px;
+  }
+
+  .vx-config-view {
+    padding: 14px;
+    gap: 12px;
+    border-radius: 24px;
+  }
+
+  .vx-config-view__main,
+  .vx-config-view__side {
+    gap: 10px;
+  }
+
+  .vx-config-view__head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .vx-config-view__side {
+    order: 2;
+  }
+
+  .vx-config-view__main {
+    order: 1;
+  }
+
+  .vx-config-view__actions {
+    order: 2;
+    grid-template-columns: 1fr;
+  }
+
+  .vx-config-qr {
+    order: 3;
+    padding: 10px;
+    border-radius: 20px;
+  }
+
+  .vx-config-qr img {
+    max-width: 240px;
+  }
+
+  .vx-field-card {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .vx-field-card label,
+  .vx-config-card__field label {
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+
+  .vx-field-hint {
+    font-size: 12px;
+  }
+
+  .vx-config-view__actions {
+    gap: 8px;
+  }
+
+  .vx-auth-card {
+    border-radius: 24px;
+  }
+
+  .vx-auth-card__tabs {
+    padding: 10px;
+  }
+
+  .vx-auth-card__body {
+    padding: 16px;
   }
 }
 
