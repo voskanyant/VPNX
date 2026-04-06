@@ -188,7 +188,7 @@
     const telegramLinked = model.telegram && model.telegram.linked;
     const telegramPill = '<span class="' + pillClass(telegramLinked) + '">' + escapeHtml(model.telegram && model.telegram.status_text ? model.telegram.status_text : "Не привязан") + "</span>";
 
-    const statsHtml = [
+    const summaryHtml = [
       { label: "Пользователь", value: escapeHtml(model.user && model.user.username ? model.user.username : "—") },
       { label: "ID клиента", value: model.user && model.user.client_code ? '<code class="vx-stat-code">' + escapeHtml(model.user.client_code) + "</code>" : "—" },
       { label: "Активные", value: escapeHtml(String(model.stats && model.stats.active_configs != null ? model.stats.active_configs : 0)) },
@@ -204,11 +204,11 @@
     ]
       .map(function (item) {
         return (
-          '<article class="vx-stat-card"><div class="vx-stat-label">' +
+          '<div class="vx-account-summary__item"><div class="vx-account-summary__label">' +
           item.label +
-          '</div><div class="vx-stat-value">' +
+          '</div><div class="vx-account-summary__value">' +
           item.value +
-          "</div></article>"
+          "</div></div>"
         );
       })
       .join("");
@@ -248,7 +248,7 @@
       '<a class="vx-button vx-button--ghost" href="' + escapeHtml((model.urls && model.urls.support) || cfg.supportUrl || "/instructions/") + '">Поддержка</a>',
       "</div>",
       "</section>",
-      '<section class="vx-stats-grid">' + statsHtml + "</section>",
+      '<section class="vx-account-summary"><div class="vx-account-summary__grid">' + summaryHtml + "</div></section>",
       '<section class="vx-section-card"><div class="vx-section-card__head"><h2>Устройства</h2><span>Активных: ' + escapeHtml(String(model.stats && model.stats.active_configs != null ? model.stats.active_configs : 0)) + " · Неактивных: " + escapeHtml(String(model.stats && model.stats.inactive_configs != null ? model.stats.inactive_configs : 0)) + '</span></div><div class="vx-config-list">' + cardsHtml + "</div></section>",
       "</section>",
     ].join("");
