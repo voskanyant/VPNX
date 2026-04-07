@@ -24,8 +24,11 @@ def _settings(*, cluster_enabled: bool) -> Settings:
         vpn_cluster_sync_interval_seconds=60,
         vpn_cluster_sync_batch_size=200,
         vpn_tag="VXcloud",
+        vpn_flow="xtls-rprx-vision",
         plan_days=30,
         plan_price_stars=250,
+        card_payment_amount_minor=24900,
+        card_payment_currency="RUB",
         max_devices_per_sub=1,
         price_text="Monthly plan",
         timezone="UTC",
@@ -94,6 +97,11 @@ class ActivateSubscriptionClusterModeUnitTests(unittest.IsolatedAsyncioTestCase)
             "payload": "renew:7:777:1711:abc",
         }
         db.get_user_client_code.return_value = "VX-000007"
+        db.get_user_identity.return_value = {
+            "username": "user7",
+            "first_name": "User",
+            "client_code": "VX-000007",
+        }
         db.get_subscription.return_value = {
             "id": 777,
             "user_id": 7,
@@ -128,9 +136,14 @@ class ActivateSubscriptionClusterModeUnitTests(unittest.IsolatedAsyncioTestCase)
             "payload": "buynew:9:1711:abc",
         }
         db.get_user_client_code.return_value = "VX-000009"
+        db.get_user_identity.return_value = {
+            "username": "user9",
+            "first_name": "User",
+            "client_code": "VX-000009",
+        }
         db.get_active_subscription.return_value = None
         db.create_subscription.return_value = 9001
-        db.get_active_vpn_nodes.return_value = [
+        db.get_ready_lb_vpn_nodes.return_value = [
             {
                 "id": 2,
                 "xui_base_url": "https://node-2.local",
@@ -150,6 +163,7 @@ class ActivateSubscriptionClusterModeUnitTests(unittest.IsolatedAsyncioTestCase)
                 "is_active": True,
                 "lb_enabled": True,
                 "last_health_ok": True,
+                "needs_backfill": False,
             },
         ]
 

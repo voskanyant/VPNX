@@ -422,22 +422,21 @@ After login, users can open:
 - `/account/link/` - link Telegram ID to bot user
 - `/account/config/` - show config link + QR + copy button
 
-Note: payment on site is currently a lightweight stub (`/account/renew/`) to create an order record.
-Real card payment requires payment provider webhook integration.
+Site card payment is implemented through provider checkout plus webhook confirmation.
 
 ## Card Payments Providers
 
-By default the project uses `ReferencePaymentProvider` (`PAYMENT_PROVIDER=reference`).
+By default the project uses `YooKassaPaymentProvider` (`PAYMENT_PROVIDER=yookassa`).
 
-There is also a contract-only scaffold provider: `PAYMENT_PROVIDER=yookassa`.
-It implements the same contract (`create_payment`, `verify_webhook`) but does not perform real API integration yet.
+There is also a legacy local/mock provider: `PAYMENT_PROVIDER=reference`.
+Use it only for local testing, not for production checkout.
 
 ### Required env vars to enable card payments
 
 Minimal:
 
 - `ENABLE_CARD_PAYMENTS=1`
-- `PAYMENT_PROVIDER=reference` (or `yookassa`)
+- `PAYMENT_PROVIDER=yookassa`
 - `CARD_PAYMENT_AMOUNT_MINOR` (example `24900`)
 - `CARD_PAYMENT_CURRENCY` (example `RUB`)
 
@@ -446,9 +445,8 @@ For `reference` provider:
 - `PAYMENT_REFERENCE_BASE_URL`
 - `PAYMENT_REFERENCE_WEBHOOK_SECRET`
 
-For `yookassa` scaffold provider:
+For `yookassa` provider:
 
-- `PAYMENT_YOOKASSA_CHECKOUT_BASE_URL`
 - `PAYMENT_YOOKASSA_WEBHOOK_SECRET`
 - `PAYMENT_YOOKASSA_SHOP_ID`
 - `PAYMENT_YOOKASSA_API_KEY`

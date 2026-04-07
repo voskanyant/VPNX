@@ -24,8 +24,11 @@ def _settings() -> Settings:
         vpn_cluster_sync_interval_seconds=60,
         vpn_cluster_sync_batch_size=200,
         vpn_tag="VXcloud",
+        vpn_flow="xtls-rprx-vision",
         plan_days=30,
         plan_price_stars=250,
+        card_payment_amount_minor=24900,
+        card_payment_currency="RUB",
         max_devices_per_sub=1,
         price_text="Monthly plan",
         timezone="UTC",
@@ -82,6 +85,11 @@ class PayloadSelectionUnitTests(unittest.IsolatedAsyncioTestCase):
             "payload": "renew:7:123:1711:abc",
         }
         db.get_user_client_code.return_value = "VX-000007"
+        db.get_user_identity.return_value = {
+            "username": "user7",
+            "first_name": "User",
+            "client_code": "VX-000007",
+        }
         db.get_subscription.return_value = _current_subscription(123)
         db.get_active_subscription.return_value = _current_subscription(999)
 
@@ -103,6 +111,11 @@ class PayloadSelectionUnitTests(unittest.IsolatedAsyncioTestCase):
             "payload": "web-renew:7:321:1711:abc",
         }
         db.get_user_client_code.return_value = "VX-000007"
+        db.get_user_identity.return_value = {
+            "username": "user7",
+            "first_name": "User",
+            "client_code": "VX-000007",
+        }
         db.get_subscription.return_value = None
         db.get_active_subscription.return_value = _current_subscription(555)
 
@@ -124,6 +137,11 @@ class PayloadSelectionUnitTests(unittest.IsolatedAsyncioTestCase):
             "payload": "buynew:7:1711:abc",
         }
         db.get_user_client_code.return_value = "VX-000007"
+        db.get_user_identity.return_value = {
+            "username": "user7",
+            "first_name": "User",
+            "client_code": "VX-000007",
+        }
         db.get_active_subscription.return_value = _current_subscription(888)
         db.create_subscription.return_value = 7001
 
@@ -145,6 +163,11 @@ class PayloadSelectionUnitTests(unittest.IsolatedAsyncioTestCase):
             "payload": "web-newcfg:7:1711:abc",
         }
         db.get_user_client_code.return_value = "VX-000007"
+        db.get_user_identity.return_value = {
+            "username": "user7",
+            "first_name": "User",
+            "client_code": "VX-000007",
+        }
         db.get_active_subscription.return_value = _current_subscription(889)
         db.create_subscription.return_value = 7002
 

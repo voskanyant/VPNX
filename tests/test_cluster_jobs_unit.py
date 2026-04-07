@@ -63,7 +63,7 @@ class ClusterJobsUnitTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_sync_tick_retries_duplicate_with_update(self):
         db = AsyncMock()
-        db.get_active_vpn_nodes.return_value = [
+        db.get_cluster_sync_nodes.return_value = [
             {
                 "id": 10,
                 "xui_base_url": "https://node.local",
@@ -74,18 +74,25 @@ class ClusterJobsUnitTests(unittest.IsolatedAsyncioTestCase):
                 "lb_enabled": True,
             }
         ]
-        db.list_subscriptions_needing_sync.return_value = [
-            {
-                "subscription_id": 101,
-                "client_uuid": "00000000-0000-0000-0000-000000000101",
-                "client_email": "tg_1_101",
-                "xui_sub_id": "sid-101",
-                "desired_enabled": True,
-                "desired_expires_at": datetime.now(timezone.utc) + timedelta(days=10),
-                "sync_state": "pending",
-            }
+        db.list_subscriptions_needing_sync.side_effect = [
+            [
+                {
+                    "subscription_id": 101,
+                    "client_uuid": "00000000-0000-0000-0000-000000000101",
+                    "client_email": "tg_1_101",
+                    "xui_sub_id": "sid-101",
+                    "desired_enabled": True,
+                    "desired_expires_at": datetime.now(timezone.utc) + timedelta(days=10),
+                    "sync_state": "pending",
+                }
+            ],
+            [],
         ]
-        settings = SimpleNamespace(vpn_cluster_sync_batch_size=100, max_devices_per_sub=1)
+        settings = SimpleNamespace(
+            vpn_cluster_sync_batch_size=100,
+            max_devices_per_sub=1,
+            vpn_flow="xtls-rprx-vision",
+        )
 
         with (
             patch(

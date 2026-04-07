@@ -56,7 +56,7 @@ class ClusterProvisionerUnitTests(unittest.IsolatedAsyncioTestCase):
         FakeXUIClient.delete_mode = "deleted"
         FakeXUIClient.duplicate_add_failures_remaining = 0
         db = AsyncMock()
-        db.get_active_vpn_nodes.return_value = [
+        db.get_cluster_sync_nodes.return_value = [
             {
                 "id": 1,
                 "xui_base_url": "https://node-1.local",
@@ -85,7 +85,7 @@ class ClusterProvisionerUnitTests(unittest.IsolatedAsyncioTestCase):
             "is_active": True,
             "revoked_at": None,
         }
-        settings = type("SettingsStub", (), {"max_devices_per_sub": 1})()
+        settings = type("SettingsStub", (), {"max_devices_per_sub": 1, "vpn_flow": "xtls-rprx-vision"})()
 
         result = await ensure_client_on_all_active_nodes(
             db,
@@ -97,7 +97,7 @@ class ClusterProvisionerUnitTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["total"], 2)
         self.assertEqual(result["ok"], 2)
         self.assertEqual(result["failed"], 0)
-        db.get_active_vpn_nodes.assert_awaited_once_with(lb_only=True)
+        db.get_cluster_sync_nodes.assert_awaited_once()
         self.assertEqual(db.upsert_vpn_node_client_state.await_count, 2)
 
         self.assertEqual(len(FakeXUIClient.instances), 2)
@@ -112,7 +112,7 @@ class ClusterProvisionerUnitTests(unittest.IsolatedAsyncioTestCase):
         FakeXUIClient.delete_mode = "deleted"
         FakeXUIClient.duplicate_add_failures_remaining = 1
         db = AsyncMock()
-        db.get_active_vpn_nodes.return_value = [
+        db.get_cluster_sync_nodes.return_value = [
             {
                 "id": 1,
                 "xui_base_url": "https://node-1.local",
@@ -141,7 +141,7 @@ class ClusterProvisionerUnitTests(unittest.IsolatedAsyncioTestCase):
             "is_active": True,
             "revoked_at": None,
         }
-        settings = type("SettingsStub", (), {"max_devices_per_sub": 1})()
+        settings = type("SettingsStub", (), {"max_devices_per_sub": 1, "vpn_flow": "xtls-rprx-vision"})()
 
         result = await ensure_client_on_all_active_nodes(
             db,
@@ -164,7 +164,7 @@ class ClusterProvisionerUnitTests(unittest.IsolatedAsyncioTestCase):
         FakeXUIClient.delete_mode = "disabled"
         FakeXUIClient.duplicate_add_failures_remaining = 0
         db = AsyncMock()
-        db.get_active_vpn_nodes.return_value = [
+        db.get_cluster_sync_nodes.return_value = [
             {
                 "id": 3,
                 "xui_base_url": "https://node-3.local",
@@ -184,7 +184,7 @@ class ClusterProvisionerUnitTests(unittest.IsolatedAsyncioTestCase):
             "is_active": False,
             "revoked_at": datetime.now(timezone.utc),
         }
-        settings = type("SettingsStub", (), {"max_devices_per_sub": 1})()
+        settings = type("SettingsStub", (), {"max_devices_per_sub": 1, "vpn_flow": "xtls-rprx-vision"})()
 
         result = await ensure_client_on_all_active_nodes(
             db,

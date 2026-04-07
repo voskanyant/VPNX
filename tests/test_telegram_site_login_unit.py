@@ -49,6 +49,7 @@ class TelegramSiteLoginUnitTests(unittest.TestCase):
         with override_settings(
             TELEGRAM_WEBAPP_BOT_TOKEN=bot_token,
             TELEGRAM_LOGIN_AUTH_MAX_AGE_SECONDS=10**9,
+            ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"],
         ):
             verified_data, error_code = _verify_telegram_login_payload(signed_payload)
 
@@ -79,6 +80,7 @@ class TelegramSiteLoginUnitTests(unittest.TestCase):
         with override_settings(
             TELEGRAM_WEBAPP_BOT_TOKEN=bot_token,
             TELEGRAM_LOGIN_AUTH_MAX_AGE_SECONDS=10**9,
+            ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"],
         ):
             with patch("cabinet.views.transaction.atomic", return_value=nullcontext()):
                 with patch("cabinet.views._get_or_create_user_for_telegram", return_value=user) as get_user_mock:
@@ -114,6 +116,7 @@ class TelegramSiteLoginUnitTests(unittest.TestCase):
         with override_settings(
             TELEGRAM_WEBAPP_BOT_TOKEN="telegram-bot-token",
             TELEGRAM_LOGIN_AUTH_MAX_AGE_SECONDS=10**9,
+            ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"],
         ):
             with patch("cabinet.views.messages.error") as message_error_mock:
                 with patch("cabinet.views.login") as login_mock:

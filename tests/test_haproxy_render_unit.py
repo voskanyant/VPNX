@@ -52,6 +52,48 @@ class HAProxyRenderUnitTests(unittest.TestCase):
         backend_block = renderer._render_backend_servers([])
         self.assertIn("server cluster_empty 127.0.0.1:65535 disabled", backend_block)
 
+    def test_reality_filter_keeps_majority_signature_group(self):
+        renderer = _load_renderer_module()
+        nodes = [
+            {
+                "id": 1,
+                "name": "old-node",
+                "backend_host": "10.10.0.11",
+                "backend_port": 29940,
+                "backend_weight": 100,
+                "last_reality_public_key": "old-key",
+                "last_reality_short_id": "aaaa",
+                "last_reality_sni": "old.example.com",
+                "last_reality_fingerprint": "chrome",
+            },
+            {
+                "id": 2,
+                "name": "new-node-a",
+                "backend_host": "10.10.0.12",
+                "backend_port": 29940,
+                "backend_weight": 100,
+                "last_reality_public_key": "new-key",
+                "last_reality_short_id": "bbbb",
+                "last_reality_sni": "www.cloudflare.com",
+                "last_reality_fingerprint": "chrome",
+            },
+            {
+                "id": 3,
+                "name": "new-node-b",
+                "backend_host": "10.10.0.13",
+                "backend_port": 29940,
+                "backend_weight": 100,
+                "last_reality_public_key": "new-key",
+                "last_reality_short_id": "bbbb",
+                "last_reality_sni": "www.cloudflare.com",
+                "last_reality_fingerprint": "chrome",
+            },
+        ]
+
+        filtered = renderer._filter_nodes_with_matching_reality(nodes)
+
+        self.assertEqual([node["id"] for node in filtered], [2, 3])
+
 
 if __name__ == "__main__":
     unittest.main()

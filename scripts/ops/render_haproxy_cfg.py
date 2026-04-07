@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import os
 import re
 import subprocess
@@ -72,9 +73,11 @@ def _reality_signature(node: dict[str, Any]) -> tuple[str, str, str, str]:
 def _filter_nodes_with_matching_reality(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not nodes:
         return []
-    baseline = _reality_signature(nodes[0])
-    if not any(baseline):
+    signatures = [_reality_signature(node) for node in nodes]
+    non_empty = [signature for signature in signatures if any(signature)]
+    if not non_empty:
         return nodes
+    baseline, _ = Counter(non_empty).most_common(1)[0]
     return [node for node in nodes if _reality_signature(node) == baseline]
 
 
