@@ -37,7 +37,7 @@ from .client_naming import build_xui_client_name
 from .cms import DirectusCMS
 from .db import DB
 from .domain.subscriptions import activate_subscription
-from .vless import build_vless_url
+from .vless import build_vless_url, normalize_vless_public_endpoint
 from .xui_client import XUIClient
 
 
@@ -915,7 +915,12 @@ class VPNBot:
         await self._send_stars_invoice_for_message(message, user_id=user_id, mode="buynew")
 
     async def _resolve_subscription_links(self, user_id: int, sub: dict[str, object]) -> tuple[str, str | None]:
-        vless_url = str(sub["vless_url"])
+        vless_url = normalize_vless_public_endpoint(
+            str(sub["vless_url"]),
+            host=self.settings.vpn_public_host,
+            port=self.settings.vpn_public_port,
+            tag=self.settings.vpn_tag,
+        )
         cluster_mode = bool(getattr(self.settings, "vpn_cluster_enabled", False))
         sub_id: str | None = str(sub.get("xui_sub_id") or "").strip() or None
 
@@ -2436,16 +2441,7 @@ class VPNBot:
         renew_url = await self._account_url(user_id, renew_path)
 
         buttons: list[list[InlineKeyboardButton]] = [
-            [
-                InlineKeyboardButton(
-                    text=self._button_label("config_button", "🚀 Открыть"),
-                    url=self._open_app_url(vless_url),
-                ),
-                InlineKeyboardButton(
-                    text="📋 Скопировать",
-                    api_kwargs={"copy_text": {"text": link_for_copy}},
-                ),
-            ],
+            [InlineKeyboardButton(text="📋 Скопировать ссылку", api_kwargs={"copy_text": {"text": link_for_copy}})],
         ]
         buttons.append(
             [
@@ -2455,8 +2451,6 @@ class VPNBot:
                 )
             ]
         )
-        if subscription_url:
-            buttons.insert(0, [InlineKeyboardButton(text="🚀 Открыть", url=subscription_url)])
         buttons.append(
             [
                 InlineKeyboardButton(
@@ -2495,11 +2489,9 @@ class VPNBot:
         )
         if "Способ оплаты:" not in text:
             text += f"\nСпособ оплаты: {self._format_payment_method(last_payment_method)}"
-        if subscription_url:
-            text += f"\n\nСсылка доступа:\n{subscription_url}"
         copy_link_hint = self._content_text(
             "copy_link_hint",
-            "Нажмите «Скопировать», затем откройте приложение, нажмите + и выберите импорт из буфера обмена.",
+            "Нажмите «Скопировать ссылку», затем откройте приложение, нажмите + и выберите импорт из буфера обмена.",
         ).replace("\\n", "\n").replace("/n", "\n")
         single_device_warning = self._content_text(
             "single_device_warning",

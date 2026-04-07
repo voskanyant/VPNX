@@ -36,7 +36,16 @@ def _clean_server_name(node_id: int, raw_name: str) -> str:
 
 def _load_healthy_lb_nodes(database_url: str) -> list[dict[str, Any]]:
     query = """
-    SELECT id, name, backend_host, backend_port, COALESCE(backend_weight, 100) AS backend_weight
+    SELECT
+        id,
+        name,
+        backend_host,
+        backend_port,
+        COALESCE(backend_weight, 100) AS backend_weight,
+        last_reality_public_key,
+        last_reality_short_id,
+        last_reality_sni,
+        last_reality_fingerprint
     FROM vpn_nodes
     WHERE lb_enabled = TRUE
       AND is_active = TRUE
@@ -49,6 +58,24 @@ def _load_healthy_lb_nodes(database_url: str) -> list[dict[str, Any]]:
             cur.execute(query)
             rows = cur.fetchall()
     return [dict(row) for row in rows]
+
+
+def _reality_signature(node: dict[str, Any]) -> tuple[str, str, str, str]:
+    return (
+        str(node.get("last_reality_public_key") or "").strip(),
+        str(node.get("last_reality_short_id") or "").strip(),
+        str(node.get("last_reality_sni") or "").strip(),
+        str(node.get("last_reality_fingerprint") or "").strip(),
+    )
+
+
+def _filter_nodes_with_matching_reality(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not nodes:
+        return []
+    baseline = _reality_signature(nodes[0])
+    if not any(baseline):
+        return nodes
+    return [node for node in nodes if _reality_signature(node) == baseline]
 
 
 def _render_backend_servers(nodes: list[dict[str, Any]]) -> str:
@@ -148,6 +175,7 @@ def main() -> int:
         raise RuntimeError(f"Template file does not exist: {template_path}")
 
     nodes = _load_healthy_lb_nodes(database_url)
+    nodes = _filter_nodes_with_matching_reality(nodes)
     backend_servers = _render_backend_servers(nodes)
     rendered = _render_config(
         template_path=template_path,

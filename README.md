@@ -3,7 +3,7 @@
 MVP bot for selling VXcloud access:
 
 - `/buy` creates or renews a 30-day subscription
-- `/buy` sends Telegram Stars invoice (`XTR`)
+- `/buy` can start card checkout or Telegram Stars flow
 - `/myvpn` sends VLESS link and QR code
 - `/renew` extends subscription
 - background reminders before expiration
@@ -59,7 +59,8 @@ python scripts/ops/render_haproxy_cfg.py --env-file .env
 
 The script:
 
-- selects nodes from `vpn_nodes` where `lb_enabled=true`, `is_active=true`, `last_health_ok=true`
+- selects nodes from `vpn_nodes` where `lb_enabled=true`, `is_active=true`, `needs_backfill=false`, `last_health_ok=true`
+- excludes nodes whose cached REALITY signature does not match the current pool baseline
 - renders config from `ops/haproxy/haproxy.cfg.tpl`
 - writes to `HAPROXY_OUTPUT_PATH`
 - validates with `haproxy -c -f <output>`
@@ -109,6 +110,7 @@ When you buy/add a second server, use this flow:
 - Run admin action `Request backfill`.
 - Wait until `vpn_node_clients.sync_state` converges to `ok`.
 - Confirm node `needs_backfill` clears and `last_backfill_at` is set.
+- New subscriptions continue syncing to backfill nodes before they are admitted into LB.
 
 6. Enable in LB and reload HAProxy
 - Run admin action `Enable LB`.
@@ -210,19 +212,13 @@ chmod +x scripts/ops/deploy-auto.sh
 ./scripts/ops/deploy-auto.sh
 ```
 
-## Django Admin CMS
+## Legacy Django CMS
 
-Сайт теперь полностью работает на Django Admin (без Wagtail).
+WordPress is the primary public CMS now.
 
-- Публичные страницы редактируются в `Admin -> Page`
-- Меню редактируется флагами `show_in_nav`, `nav_title`, `nav_order`
-- Тексты интерфейса редактируются в `Admin -> SiteText`
-- Типы контента редактируются в `Admin -> PostType`
-- Посты редактируются в `Admin -> Post`
-- На странице (`Admin -> Page`) можно включить авто-ленту постов:
-  - `posts_enabled`
-  - источник: `Все посты` / `По типам/категориям` / `Выбранные вручную`
-  - выбор типов, категорий и лимита
+- Public pages, blog, navigation, and footer content are managed in WordPress
+- Django `/ops/` keeps legacy content screens only for migration support and historical review
+- Django `/django-admin/` remains useful for operational data and internal models, not as the primary public CMS
 
 ### Bootstrap базовых страниц
 
@@ -269,9 +265,9 @@ After WordPress starts:
 The old Django content screens remain available under `/ops/` for migration support and operational review.
 Set `WORDPRESS_CONTENT_READONLY=1` when you want to freeze legacy content editing in Django.
 
-## Directus Content Sync From Git
+## Legacy Directus Content Sync From Git
 
-Directus content can be versioned in repo and synced on every deploy.
+Directus is now a legacy optional bridge for bot texts only. Leave it disabled in production unless you intentionally still depend on it.
 
 - Seed files:
   - `directus_seed/bot_buttons.json`

@@ -18,11 +18,11 @@ def get_payment_provider(provider_name: str | None = None) -> PaymentProvider:
     selected_name = provider_name
     if not selected_name:
         try:
-            selected_name = str(getattr(settings, "PAYMENT_PROVIDER", "reference")).strip().lower()
+            selected_name = str(getattr(settings, "PAYMENT_PROVIDER", "yookassa")).strip().lower()
         except ImproperlyConfigured:
-            selected_name = "reference"
+            selected_name = "yookassa"
 
-    provider_name = (selected_name or "reference").strip().lower()
+    provider_name = (selected_name or "yookassa").strip().lower()
     provider_cls = _PROVIDERS.get(provider_name)
     if provider_cls is None:
         available = ", ".join(sorted(_PROVIDERS.keys()))

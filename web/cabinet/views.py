@@ -15,9 +15,7 @@ import threading
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from urllib.parse import parse_qsl
-from urllib.parse import unquote
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
 from urllib.request import Request
 from urllib.request import urlopen
 
@@ -76,6 +74,22 @@ def _account_backend_url(request: HttpRequest, path: str = "") -> str:
         separator = "&" if "?" in url else "?"
         return f"{url}{separator}embed=1"
     return url
+
+
+def _normalize_vless_public_endpoint(vless_url: str, *, host: str, port: int, tag: str | None = None) -> str:
+    raw = str(vless_url or "").strip()
+    if not raw.lower().startswith("vless://"):
+        return raw
+    try:
+        parts = urlsplit(raw)
+    except Exception:
+        return raw
+    username = parts.username or ""
+    if not username:
+        return raw
+    fragment = quote(tag) if tag else parts.fragment
+    netloc = f"{username}@{host}:{int(port)}"
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, fragment))
 
 
 def _account_redirect(request: HttpRequest, path: str = "") -> HttpResponse:
@@ -227,6 +241,12 @@ def _build_subscription_rows(bot_user: BotUser | None) -> tuple[list[dict[str, o
 
 def _serialize_subscription_row(row: dict[str, object]) -> dict[str, object]:
     subscription = row["obj"]
+    vless_url = _normalize_vless_public_endpoint(
+        getattr(subscription, "vless_url", "") or "",
+        host=settings.VPN_PUBLIC_HOST,
+        port=settings.VPN_PUBLIC_PORT,
+        tag=getattr(settings, "VPN_TAG", "VXcloud"),
+    )
     return {
         "id": int(row["id"]),
         "display_name": str(row["display_name"]),
@@ -234,7 +254,7 @@ def _serialize_subscription_row(row: dict[str, object]) -> dict[str, object]:
         "status_text": str(row["status_text"]),
         "expires_at": _format_dt_label(row.get("expires_at")),
         "config_url": _account_frontend_url(f"config/{int(row['id'])}/"),
-        "vless_url": getattr(subscription, "vless_url", "") or "",
+        "vless_url": vless_url,
     }
 
 
@@ -285,7 +305,12 @@ def _build_config_payload(request: HttpRequest, subscription_id: int) -> tuple[d
         return None, "Конфиг не найден."
 
     sub = current_row["obj"]
-    qr_data = getattr(sub, "vless_url", "") or ""
+    qr_data = _normalize_vless_public_endpoint(
+        getattr(sub, "vless_url", "") or "",
+        host=settings.VPN_PUBLIC_HOST,
+        port=settings.VPN_PUBLIC_PORT,
+        tag=getattr(settings, "VPN_TAG", "VXcloud"),
+    )
     img = qrcode.make(qr_data)
     buff = io.BytesIO()
     img.save(buff, format="PNG")
@@ -578,6 +603,12 @@ def account_dashboard(request: HttpRequest) -> HttpResponse:
                 "is_active": is_active,
                 "status_text": status_text,
                 "expires_at": expires_at,
+                "vless_url": _normalize_vless_public_endpoint(
+                    getattr(item, "vless_url", "") or "",
+                    host=settings.VPN_PUBLIC_HOST,
+                    port=settings.VPN_PUBLIC_PORT,
+                    tag=getattr(settings, "VPN_TAG", "VXcloud"),
+                ),
             }
         )
     active_configs = sum(1 for row in subscription_rows if bool(row["is_active"]))
@@ -670,7 +701,12 @@ def account_config(request: HttpRequest, subscription_id: int | None = None) -> 
         messages.error(request, "Подписка не найдена")
         return _account_redirect(request)
 
-    qr_data = sub.vless_url
+    qr_data = _normalize_vless_public_endpoint(
+        sub.vless_url,
+        host=settings.VPN_PUBLIC_HOST,
+        port=settings.VPN_PUBLIC_PORT,
+        tag=getattr(settings, "VPN_TAG", "VXcloud"),
+    )
     img = qrcode.make(qr_data)
     buff = io.BytesIO()
     img.save(buff, format="PNG")
@@ -1542,7 +1578,8 @@ def payment_webhook(request: HttpRequest, provider: str) -> HttpResponse:
                 .filter(card_payment_id=webhook.payment_id)
                 .first()
             )
-            if order and str(order.status).lower() == "pending":
+            current_status = str(getattr(order, "status", "") or "").lower() if order else ""
+            if order and current_status in {"pending", "cancelled"} and not getattr(order, "paid_at", None):
                 order.status = "paid"
                 order.paid_at = now
                 order.provider_payment_charge_id = webhook.payment_id
@@ -1553,7 +1590,7 @@ def payment_webhook(request: HttpRequest, provider: str) -> HttpResponse:
                     client_code=getattr(order.user, "client_code", None),
                     provider=provider_name,
                     event_id=webhook.event_id,
-                    provision_state="paid_marked",
+                    provision_state="paid_marked" if current_status == "pending" else "paid_marked_after_stale_cancel",
                 )
             elif order:
                 _log_payment_event(

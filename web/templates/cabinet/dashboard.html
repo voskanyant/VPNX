@@ -121,8 +121,8 @@
               <div class="config-card-link">
                 <label class="config-meta-label">Ссылка</label>
                 <div class="vx-link-input-wrap">
-                  <input type="text" class="form-control form-control-sm config-link-field" value="{{ row.obj.vless_url|default:'' }}" readonly>
-                  <button type="button" class="btn btn-sm btn-outline-secondary js-copy-config js-copy-icon vx-icon-button" data-copy-text="{{ row.obj.vless_url|default:'' }}" title="Скопировать ссылку" aria-label="Скопировать ссылку">
+                  <input type="text" class="form-control form-control-sm config-link-field" value="{{ row.vless_url|default:'' }}" readonly>
+                  <button type="button" class="btn btn-sm btn-outline-secondary js-copy-config js-copy-icon vx-icon-button" data-copy-text="{{ row.vless_url|default:'' }}" title="Скопировать ссылку" aria-label="Скопировать ссылку">
                     <i class="bi bi-copy"></i>
                   </button>
                 </div>

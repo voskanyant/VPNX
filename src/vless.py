@@ -1,4 +1,4 @@
-from urllib.parse import urlencode, quote
+from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
 
 def build_vless_url(
@@ -27,3 +27,31 @@ def build_vless_url(
         params["flow"] = flow
     query = urlencode(params, safe="")
     return f"vless://{uuid}@{host}:{port}?{query}#{quote(tag)}"
+
+
+def normalize_vless_public_endpoint(
+    vless_url: str,
+    *,
+    host: str,
+    port: int,
+    tag: str | None = None,
+) -> str:
+    raw = str(vless_url or "").strip()
+    if not raw.lower().startswith("vless://"):
+        return raw
+
+    try:
+        parts = urlsplit(raw)
+    except Exception:
+        return raw
+
+    username = parts.username or ""
+    if not username:
+        return raw
+
+    fragment = parts.fragment
+    if tag:
+        fragment = quote(tag)
+
+    netloc = f"{username}@{host}:{int(port)}"
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, fragment))

@@ -54,7 +54,7 @@
 
         {% if subscription.user and subscription.user.client_code %}
           <article class="surface-panel config-info-card config-info-card-wide">
-            <div class="config-meta-label">Client code</div>
+            <div class="config-meta-label">ID клиента</div>
             <div class="config-meta-value"><code>{{ subscription.user.client_code }}</code></div>
           </article>
         {% endif %}
@@ -66,7 +66,7 @@
           <select id="config-switch" class="form-select" onchange="if(this.value){window.location.href=this.value;}">
             {% for sub_item in subscriptions %}
               <option value="{{ backend_config_prefix }}{{ sub_item.id }}/" {% if sub_item.id == subscription.id %}selected{% endif %}>
-                #{{ sub_item.id }} — {{ sub_item.expires_at|date:'d.m.Y H:i' }} {% if sub_item.is_active %}(active){% endif %}
+                #{{ sub_item.id }} — {{ sub_item.expires_at|date:'d.m.Y H:i' }} {% if sub_item.is_active %}(активен){% endif %}
               </option>
             {% endfor %}
           </select>
