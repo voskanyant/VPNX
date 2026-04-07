@@ -59,6 +59,22 @@
 
   function currentRoute() {
     const path = window.location.pathname;
+    const search = new URLSearchParams(window.location.search || "");
+    if (/^\/account\/buy\/?$/i.test(path)) {
+      return {
+        view: "checkout-buy",
+        subscriptionId: null,
+        path: normalizePath("/account/buy/"),
+      };
+    }
+    if (/^\/account\/renew\/?$/i.test(path)) {
+      const subscriptionIdRaw = search.get("subscription_id") || "";
+      return {
+        view: "checkout-renew",
+        subscriptionId: /^\d+$/.test(subscriptionIdRaw) ? Number(subscriptionIdRaw) : null,
+        path: normalizePath("/account/renew/"),
+      };
+    }
     const configMatch = path.match(/^\/account\/config\/(\d+)\/?$/);
     if (configMatch) {
       return {
@@ -724,6 +740,25 @@
         initTelegramLoginWidget();
         releaseMountHeight();
         return;
+      }
+
+      if (route.view === "checkout-buy" || route.view === "checkout-renew") {
+        try {
+          const endpoint = route.view === "checkout-buy" ? cfg.apiBuyUrl : cfg.apiRenewUrl;
+          const body = route.view === "checkout-renew" && route.subscriptionId ? { subscription_id: route.subscriptionId } : {};
+          const result = await apiFetch(endpoint, { method: "POST", body: body });
+          if (result && result.redirect_url) {
+            window.location.assign(result.redirect_url);
+            return;
+          }
+          renderError("Не удалось открыть оплату.");
+          releaseMountHeight();
+          return;
+        } catch (error) {
+          renderError((error.payload && error.payload.error) || "Не удалось открыть оплату.");
+          releaseMountHeight();
+          return;
+        }
       }
 
       if (payload.view === "config" && payload.config) {
