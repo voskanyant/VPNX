@@ -10,7 +10,11 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable
+from urllib.parse import parse_qsl
 from urllib.parse import quote
+from urllib.parse import urlencode
+from urllib.parse import urlsplit
+from urllib.parse import urlunsplit
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -217,18 +221,28 @@ class VPNBot:
     def _account_fallback_url(self) -> str:
         return f"{self._site_url().rstrip('/')}/account/"
 
-    async def _account_url(self, user_id: int | None) -> str:
+    @staticmethod
+    def _append_next_param(url: str, next_path: str | None) -> str:
+        next_value = (next_path or "").strip()
+        if not next_value:
+            return url
+        split = urlsplit(url)
+        params = [(key, value) for key, value in parse_qsl(split.query, keep_blank_values=True) if key != "next"]
+        params.append(("next", next_value))
+        return urlunsplit((split.scheme, split.netloc, split.path, urlencode(params), split.fragment))
+
+    async def _account_url(self, user_id: int | None, next_path: str | None = None) -> str:
         explicit = self._content_text("account_page_url", "").strip()
         if explicit:
-            return explicit
+            return self._append_next_param(explicit, next_path)
         site_url = self._site_url().rstrip("/")
         fallback = self._account_fallback_url()
         if user_id is None:
-            return fallback
+            return self._append_next_param(fallback, next_path)
 
         shared_secret = (self.settings.magic_link_shared_secret or "").strip()
         if not shared_secret:
-            return fallback
+            return self._append_next_param(fallback, next_path)
 
         endpoint = f"{site_url}/api/auth/magic-link"
         telegram_user_id = await self.db.get_user_telegram_id(user_id)
@@ -241,10 +255,10 @@ class VPNBot:
                 user_id,
                 self.settings.magic_link_api_timeout_seconds,
             )
-            return magic_url or fallback
+            return self._append_next_param(magic_url or fallback, next_path)
         except Exception:
             LOGGER.exception("Failed to generate magic link for user_id=%s", user_id)
-            return fallback
+            return self._append_next_param(fallback, next_path)
 
     @staticmethod
     def _request_magic_link_url(
@@ -509,8 +523,8 @@ class VPNBot:
             ]
         )
 
-    def _buy_offer_markup(self) -> InlineKeyboardMarkup:
-        pay_url = f"{self._site_url().rstrip('/')}/account/buy/"
+    async def _buy_offer_markup(self, user_id: int | None) -> InlineKeyboardMarkup:
+        pay_url = await self._account_url(user_id, "/account/buy/")
         return InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton(text=self._with_card_price("💳 Оплатить картой"), url=pay_url)],
@@ -552,10 +566,11 @@ class VPNBot:
             ]
         )
 
-    def _renew_offer_markup(self, subscription_id: int | None = None) -> InlineKeyboardMarkup:
-        pay_url = f"{self._site_url().rstrip('/')}/account/renew/"
+    async def _renew_offer_markup(self, user_id: int | None, subscription_id: int | None = None) -> InlineKeyboardMarkup:
+        next_path = "/account/renew/"
         if isinstance(subscription_id, int) and subscription_id > 0:
-            pay_url = f"{pay_url}?subscription_id={subscription_id}"
+            next_path = f"{next_path}?subscription_id={subscription_id}"
+        pay_url = await self._account_url(user_id, next_path)
         return InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton(text=self._with_card_price("💳 Продлить картой"), url=pay_url)],
@@ -674,14 +689,14 @@ class VPNBot:
             f"Действует до: {expires_text}\n\n"
             f"Рекомендуем оплату картой на сайте · {self._card_price_label()}.\n"
             "После оплаты срок доступа продлится автоматически.",
-            reply_markup=self._renew_offer_markup(target_subscription_id),
+            reply_markup=await self._renew_offer_markup(user_id, target_subscription_id),
         )
 
     async def _show_renew_card_info(self, message: Message) -> None:
         pay_url = f"{self._site_url().rstrip('/')}/account/renew/"
         await message.edit_reply_markup(reply_markup=self._renew_card_markup(pay_url))
 
-    async def _show_buy_checkout_options(self, message: Message) -> None:
+    async def _show_buy_checkout_options(self, message: Message, user_id: int | None = None) -> None:
         await self._replace_or_reply(
             message,
             "Оформление доступа\n\n"
@@ -691,7 +706,7 @@ class VPNBot:
             "• получить отдельный доступ\n"
             "• купить доступ после пробного периода\n\n"
             "После оплаты вы сразу получите ссылку для подключения и QR-код.",
-            reply_markup=self._buy_offer_markup(),
+            reply_markup=await self._buy_offer_markup(user_id),
         )
 
     async def _show_buy_offer(self, message: Message, user_id: int) -> None:
@@ -706,7 +721,7 @@ class VPNBot:
                 reply_markup=self._buy_existing_access_markup(),
             )
             return
-        await self._show_buy_checkout_options(message)
+        await self._show_buy_checkout_options(message, user_id)
 
     async def _show_buy_card_info(self, message: Message) -> None:
         pay_url = f"{self._site_url().rstrip('/')}/account/buy/"
@@ -1577,7 +1592,8 @@ class VPNBot:
             if target == "buy_existing_continue":
                 await query.answer()
                 if query.message is not None:
-                    await self._show_buy_checkout_options(query.message)
+                    user_id = await self._ensure_user(update)
+                    await self._show_buy_checkout_options(query.message, user_id)
                 return
             if target == "buy_stars_info":
                 await query.answer()
@@ -1596,12 +1612,14 @@ class VPNBot:
                 return
             if target == "buy_card_back":
                 await query.answer()
-                await query.edit_message_reply_markup(reply_markup=self._buy_offer_markup())
+                user_id = await self._ensure_user(update)
+                await query.edit_message_reply_markup(reply_markup=await self._buy_offer_markup(user_id))
                 return
             if target == "buy_back":
                 await query.answer()
                 if query.message is not None:
-                    await self._show_buy_checkout_options(query.message)
+                    user_id = await self._ensure_user(update)
+                    await self._show_buy_checkout_options(query.message, user_id)
                 return
             if target == "renew_stars_info":
                 await query.answer()
@@ -1643,7 +1661,9 @@ class VPNBot:
                 return
             if target == "renew_card_back":
                 await query.answer()
-                await query.edit_message_reply_markup(reply_markup=self._renew_offer_markup())
+                user_id = await self._ensure_user(update)
+                target_subscription_id, _ = await self._resolve_renew_target(user_id, context)
+                await query.edit_message_reply_markup(reply_markup=await self._renew_offer_markup(user_id, target_subscription_id))
                 return
             if target == "renew_back":
                 await query.answer()

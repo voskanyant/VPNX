@@ -1138,7 +1138,12 @@ def tg_magic_login(request: HttpRequest, token: str) -> HttpResponse:
         login_token.save(update_fields=["consumed_at"])
 
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    return redirect(_account_default_redirect_url(request))
+    target_url = _safe_local_redirect_url(
+        request,
+        request.GET.get("next"),
+        _account_default_redirect_url(request),
+    )
+    return redirect(target_url)
 
 
 def _create_user_for_telegram(
