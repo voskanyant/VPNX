@@ -1741,7 +1741,7 @@ class VPNBot:
                 await query.answer()
                 await query.edit_message_text(
                     text=text,
-                    reply_markup=self._config_card_markup(subscription_id, sub_url or vless_url),
+                    reply_markup=self._config_card_markup(subscription_id, vless_url),
                 )
                 return
             if target.startswith("cfg_copy:"):
@@ -1762,7 +1762,7 @@ class VPNBot:
                 )
                 await query.answer("Ссылку отправил в чат")
                 if query.message is not None:
-                    await query.message.reply_text(f"Скопируйте ссылку:\n{sub_url or vless_url}")
+                    await query.message.reply_text(f"Скопируйте ссылку:\n{vless_url}")
                 return
             if target.startswith("cfg_qr:"):
                 user_id = await self._ensure_user(update)
