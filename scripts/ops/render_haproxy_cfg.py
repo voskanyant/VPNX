@@ -40,6 +40,7 @@ def _load_healthy_lb_nodes(database_url: str) -> list[dict[str, Any]]:
     FROM vpn_nodes
     WHERE lb_enabled = TRUE
       AND is_active = TRUE
+      AND COALESCE(needs_backfill, FALSE) = FALSE
       AND COALESCE(last_health_ok, FALSE) = TRUE
     ORDER BY id
     """

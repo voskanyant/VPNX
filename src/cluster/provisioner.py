@@ -144,7 +144,7 @@ async def ensure_client_on_all_active_nodes(
     semaphore_limit: int = 5,
     xui_client_factory: XUIClientFactory | None = None,
 ) -> dict[str, Any]:
-    nodes = await db.get_active_vpn_nodes(lb_only=True)
+    nodes = await db.get_cluster_sync_nodes()
     if not nodes:
         return {"total": 0, "ok": 0, "failed": 0, "results": []}
 

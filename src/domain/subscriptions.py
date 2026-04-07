@@ -88,9 +88,9 @@ async def _pick_canonical_node_with_inbound(
     db: DB,
     settings: Settings,
 ) -> tuple[dict[str, Any], dict[str, Any], Any, int]:
-    nodes = await db.get_active_vpn_nodes(lb_only=True)
+    nodes = await db.get_ready_lb_vpn_nodes()
     if not nodes:
-        raise RuntimeError("Cluster mode is enabled, but no active lb_enabled VPN nodes are configured")
+        raise RuntimeError("Cluster mode is enabled, but no ready lb_enabled VPN nodes are configured")
 
     ordered = sorted(nodes, key=lambda node: (0 if bool(node.get("last_health_ok")) else 1, int(node.get("id", 0))))
     errors: list[str] = []
@@ -119,7 +119,7 @@ async def _pick_canonical_node_with_inbound(
         finally:
             await node_xui.close()
 
-    raise RuntimeError(f"Could not fetch inbound/reality from any lb_enabled node: {'; '.join(errors)}")
+    raise RuntimeError(f"Could not fetch inbound/reality from any ready lb_enabled node: {'; '.join(errors)}")
 
 
 def _cluster_failure_error(ensure_result: dict[str, Any]) -> RuntimeError:
@@ -129,7 +129,7 @@ def _cluster_failure_error(ensure_result: dict[str, Any]) -> RuntimeError:
         if not item.get("ok")
     ]
     details = "; ".join(failed_nodes) if failed_nodes else "unknown cluster sync error"
-    return RuntimeError(f"Cluster provisioning failed on lb_enabled nodes: {details}")
+    return RuntimeError(f"Cluster provisioning failed on cluster sync nodes: {details}")
 
 
 async def activate_subscription(

@@ -1756,14 +1756,18 @@ class VPNBot:
                 if not sub:
                     await query.answer("Устройство не найдено", show_alert=True)
                     return
-                _, vless_url, sub_url = await self._config_card_text(
+                client_code = await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"
+                text, vless_url, _ = await self._config_card_text(
                     user_id,
                     sub,
-                    client_code=(await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"),
+                    client_code=client_code,
                 )
-                await query.answer("Ссылку отправил в чат")
+                await query.answer("Обновляю карточку")
                 if query.message is not None:
-                    await query.message.reply_text(f"Скопируйте ссылку:\n{vless_url}")
+                    await query.edit_message_text(
+                        text=text,
+                        reply_markup=await self._config_card_markup(user_id, subscription_id, vless_url),
+                    )
                 return
             if target.startswith("cfg_qr:"):
                 user_id = await self._ensure_user(update)
@@ -1781,7 +1785,7 @@ class VPNBot:
                     sub,
                     client_code=(await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"),
                 )
-                qr_payload = sub_url or vless_url
+                qr_payload = vless_url
                 qr_img = self._build_styled_qr(qr_payload, "QR доступа")
                 qr_buff = io.BytesIO()
                 qr_img.save(qr_buff, format="PNG")
@@ -1802,13 +1806,17 @@ class VPNBot:
                     await query.answer("Устройство не найдено", show_alert=True)
                     return
                 context.user_data["selected_subscription_id"] = subscription_id
-                await query.answer()
+                client_code = await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"
+                text, vless_url, _ = await self._config_card_text(
+                    user_id,
+                    sub,
+                    client_code=client_code,
+                )
+                await query.answer("Нажмите кнопку продления картой")
                 if query.message is not None:
-                    await self._send_stars_invoice_for_message(
-                        query.message,
-                        user_id,
-                        mode="renew",
-                        target_subscription_id=subscription_id,
+                    await query.edit_message_text(
+                        text=text,
+                        reply_markup=await self._config_card_markup(user_id, subscription_id, vless_url),
                     )
                 return
             if target.startswith("cfg_rename:"):
@@ -2204,6 +2212,7 @@ class VPNBot:
                 result.vless_url,
                 result.expires_at,
                 sub_url,
+                subscription_id=result.subscription_id,
                 client_code=client_code,
                 user_id=result.user_id,
                 last_payment_method=last_payment_method,
@@ -2230,6 +2239,7 @@ class VPNBot:
             sub["vless_url"],
             sub["expires_at"],
             sub_url,
+            subscription_id=int(sub["id"]),
             client_code=client_code,
             user_id=user_id,
             last_payment_method=last_payment_method,
@@ -2350,6 +2360,7 @@ class VPNBot:
                 vless_url,
                 new_exp,
                 sub_url,
+                subscription_id=None,
                 user_id=user_id,
                 last_payment_method=last_payment_method,
             )
@@ -2392,6 +2403,7 @@ class VPNBot:
             vless_url,
             new_exp,
             sub_url,
+            subscription_id=int(sub["id"]),
             user_id=user_id,
             last_payment_method=last_payment_method,
         )
@@ -2402,6 +2414,7 @@ class VPNBot:
         vless_url: str,
         expires_at: datetime,
         subscription_url: str | None = None,
+        subscription_id: int | None = None,
         client_code: str | None = None,
         user_id: int | None = None,
         last_payment_method: str | None = None,
@@ -2412,12 +2425,15 @@ class VPNBot:
         if message is None:
             return
         action_markup: InlineKeyboardMarkup | None = None
-        link_for_copy = subscription_url or vless_url
-        qr_payload = subscription_url or vless_url
+        link_for_copy = vless_url
+        qr_payload = vless_url
         qr_title = "QR доступа" if subscription_url else "QR подключения"
 
         account_url = await self._account_url(user_id)
-        renew_url = await self._account_url(user_id, "/account/renew/")
+        renew_path = "/account/renew/"
+        if isinstance(subscription_id, int) and subscription_id > 0:
+            renew_path = f"{renew_path}?subscription_id={subscription_id}"
+        renew_url = await self._account_url(user_id, renew_path)
 
         buttons: list[list[InlineKeyboardButton]] = [
             [

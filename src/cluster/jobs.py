@@ -79,7 +79,7 @@ async def healthcheck_tick(db: DB) -> dict[str, int]:
 
 
 async def sync_tick(db: DB, settings: Any) -> dict[str, int]:
-    nodes = await db.get_active_vpn_nodes(lb_only=True)
+    nodes = await db.get_cluster_sync_nodes()
     if not nodes:
         return {"nodes": 0, "processed": 0, "ok": 0, "failed": 0}
 

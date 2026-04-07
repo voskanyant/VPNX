@@ -1,6 +1,6 @@
 ﻿from datetime import timedelta
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db.models import Count, Q
 from django.template.response import TemplateResponse
 from django.urls import path
@@ -313,7 +313,16 @@ class VPNNodeAdmin(admin.ModelAdmin):
     @admin.action(description="Enable LB")
     def enable_lb(self, request, queryset):
         now = timezone.now()
-        updated = queryset.update(lb_enabled=True, updated_at=now)
+        ready_qs = queryset.filter(needs_backfill=False)
+        updated = ready_qs.update(lb_enabled=True, updated_at=now)
+        skipped = queryset.exclude(needs_backfill=False).count()
+        if skipped:
+            self.message_user(
+                request,
+                f"LB enabled for nodes: {updated}. Skipped nodes that still need backfill: {skipped}",
+                level=messages.WARNING,
+            )
+            return
         self.message_user(request, f"LB enabled for nodes: {updated}")
 
     @admin.action(description="Disable LB")

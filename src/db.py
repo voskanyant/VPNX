@@ -281,6 +281,39 @@ class DB:
             return []
         return [dict(r) for r in rows]
 
+    async def get_ready_lb_vpn_nodes(self) -> list[dict[str, Any]]:
+        assert self.pool is not None
+        try:
+            rows = await self.pool.fetch(
+                """
+                SELECT *
+                FROM vpn_nodes
+                WHERE is_active = TRUE
+                  AND lb_enabled = TRUE
+                  AND COALESCE(needs_backfill, FALSE) = FALSE
+                ORDER BY id
+                """
+            )
+        except (asyncpg.UndefinedTableError, asyncpg.UndefinedColumnError):
+            return []
+        return [dict(r) for r in rows]
+
+    async def get_cluster_sync_nodes(self) -> list[dict[str, Any]]:
+        assert self.pool is not None
+        try:
+            rows = await self.pool.fetch(
+                """
+                SELECT *
+                FROM vpn_nodes
+                WHERE is_active = TRUE
+                  AND (lb_enabled = TRUE OR COALESCE(needs_backfill, FALSE) = TRUE)
+                ORDER BY id
+                """
+            )
+        except (asyncpg.UndefinedTableError, asyncpg.UndefinedColumnError):
+            return []
+        return [dict(r) for r in rows]
+
     async def get_vpn_node(self, node_id: int) -> dict[str, Any] | None:
         assert self.pool is not None
         try:
