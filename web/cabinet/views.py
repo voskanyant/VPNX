@@ -52,6 +52,39 @@ WEB_ORDER_SESSION_KEY = "web_order_checkout_state_v1"
 WEB_PLACEHOLDER_TELEGRAM_ID_OFFSET = 10**12
 
 
+def _vpn_public_host() -> str:
+    direct = str(getattr(settings, "VPN_PUBLIC_HOST", "") or os.getenv("VPN_PUBLIC_HOST", "")).strip()
+    if direct:
+        return direct
+    site_url = str(getattr(settings, "WORDPRESS_PUBLIC_SITE_URL", "") or "").strip()
+    if site_url:
+        try:
+            parsed = urlsplit(site_url)
+            if parsed.hostname:
+                return parsed.hostname
+        except Exception:
+            pass
+    return requestless_host_fallback()
+
+
+def requestless_host_fallback() -> str:
+    return "vxcloud.ru"
+
+
+def _vpn_public_port() -> int:
+    raw = getattr(settings, "VPN_PUBLIC_PORT", None)
+    if raw in (None, ""):
+        raw = os.getenv("VPN_PUBLIC_PORT", "29940")
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 29940
+
+
+def _vpn_tag() -> str:
+    return str(getattr(settings, "VPN_TAG", "") or os.getenv("VPN_TAG", "VXcloud")).strip() or "VXcloud"
+
+
 def _account_embed_mode(request: HttpRequest) -> bool:
     return (request.GET.get("embed") or "").strip() == "1"
 
@@ -250,9 +283,9 @@ def _serialize_subscription_row(row: dict[str, object]) -> dict[str, object]:
     subscription = row["obj"]
     vless_url = _normalize_vless_public_endpoint(
         getattr(subscription, "vless_url", "") or "",
-        host=settings.VPN_PUBLIC_HOST,
-        port=settings.VPN_PUBLIC_PORT,
-        tag=getattr(settings, "VPN_TAG", "VXcloud"),
+        host=_vpn_public_host(),
+        port=_vpn_public_port(),
+        tag=_vpn_tag(),
     )
     return {
         "id": int(row["id"]),
@@ -378,9 +411,9 @@ def _build_config_payload(request: HttpRequest, subscription_id: int) -> tuple[d
         sub = current_row["obj"]
         qr_data = _normalize_vless_public_endpoint(
             getattr(sub, "vless_url", "") or "",
-            host=settings.VPN_PUBLIC_HOST,
-            port=settings.VPN_PUBLIC_PORT,
-            tag=getattr(settings, "VPN_TAG", "VXcloud"),
+            host=_vpn_public_host(),
+            port=_vpn_public_port(),
+            tag=_vpn_tag(),
         )
         img = qrcode.make(qr_data)
         buff = io.BytesIO()
@@ -685,9 +718,9 @@ def account_dashboard(request: HttpRequest) -> HttpResponse:
                 "expires_at": expires_at,
                 "vless_url": _normalize_vless_public_endpoint(
                     getattr(item, "vless_url", "") or "",
-                    host=settings.VPN_PUBLIC_HOST,
-                    port=settings.VPN_PUBLIC_PORT,
-                    tag=getattr(settings, "VPN_TAG", "VXcloud"),
+                    host=_vpn_public_host(),
+                    port=_vpn_public_port(),
+                    tag=_vpn_tag(),
                 ),
             }
         )
@@ -783,9 +816,9 @@ def account_config(request: HttpRequest, subscription_id: int | None = None) -> 
 
     qr_data = _normalize_vless_public_endpoint(
         sub.vless_url,
-        host=settings.VPN_PUBLIC_HOST,
-        port=settings.VPN_PUBLIC_PORT,
-        tag=getattr(settings, "VPN_TAG", "VXcloud"),
+        host=_vpn_public_host(),
+        port=_vpn_public_port(),
+        tag=_vpn_tag(),
     )
     img = qrcode.make(qr_data)
     buff = io.BytesIO()

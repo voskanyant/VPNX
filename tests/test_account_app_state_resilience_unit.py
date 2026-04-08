@@ -20,7 +20,7 @@ from django.db import DatabaseError
 from django.test import Client, RequestFactory
 from unittest.mock import patch
 
-from cabinet.views import _build_public_absolute_url
+from cabinet.views import _build_public_absolute_url, _vpn_public_host, _vpn_public_port
 
 
 class AccountAppStateResilienceUnitTests(unittest.TestCase):
@@ -73,6 +73,17 @@ class AccountAppStateResilienceUnitTests(unittest.TestCase):
         self.assertEqual(payload["view"], "link")
         self.assertIn("link_code", payload["link"])
         self.assertIn("https://t.me/vxcloud_test_bot?start=link_", payload["link"]["deep_link"])
+
+    def test_vpn_public_endpoint_helpers_fallback_to_env(self):
+        with patch.object(sys.modules["cabinet.views"].settings, "VPN_PUBLIC_HOST", ""), patch.object(
+            sys.modules["cabinet.views"].settings, "VPN_PUBLIC_PORT", ""
+        ), patch.dict(
+            "os.environ",
+            {"VPN_PUBLIC_HOST": "vxcloud.ru", "VPN_PUBLIC_PORT": "29940"},
+            clear=False,
+        ):
+            self.assertEqual(_vpn_public_host(), "vxcloud.ru")
+            self.assertEqual(_vpn_public_port(), 29940)
 
 
 if __name__ == "__main__":
