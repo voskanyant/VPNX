@@ -1195,6 +1195,7 @@ def tg_magic_login(request: HttpRequest, token: str) -> HttpResponse:
         return HttpResponse(status=405)
 
     now = timezone.now()
+    current_user = getattr(request, "user", None)
     with transaction.atomic():
         login_token = (
             WebLoginToken.objects.select_for_update()
@@ -1208,7 +1209,10 @@ def tg_magic_login(request: HttpRequest, token: str) -> HttpResponse:
         if login_token.expires_at <= now:
             return HttpResponse("Token expired", status=410)
 
-        user = _get_or_create_user_for_telegram(telegram_id=login_token.telegram_id)
+        if bool(getattr(current_user, "is_authenticated", False)):
+            user = _link_site_user_to_telegram(current_user, int(login_token.telegram_id))
+        else:
+            user = _get_or_create_user_for_telegram(telegram_id=login_token.telegram_id)
 
         login_token.consumed_at = now
         login_token.save(update_fields=["consumed_at"])
@@ -1242,6 +1246,20 @@ def _create_user_for_telegram(
     )
     user.set_unusable_password()
     user.save()
+    return user
+
+
+def _link_site_user_to_telegram(user: User, telegram_id: int) -> User:
+    (
+        LinkedAccount.objects.select_for_update()
+        .filter(telegram_id=telegram_id)
+        .exclude(user=user)
+        .delete()
+    )
+    LinkedAccount.objects.update_or_create(
+        user=user,
+        defaults={"telegram_id": telegram_id},
+    )
     return user
 
 
@@ -1346,13 +1364,17 @@ def telegram_login(request: HttpRequest) -> HttpResponse:
         fallback = _safe_local_redirect_url(request, request.GET.get("return_to"), "/accounts/login/")
         return redirect(fallback)
 
+    current_user = getattr(request, "user", None)
     with transaction.atomic():
-        user = _get_or_create_user_for_telegram(
-            telegram_id=int(verified_data["telegram_id"]),
-            telegram_username=str(verified_data.get("telegram_username") or ""),
-            first_name=str(verified_data.get("first_name") or ""),
-            last_name=str(verified_data.get("last_name") or ""),
-        )
+        if bool(getattr(current_user, "is_authenticated", False)):
+            user = _link_site_user_to_telegram(current_user, int(verified_data["telegram_id"]))
+        else:
+            user = _get_or_create_user_for_telegram(
+                telegram_id=int(verified_data["telegram_id"]),
+                telegram_username=str(verified_data.get("telegram_username") or ""),
+                first_name=str(verified_data.get("first_name") or ""),
+                last_name=str(verified_data.get("last_name") or ""),
+            )
 
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     target_url = _safe_local_redirect_url(

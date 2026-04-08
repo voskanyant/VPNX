@@ -4,6 +4,7 @@ import os
 import sys
 import unittest
 from contextlib import nullcontext
+from datetime import timedelta
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +21,7 @@ django.setup()
 
 from unittest.mock import patch
 
-from cabinet.views import _verify_telegram_login_payload, telegram_login
+from cabinet.views import _verify_telegram_login_payload, tg_magic_login, telegram_login
 
 
 def _sign_telegram_login_payload(payload: dict[str, str], bot_token: str) -> str:
@@ -126,6 +127,84 @@ class TelegramSiteLoginUnitTests(unittest.TestCase):
         self.assertEqual(response["Location"], "/account/signup/")
         message_error_mock.assert_called_once()
         login_mock.assert_not_called()
+
+    def test_telegram_login_links_current_authenticated_user_instead_of_creating_new_one(self):
+        payload = {
+            "id": "777000",
+            "first_name": "VX",
+            "last_name": "Cloud",
+            "username": "vxcloud_user",
+            "auth_date": "1712430000",
+        }
+        bot_token = "telegram-bot-token"
+        signed_payload = dict(payload)
+        signed_payload["hash"] = _sign_telegram_login_payload(payload, bot_token)
+        signed_payload["next"] = "/account/"
+
+        request = self.factory.get("/auth/telegram/login/", data=signed_payload)
+        request.user = type("User", (), {"is_authenticated": True})()
+
+        with override_settings(
+            TELEGRAM_WEBAPP_BOT_TOKEN=bot_token,
+            TELEGRAM_LOGIN_AUTH_MAX_AGE_SECONDS=10**9,
+            ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"],
+        ):
+            with patch("cabinet.views.transaction.atomic", return_value=nullcontext()):
+                with patch("cabinet.views._link_site_user_to_telegram", return_value=request.user) as link_mock:
+                    with patch("cabinet.views._get_or_create_user_for_telegram") as get_user_mock:
+                        with patch("cabinet.views.login") as login_mock:
+                            response = telegram_login(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/account/")
+        link_mock.assert_called_once_with(request.user, 777000)
+        get_user_mock.assert_not_called()
+        login_mock.assert_called_once_with(
+            request,
+            request.user,
+            backend="django.contrib.auth.backends.ModelBackend",
+        )
+
+    def test_magic_login_links_current_authenticated_user_instead_of_switching_account(self):
+        request = self.factory.get("/auth/tg/sampletoken", data={"next": "/account/"})
+        request.user = type("User", (), {"is_authenticated": True})()
+        token = type(
+            "Token",
+            (),
+            {
+                "telegram_id": 777000,
+                "consumed_at": None,
+                "expires_at": django.utils.timezone.now() + timedelta(minutes=5),
+                "save": lambda self, update_fields=None: None,
+            },
+        )()
+
+        fake_qs = type(
+            "QS",
+            (),
+            {
+                "filter": lambda self, token=None: self,
+                "first": lambda self: token,
+            },
+        )()
+        fake_mgr = type("Mgr", (), {"select_for_update": lambda self: fake_qs})()
+
+        with patch("cabinet.views.transaction.atomic", return_value=nullcontext()):
+            with patch("cabinet.views.WebLoginToken.objects", fake_mgr):
+                with patch("cabinet.views._link_site_user_to_telegram", return_value=request.user) as link_mock:
+                    with patch("cabinet.views._get_or_create_user_for_telegram") as get_user_mock:
+                        with patch("cabinet.views.login") as login_mock:
+                            response = tg_magic_login(request, "sampletoken")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/account/")
+        link_mock.assert_called_once_with(request.user, 777000)
+        get_user_mock.assert_not_called()
+        login_mock.assert_called_once_with(
+            request,
+            request.user,
+            backend="django.contrib.auth.backends.ModelBackend",
+        )
 
 
 if __name__ == "__main__":
