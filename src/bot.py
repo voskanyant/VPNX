@@ -2695,14 +2695,28 @@ class VPNBot:
             if tg_id <= 0:
                 continue
             sub_id = int(item["id"])
+            config_name = str(item.get("display_name") or f"Конфиг #{sub_id}")
+            expires_label = self._format_local_dt(expires_at)
             if expires_at <= now:
-                msg = "Ваш доступ VXcloud истёк. Используйте /buy для продления."
+                msg = (
+                    f"Истёк конфиг VXcloud: {config_name}\n"
+                    f"Действовал до: {expires_label}\n\n"
+                    "Используйте /buy для продления."
+                )
                 tag = "expired"
             elif expires_at <= now + timedelta(days=1):
-                msg = f"Напоминание: доступ VXcloud истекает менее чем через 24 часа ({self._format_local_dt(expires_at)})."
+                msg = (
+                    f"Напоминание: конфиг VXcloud скоро истекает\n"
+                    f"Устройство: {config_name}\n"
+                    f"До: {expires_label}"
+                )
                 tag = "1d"
             else:
-                msg = f"Напоминание: доступ VXcloud истекает менее чем через 3 дня ({self._format_local_dt(expires_at)})."
+                msg = (
+                    f"Напоминание: конфиг VXcloud истекает менее чем через 3 дня\n"
+                    f"Устройство: {config_name}\n"
+                    f"До: {expires_label}"
+                )
                 tag = "3d"
 
             try:

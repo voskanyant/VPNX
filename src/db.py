@@ -766,7 +766,7 @@ class DB:
         in_1_day = now + timedelta(days=1)
         rows = await self.pool.fetch(
             """
-            SELECT s.id, s.user_id, s.expires_at, u.telegram_id
+            SELECT s.id, s.user_id, s.expires_at, s.display_name, u.telegram_id
             FROM subscriptions s
             JOIN users u ON u.id = s.user_id
             WHERE s.is_active = TRUE
