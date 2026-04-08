@@ -301,6 +301,61 @@
   margin-top: 0;
 }
 
+.vx-profile-form {
+  display: grid;
+  gap: 16px;
+  padding: 0 14px 16px;
+}
+
+.vx-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.vx-profile-field {
+  display: grid;
+  gap: 8px;
+}
+
+.vx-profile-field span {
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--vx-muted-2);
+}
+
+.vx-profile-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 50px;
+  border-radius: 16px;
+  border: 1px solid var(--vx-border-strong);
+  background: #fff;
+  color: var(--vx-ink);
+  padding: 12px 14px;
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.vx-profile-field input:focus {
+  border-color: rgba(17, 27, 68, 0.28);
+  box-shadow: 0 0 0 4px rgba(17, 27, 68, 0.08);
+}
+
+.vx-profile-actions {
+  display: flex;
+}
+
+.vx-profile-errors {
+  margin-bottom: 0;
+}
+
 .vx-stat-card,
 .vx-info-card,
 .vx-field-card {
@@ -1127,6 +1182,22 @@
     min-height: 34px;
     padding: 7px 14px;
     font-size: 13px;
+  }
+
+  .vx-profile-form {
+    padding: 0 12px 14px;
+    gap: 12px;
+  }
+
+  .vx-profile-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .vx-profile-field input {
+    min-height: 46px;
+    border-radius: 14px;
+    padding: 10px 12px;
   }
 
   .vx-stat-card,

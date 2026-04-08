@@ -315,6 +315,21 @@
           .join("")
       : '<div class="vx-account-empty">Пока нет активных доступов. Оформите первый доступ, чтобы он появился здесь.</div>';
 
+    const profile = (model && model.user) || {};
+    const profileFormHtml = [
+      '<section class="vx-section-card"><div class="vx-section-card__head"><h2>Профиль</h2><span>Изменяйте данные аккаунта без выхода из кабинета.</span></div>',
+      '<form class="vx-profile-form" data-profile-form>',
+      '<div class="vx-profile-grid">',
+      '<label class="vx-profile-field"><span>Логин</span><input type="text" name="username" maxlength="150" required value="' + escapeHtml(profile.username || "") + '"></label>',
+      '<label class="vx-profile-field"><span>Email</span><input type="email" name="email" maxlength="254" required value="' + escapeHtml(profile.email || "") + '"></label>',
+      '<label class="vx-profile-field"><span>Имя</span><input type="text" name="first_name" maxlength="150" value="' + escapeHtml(profile.first_name || "") + '"></label>',
+      '<label class="vx-profile-field"><span>Фамилия</span><input type="text" name="last_name" maxlength="150" value="' + escapeHtml(profile.last_name || "") + '"></label>',
+      "</div>",
+      '<div class="vx-profile-actions"><button type="submit" class="vx-button vx-button--ghost">Сохранить данные</button></div>',
+      '<div class="vx-auth-errors vx-profile-errors" data-profile-errors style="display:none"></div>',
+      "</form></section>",
+    ].join("");
+
     mount.className = "vx-native-account";
     mount.innerHTML = [
       '<section class="vx-account-app__shell">',
@@ -337,6 +352,7 @@
       "</div>",
       "</section>",
       '<section class="vx-account-summary"><div class="vx-account-summary__grid">' + summaryHtml + "</div></section>",
+      profileFormHtml,
       '<section class="vx-section-card"><div class="vx-section-card__head"><h2>Устройства</h2><span>Активных: ' +
         escapeHtml(String(model.stats && model.stats.active_configs != null ? model.stats.active_configs : 0)) +
         " · Неактивных: " +
@@ -660,6 +676,46 @@
         bindSharedInteractions();
         bindAuthInteractions();
         initTelegramLoginWidget();
+      });
+    });
+
+    mount.querySelectorAll("[data-profile-form]").forEach(function (form) {
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        if (state.pending || !cfg.apiProfileUrl) return;
+        state.pending = true;
+        const submitButton = form.querySelector("button[type='submit']");
+        const errorBox = form.querySelector("[data-profile-errors]");
+        if (submitButton) submitButton.setAttribute("disabled", "disabled");
+        if (errorBox) {
+          errorBox.innerHTML = "";
+          errorBox.style.display = "none";
+        }
+
+        const formData = new FormData(form);
+        const body = Object.fromEntries(formData.entries());
+
+        try {
+          await apiFetch(cfg.apiProfileUrl, { method: "POST", body: body });
+          showToast("Данные аккаунта обновлены");
+          await loadCurrentView();
+        } catch (error) {
+          const errors = (error.payload && error.payload.errors) || {};
+          const values = Object.values(errors).filter(Boolean);
+          if (errorBox && values.length) {
+            errorBox.style.display = "block";
+            errorBox.innerHTML = values
+              .map(function (value) {
+                return '<div class="vx-auth-error">' + escapeHtml(value) + "</div>";
+              })
+              .join("");
+          } else {
+            showToast((error.payload && error.payload.error) || "Не удалось обновить профиль");
+          }
+        } finally {
+          state.pending = false;
+          if (submitButton) submitButton.removeAttribute("disabled");
+        }
       });
     });
   }

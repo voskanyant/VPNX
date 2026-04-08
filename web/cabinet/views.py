@@ -38,7 +38,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from .forms import EmailAuthenticationForm, SignUpForm
+from .forms import EmailAuthenticationForm, SignUpForm, UserProfileForm
 from .models import BotOrder, BotSubscription, BotUser, LinkedAccount, PaymentEvent, TelegramLinkToken, WebLoginToken
 from payments.providers import get_payment_provider
 
@@ -274,6 +274,9 @@ def _build_dashboard_payload(request: HttpRequest) -> dict[str, object]:
         "user": {
             "username": request.user.username,
             "client_code": "",
+            "email": request.user.email or "",
+            "first_name": request.user.first_name or "",
+            "last_name": request.user.last_name or "",
         },
         "stats": {
             "active_configs": 0,
@@ -1074,6 +1077,51 @@ def account_api_signup(request: HttpRequest) -> JsonResponse:
 def account_api_logout(request: HttpRequest) -> JsonResponse:
     logout(request)
     return JsonResponse({"ok": True})
+
+
+@require_POST
+def account_api_profile(request: HttpRequest) -> JsonResponse:
+    if not request.user.is_authenticated:
+        return _json_error("Требуется вход в аккаунт.", status=401)
+
+    data = _json_body(request)
+    form = UserProfileForm(
+        {
+            "username": (data.get("username") or "").strip(),
+            "email": (data.get("email") or "").strip(),
+            "first_name": (data.get("first_name") or "").strip(),
+            "last_name": (data.get("last_name") or "").strip(),
+        },
+        user=request.user,
+    )
+    if not form.is_valid():
+        return _json_error("Не удалось обновить профиль.", errors=_serialize_form_errors(form))
+
+    request.user.username = form.cleaned_data["username"]
+    request.user.email = form.cleaned_data["email"]
+    request.user.first_name = form.cleaned_data["first_name"]
+    request.user.last_name = form.cleaned_data["last_name"]
+    request.user.save(update_fields=["username", "email", "first_name", "last_name"])
+
+    try:
+        _ensure_site_bot_user(request)
+    except Exception:
+        LOGGER.exception(
+            "account_profile_sync_failed",
+            extra={"django_user_id": int(getattr(request.user, "id", 0) or 0)},
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "user": {
+                "username": request.user.username,
+                "email": request.user.email or "",
+                "first_name": request.user.first_name or "",
+                "last_name": request.user.last_name or "",
+            },
+        }
+    )
 
 
 @require_POST
