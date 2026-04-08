@@ -9,7 +9,12 @@
   - `POSTGRES_PASSWORD`
   - `MAGIC_LINK_SHARED_SECRET`
   - `ACCOUNT_MAGIC_URL_TEMPLATE`
-  - для card-платежей: `PAYMENT_PROVIDER`, `PAYMENT_REFERENCE_WEBHOOK_SECRET` (или секрет вашего провайдера)
+  - для card-платежей: `PAYMENT_PROVIDER=yookassa`
+  - `PAYMENT_YOOKASSA_SHOP_ID`
+  - `PAYMENT_YOOKASSA_API_KEY`
+  - `ENABLE_CARD_PAYMENTS=1`
+  - `VPN_PUBLIC_PORT=29940`
+  - `HAPROXY_FRONTEND_PORT=29940`
 - Контейнеры `db`, `web`, `bot` запущены.
 
 ## Порядок SQL-миграций
@@ -66,4 +71,3 @@
 ```bash
 HEALTHCHECK_HOST=vxcloud.ru ./scripts/ops/migrate.sh
 ```
-

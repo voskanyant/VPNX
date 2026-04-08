@@ -32,14 +32,14 @@ class HAProxyRenderUnitTests(unittest.TestCase):
         repo_root = Path(__file__).resolve().parents[1]
         template_path = repo_root / "ops" / "haproxy" / "haproxy.cfg.tpl"
         nodes = [
-            {"id": 7, "name": "cluster-a", "backend_host": "172.16.0.7", "backend_port": 41068, "backend_weight": 100}
+            {"id": 7, "name": "cluster-a", "backend_host": "172.16.0.7", "backend_port": 29940, "backend_weight": 100}
         ]
         backend_servers = renderer._render_backend_servers(nodes)
 
         cfg = renderer._render_config(
             template_path=template_path,
             frontend_bind_addr="0.0.0.0",
-            frontend_port=41068,
+            frontend_port=29940,
             backend_servers=backend_servers,
         )
 
@@ -50,7 +50,7 @@ class HAProxyRenderUnitTests(unittest.TestCase):
         self.assertIn("timeout client 4h", cfg)
         self.assertIn("timeout server 4h", cfg)
         self.assertIn("default-server inter 3s rise 2 fall 3 slowstart 60s", cfg)
-        self.assertIn("server node_7_cluster-a 172.16.0.7:41068 check weight 100", cfg)
+        self.assertIn("server node_7_cluster-a 172.16.0.7:29940 check weight 100", cfg)
 
     def test_empty_nodes_render_disabled_placeholder_server(self):
         renderer = _load_renderer_module()

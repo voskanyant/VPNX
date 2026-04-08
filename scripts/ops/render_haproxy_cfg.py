@@ -171,7 +171,7 @@ def main() -> int:
     frontend_bind_addr = (args.frontend_bind_addr or os.getenv("HAPROXY_FRONTEND_BIND_ADDR", "0.0.0.0")).strip()
     frontend_port = args.frontend_port or _env_int(
         "HAPROXY_FRONTEND_PORT",
-        _env_int("VPN_PUBLIC_PORT", 41068),
+        _env_int("VPN_PUBLIC_PORT", 29940),
     )
     reload_cmd = (args.reload_cmd if args.reload_cmd is not None else os.getenv("HAPROXY_RELOAD_CMD", "")).strip()
     haproxy_bin = (args.haproxy_bin or os.getenv("HAPROXY_BIN", "haproxy")).strip()

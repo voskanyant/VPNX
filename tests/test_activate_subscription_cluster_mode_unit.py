@@ -18,7 +18,7 @@ def _settings(*, cluster_enabled: bool) -> Settings:
         xui_inbound_id=1,
         xui_sub_port=2096,
         vpn_public_host="lb.vxcloud.ru",
-        vpn_public_port=41068,
+        vpn_public_port=29940,
         vpn_cluster_enabled=cluster_enabled,
         vpn_cluster_healthcheck_interval_seconds=30,
         vpn_cluster_sync_interval_seconds=60,
@@ -184,7 +184,7 @@ class ActivateSubscriptionClusterModeUnitTests(unittest.IsolatedAsyncioTestCase)
         ensure_mock.assert_awaited_once()
         create_kwargs = db.create_subscription.await_args.kwargs
         created_vless = str(create_kwargs["vless_url"])
-        self.assertIn("@lb.vxcloud.ru:41068", created_vless)
+        self.assertIn("@lb.vxcloud.ru:29940", created_vless)
         self.assertEqual(result.vless_url, created_vless)
         self.assertTrue(result.created)
         self.assertFalse(result.idempotent)

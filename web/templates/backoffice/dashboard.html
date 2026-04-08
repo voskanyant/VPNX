@@ -88,11 +88,11 @@
             </tr>
           </thead>
           <tbody>
-            {% for order in recent_orders %}
+            {% for order in recent_orders_payload %}
               <tr>
                 <td>{{ order.id }}</td>
-                <td>{{ order.user.username|default:order.user.client_code }}</td>
-                <td>{{ order.status }}</td>
+                <td>{{ order.user_label }}</td>
+                <td>{{ order.status_badge }}</td>
                 <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
               </tr>
             {% empty %}

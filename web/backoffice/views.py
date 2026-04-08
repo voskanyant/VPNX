@@ -317,6 +317,17 @@ class DashboardView(StaffRequiredMixin, TemplateView):
             lambda: BotOrder.objects.select_related("user").order_by("-id")[:8],
             [],
         )
+        recent_orders_payload: list[dict[str, Any]] = []
+        for order in ctx["recent_orders"]:
+            recent_orders_payload.append(
+                {
+                    "id": int(order.id),
+                    "user_label": (getattr(getattr(order, "user", None), "username", "") or getattr(getattr(order, "user", None), "client_code", "") or "-"),
+                    "status_badge": order_status_display(order),
+                    "created_at": getattr(order, "created_at", None),
+                }
+            )
+        ctx["recent_orders_payload"] = recent_orders_payload
         ctx["recent_tickets"] = safe_get(
             lambda: SupportTicket.objects.select_related("user").order_by("-updated_at")[:8],
             [],

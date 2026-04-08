@@ -18,7 +18,7 @@ def _settings(*, cluster_enabled: bool) -> Settings:
         xui_inbound_id=1,
         xui_sub_port=2096,
         vpn_public_host="vxcloud.ru",
-        vpn_public_port=41068,
+        vpn_public_port=29940,
         vpn_cluster_enabled=cluster_enabled,
         vpn_cluster_healthcheck_interval_seconds=30,
         vpn_cluster_sync_interval_seconds=60,
