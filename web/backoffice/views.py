@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import sys
-from datetime import timedelta
+from datetime import timedelta, timezone as dt_timezone
 from pathlib import Path
 from typing import Any
 from urllib import error as urllib_error
@@ -713,8 +713,10 @@ class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(form=form))
 
-        expires_at = timezone.make_aware(form.cleaned_data["expires_at"], timezone.get_current_timezone())
-        expires_at = expires_at.astimezone(timezone.utc)
+        expires_at = form.cleaned_data["expires_at"]
+        if timezone.is_naive(expires_at):
+            expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
+        expires_at = expires_at.astimezone(dt_timezone.utc)
 
         with transaction.atomic():
             subscription.expires_at = expires_at
