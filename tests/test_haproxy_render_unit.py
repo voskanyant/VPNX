@@ -45,6 +45,11 @@ class HAProxyRenderUnitTests(unittest.TestCase):
 
         self.assertIn("mode tcp", cfg)
         self.assertIn("balance leastconn", cfg)
+        self.assertIn("option clitcpka", cfg)
+        self.assertIn("option srvtcpka", cfg)
+        self.assertIn("timeout client 4h", cfg)
+        self.assertIn("timeout server 4h", cfg)
+        self.assertIn("default-server inter 3s rise 2 fall 3 slowstart 60s", cfg)
         self.assertIn("server node_7_cluster-a 172.16.0.7:41068 check weight 100", cfg)
 
     def test_empty_nodes_render_disabled_placeholder_server(self):

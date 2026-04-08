@@ -307,6 +307,11 @@ class DashboardView(StaffRequiredMixin, TemplateView):
                 "value": f"{env_value('VPN_PUBLIC_HOST', '-')}:{env_value('VPN_PUBLIC_PORT', '-')}",
                 "meta": f"inbound #{env_value('XUI_INBOUND_ID', '-')}",
             },
+            {
+                "label": "Legacy Directus",
+                "value": "Enabled" if env_value("CMS_BASE_URL") and env_value("CMS_TOKEN") else "Off",
+                "meta": "bot text bridge",
+            },
         ]
         ctx["recent_orders"] = safe_get(
             lambda: BotOrder.objects.select_related("user").order_by("-id")[:8],
@@ -892,6 +897,8 @@ class SystemOverviewView(StaffRequiredMixin, TemplateView):
         ctx["notes"] = [
             "Из веб-интерфейса пока показывается operational state и конфиг. Релоад HAProxy и системные команды лучше оставлять на сервере, а не выполнять из Django-контейнера.",
             "Если cluster mode выключен, таблицы нод и sync всё равно полезны как inventory и health audit.",
+            "Перед включением lb_enabled на новой ноде: откройте firewall для backend/inbound port, дождитесь health=healthy, закончите backfill и сверьте REALITY key/shortId/SNI с majority пулом.",
+            "HAProxy template теперь рассчитан на long-lived TCP sessions. При первом node-add всё равно сделайте dry-run render и тест старым и новым конфигом.",
         ]
         return ctx
 

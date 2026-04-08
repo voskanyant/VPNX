@@ -25,6 +25,9 @@ async def run() -> None:
     xui = XUIClient(settings.xui_base_url, settings.xui_username, settings.xui_password)
     cms: DirectusCMS | None = None
     if settings.cms_base_url and settings.cms_token:
+        logging.warning(
+            "Legacy Directus CMS bridge is enabled. Disable CMS_BASE_URL/CMS_TOKEN before launch if Directus is no longer used."
+        )
         cms = DirectusCMS(
             base_url=settings.cms_base_url,
             token=settings.cms_token,

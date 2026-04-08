@@ -89,7 +89,9 @@ def _render_backend_servers(nodes: list[dict[str, Any]]) -> str:
         backend_host = str(node["backend_host"]).strip()
         backend_port = int(node["backend_port"])
         backend_weight = max(1, int(node.get("backend_weight") or 100))
-        lines.append(f"  server {server_name} {backend_host}:{backend_port} check weight {backend_weight}")
+        lines.append(
+            f"  server {server_name} {backend_host}:{backend_port} check weight {backend_weight}"
+        )
 
     if not lines:
         lines.append("  # No lb_enabled + healthy nodes found.")
