@@ -8,6 +8,7 @@ urlpatterns = [
     path("api/signup/", views.account_api_signup, name="account_api_signup"),
     path("api/logout/", views.account_api_logout, name="account_api_logout"),
     path("api/profile/", views.account_api_profile, name="account_api_profile"),
+    path("api/link/", views.account_api_link, name="account_api_link"),
     path("api/buy/", views.account_api_buy, name="account_api_buy"),
     path("api/renew/", views.account_api_renew, name="account_api_renew"),
     path("api/subscriptions/<int:subscription_id>/rename/", views.account_api_rename_subscription, name="account_api_subscription_rename"),

@@ -356,6 +356,47 @@
   margin-bottom: 0;
 }
 
+.vx-inline-link--button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.vx-link-body {
+  display: grid;
+  gap: 16px;
+  padding: 0 14px 16px;
+}
+
+.vx-link-code {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 12px 14px;
+  border: 1px solid #dbe5f1;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.vx-link-code code {
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
+  font-weight: 800;
+  color: var(--vx-primary);
+  letter-spacing: 0.08em;
+}
+
+.vx-status-banner {
+  border: 1px solid var(--vx-success-border);
+  border-radius: 18px;
+  background: var(--vx-success-bg);
+  color: var(--vx-success-ink);
+  padding: 14px 16px;
+  font-weight: 700;
+}
+
 .vx-stat-card,
 .vx-info-card,
 .vx-field-card {
@@ -1197,6 +1238,17 @@
   .vx-profile-field input {
     min-height: 46px;
     border-radius: 14px;
+    padding: 10px 12px;
+  }
+
+  .vx-link-body {
+    padding: 0 12px 14px;
+    gap: 12px;
+  }
+
+  .vx-link-code {
+    min-height: 50px;
+    border-radius: 16px;
     padding: 10px 12px;
   }
 

@@ -324,6 +324,45 @@ def _build_dashboard_payload(request: HttpRequest) -> dict[str, object]:
         return empty_payload
 
 
+def _build_link_telegram_payload(request: HttpRequest, *, regenerate: bool = False) -> dict[str, object]:
+    linked = LinkedAccount.objects.filter(user=request.user).first()
+    now = timezone.now()
+
+    if regenerate:
+        TelegramLinkToken.objects.filter(user=request.user, consumed_at__isnull=True).delete()
+
+    token = (
+        TelegramLinkToken.objects.filter(
+            user=request.user,
+            consumed_at__isnull=True,
+            expires_at__gt=now,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if token is None:
+        token = TelegramLinkToken.objects.create(
+            user=request.user,
+            code=_generate_link_code(),
+            expires_at=now + timedelta(minutes=20),
+        )
+
+    bot_username = os.getenv("TELEGRAM_BOT_USERNAME", "").strip().lstrip("@")
+    deep_link = f"https://t.me/{bot_username}?start=link_{token.code}" if bot_username else ""
+
+    return {
+        "title": "Привязка Telegram",
+        "subtitle": "Откройте бота, чтобы связать кабинет сайта с вашим Telegram и подтянуть доступы.",
+        "linked": bool(linked),
+        "linked_telegram_id": int(linked.telegram_id) if linked else None,
+        "link_code": token.code,
+        "expires_at": _format_dt_label(token.expires_at),
+        "deep_link": deep_link,
+        "bot_username": bot_username,
+        "dashboard_url": _account_frontend_url(),
+    }
+
+
 def _build_config_payload(request: HttpRequest, subscription_id: int) -> tuple[dict[str, object] | None, str | None]:
     try:
         linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
@@ -1012,6 +1051,11 @@ def account_api_state(request: HttpRequest) -> JsonResponse:
         payload["config"] = config_payload
         return JsonResponse(payload)
 
+    if view_name == "link":
+        payload["view"] = "link"
+        payload["link"] = _build_link_telegram_payload(request)
+        return JsonResponse(payload)
+
     payload["view"] = "dashboard"
     payload["dashboard"] = _build_dashboard_payload(request)
     return JsonResponse(payload)
@@ -1122,6 +1166,13 @@ def account_api_profile(request: HttpRequest) -> JsonResponse:
             },
         }
     )
+
+
+@require_POST
+def account_api_link(request: HttpRequest) -> JsonResponse:
+    if not request.user.is_authenticated:
+        return _json_error("Требуется вход в аккаунт.", status=401)
+    return JsonResponse({"ok": True, "link": _build_link_telegram_payload(request, regenerate=True)})
 
 
 @require_POST

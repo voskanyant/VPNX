@@ -18,6 +18,7 @@ django.setup()
 from django.contrib.auth.models import User
 from django.db import DatabaseError
 from django.test import Client, RequestFactory
+from unittest.mock import patch
 
 from cabinet.views import _build_public_absolute_url
 
@@ -60,6 +61,18 @@ class AccountAppStateResilienceUnitTests(unittest.TestCase):
             _build_public_absolute_url(request, "/auth/telegram/login/"),
             "https://vxcloud.ru/auth/telegram/login/",
         )
+
+    def test_account_state_returns_link_payload_for_link_view(self):
+        with patch.dict("os.environ", {"TELEGRAM_BOT_USERNAME": "vxcloud_test_bot"}):
+            response = self.client.get("/account-app/api/state/?view=link")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["authenticated"])
+        self.assertEqual(payload["view"], "link")
+        self.assertIn("link_code", payload["link"])
+        self.assertIn("https://t.me/vxcloud_test_bot?start=link_", payload["link"]["deep_link"])
 
 
 if __name__ == "__main__":

@@ -60,6 +60,13 @@
   function currentRoute() {
     const path = window.location.pathname;
     const search = new URLSearchParams(window.location.search || "");
+    if (/^\/account\/link\/?$/i.test(path)) {
+      return {
+        view: "link",
+        subscriptionId: null,
+        path: normalizePath("/account/link/"),
+      };
+    }
     if (/^\/account\/buy\/?$/i.test(path)) {
       return {
         view: "checkout-buy",
@@ -256,7 +263,7 @@
             ? '<code class="vx-stat-code">' + escapeHtml(String(model.telegram.telegram_id)) + "</code>"
             : "") +
           (!telegramLinked && model.telegram && model.telegram.link_url
-            ? '<a class="vx-inline-link" href="' + escapeHtml(model.telegram.link_url) + '">Привязать</a>'
+            ? '<button type="button" class="vx-inline-link vx-inline-link--button" data-nav="' + escapeHtml(model.telegram.link_url) + '">Привязать</button>'
             : "") +
           "</div>",
       },
@@ -363,6 +370,36 @@
       '<div class="vx-account-actions vx-account-actions--footer"><a class="vx-button vx-button--ghost" href="' +
         escapeHtml((model.urls && model.urls.support) || cfg.supportUrl || "/instructions/") +
         '">Поддержка</a><button type="button" class="vx-button vx-button--ghost" data-logout>\u0412\u044b\u0439\u0442\u0438</button></div>',
+      "</section>",
+    ].join("");
+  }
+
+  function renderLink(model) {
+    const hasBotLink = !!(model && model.deep_link);
+    const linkedBlock =
+      model && model.linked && model.linked_telegram_id
+        ? '<div class="vx-status-banner is-success">Сейчас привязан Telegram ID: <code>' + escapeHtml(String(model.linked_telegram_id)) + "</code></div>"
+        : "";
+    const primaryAction = hasBotLink
+      ? '<a class="vx-button vx-button--primary vx-button--block" href="' + escapeHtml(model.deep_link || "") + '" target="_blank" rel="noopener">Открыть бота и привязать</a>'
+      : '<div class="vx-account-empty">Не задан TELEGRAM_BOT_USERNAME. Временно отправьте боту команду <code>/start link_' + escapeHtml(model.link_code || "") + "</code>.</div>";
+    const helperText = hasBotLink
+      ? '<p class="vx-field-hint">Если кнопка не сработала, отправьте боту команду: <code>/start link_' + escapeHtml(model.link_code || "") + "</code></p>"
+      : "";
+
+    mount.className = "vx-native-account";
+    mount.innerHTML = [
+      '<section class="vx-account-app__shell">',
+      '<section class="vx-section-card">',
+      '<div class="vx-section-card__head"><h1>' + escapeHtml((model && model.title) || "Привязка Telegram") + '</h1><span>' + escapeHtml((model && model.subtitle) || "") + "</span></div>",
+      '<div class="vx-link-body">',
+      linkedBlock,
+      '<div class="vx-field-card"><label>Код привязки</label><div class="vx-link-code"><code>' + escapeHtml((model && model.link_code) || "") + '</code></div><p class="vx-field-hint">Код действует до: ' + escapeHtml((model && model.expires_at) || "—") + "</p></div>",
+      primaryAction,
+      helperText,
+      '<div class="vx-account-actions vx-account-actions--footer"><button type="button" class="vx-button vx-button--ghost" data-link-regenerate>Новый код</button><button type="button" class="vx-button vx-button--ghost" data-nav="' + escapeHtml((model && model.dashboard_url) || (cfg.accountUrl || "/account/")) + '">Назад в кабинет</button></div>',
+      "</div>",
+      "</section>",
       "</section>",
     ].join("");
   }
@@ -718,6 +755,27 @@
         }
       });
     });
+
+    mount.querySelectorAll("[data-link-regenerate]").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        if (state.pending || !cfg.apiLinkUrl) return;
+        state.pending = true;
+        button.setAttribute("disabled", "disabled");
+        try {
+          const result = await apiFetch(cfg.apiLinkUrl, { method: "POST", body: {} });
+          if (result && result.link) {
+            renderLink(result.link);
+            bindSharedInteractions();
+            showToast("Новый код привязки создан");
+          }
+        } catch (error) {
+          showToast((error.payload && error.payload.error) || "Не удалось создать новый код");
+        } finally {
+          state.pending = false;
+          button.removeAttribute("disabled");
+        }
+      });
+    });
   }
 
   function setAuthErrors(errors) {
@@ -819,6 +877,8 @@
 
       if (payload.view === "config" && payload.config) {
         renderConfig(payload.config);
+      } else if (payload.view === "link" && payload.link) {
+        renderLink(payload.link);
       } else {
         renderDashboard(payload.dashboard || {});
       }
