@@ -26,6 +26,27 @@ class DB:
         if self.pool is not None:
             await self.pool.close()
 
+    async def fetch_bot_site_text_overrides(self) -> dict[str, str]:
+        assert self.pool is not None
+        try:
+            rows = await self.pool.fetch(
+                """
+                SELECT key, value
+                FROM blog_sitetext
+                WHERE key LIKE 'bot.%'
+                ORDER BY key
+                """
+            )
+        except asyncpg.UndefinedTableError:
+            return {}
+        out: dict[str, str] = {}
+        for row in rows:
+            key = str(row["key"] or "").strip()
+            value = str(row["value"] or "")
+            if key.startswith("bot."):
+                out[key[4:]] = value
+        return out
+
     async def upsert_user(self, telegram_id: int, username: str | None, first_name: str | None) -> int:
         assert self.pool is not None
         row = await self.pool.fetchrow(

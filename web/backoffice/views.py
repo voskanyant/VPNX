@@ -60,6 +60,100 @@ LEGACY_CONTENT_NOTICE = (
 
 STALE_PENDING_ORDER_TTL = timedelta(minutes=30)
 WEB_PLACEHOLDER_TELEGRAM_ID_OFFSET = 10**12
+BOT_SITE_TEXT_PREFIX = "bot."
+BOT_CONTENT_SECTIONS: list[dict[str, Any]] = [
+    {
+        "title": "Меню и основные кнопки",
+        "items": [
+            {"key": "menu_trial", "label": "Кнопка меню: Бесплатно 7д", "default": "🎁 Бесплатно 7д", "kind": "button"},
+            {"key": "menu_buy", "label": "Кнопка меню: Купить новый доступ", "default": "⭐ Купить новый доступ", "kind": "button"},
+            {"key": "menu_renew", "label": "Кнопка меню: Продлить", "default": "🔄 Продлить", "kind": "button"},
+            {"key": "menu_mysub", "label": "Кнопка меню: Мой доступ", "default": "📊 Мой доступ", "kind": "button"},
+            {"key": "menu_instructions", "label": "Кнопка меню: Инструкция", "default": "💬 Инструкция", "kind": "button"},
+            {"key": "menu_support", "label": "Кнопка меню: Поддержка", "default": "🆘 Поддержка", "kind": "button"},
+            {"key": "menu_site", "label": "Кнопка меню: Личный кабинет на сайте", "default": "🌐 Личный кабинет на сайте", "kind": "button"},
+            {"key": "back_button", "label": "Кнопка: Назад", "default": "⬅️ Назад", "kind": "button"},
+            {"key": "buy_new_config_button", "label": "Кнопка: Купить новый доступ в списке конфигов", "default": "⭐ Купить новый доступ", "kind": "button"},
+        ],
+    },
+    {
+        "title": "Карточка конфига",
+        "items": [
+            {"key": "config_copy_button", "label": "Кнопка: Скопировать ссылку", "default": "📋 Скопировать ссылку", "kind": "button"},
+            {"key": "config_qr_button", "label": "Кнопка: QR-код", "default": "📷 QR-код", "kind": "button"},
+            {"key": "config_renew_button", "label": "Кнопка: Продлить", "default": "🔄 Продлить", "kind": "button"},
+            {"key": "config_rename_button", "label": "Кнопка: Переименовать", "default": "✏️ Переименовать", "kind": "button"},
+            {"key": "config_delete_button", "label": "Кнопка: Удалить", "default": "🗑️ Удалить", "kind": "button"},
+            {"key": "copy_link_hint", "label": "Подсказка после выдачи конфига", "default": "Нажмите «Скопировать ссылку», затем откройте приложение, нажмите + и выберите импорт из буфера обмена.", "kind": "textarea", "rows": 3},
+            {"key": "single_device_warning", "label": "Предупреждение про одно устройство", "default": "⚠️ Один доступ нельзя использовать одновременно на двух устройствах.", "kind": "textarea", "rows": 2},
+            {"key": "menu_mysub_response", "label": "Текст: краткая карточка доступа", "default": "Доступ активен до: {expires_at}\nID: {client_code}", "kind": "textarea", "rows": 3},
+            {"key": "my_configs_list_template", "label": "Текст: список конфигов", "default": "Ваш доступ VXcloud\n\nID: {client_code}\n\nВаши устройства:\n\n{items}", "kind": "textarea", "rows": 6},
+            {"key": "my_configs_item_template", "label": "Шаблон одной строки конфига", "default": "{index}. {name}\nДействует до: {expires_at}\nСтатус: {status}", "kind": "textarea", "rows": 4},
+            {"key": "my_configs_empty_message", "label": "Текст: пустой список конфигов", "default": "Ваш доступ VXcloud\n\nID: {client_code}\n\nВаши устройства:\n\nСписок устройств пока пуст.", "kind": "textarea", "rows": 5},
+        ],
+    },
+    {
+        "title": "Инструкции и навигация",
+        "items": [
+            {"key": "menu_instructions_response", "label": "Экран: Как подключиться", "default": "Как подключиться\n\nЧтобы всё заработало, нужно сделать два шага:\n\n1. Установить приложение\n2. Оплатить доступ\n\nМы покажем всё по шагам ниже.", "kind": "textarea", "rows": 7},
+            {"key": "instructions_install_response", "label": "Экран: Как установить приложение", "default": "Как установить приложение\n\nЕсли вы используете iPhone в России, нужного приложения может не быть в App Store.\n\nЭто нормально — просто нужно временно сменить регион.\n\nСначала:\n• смените регион App Store (на любую другую страну)\n\nЗатем:\n• установите приложение для подключения\n\nПосле установки:\n• можно вернуть регион обратно на Россию\n\nНиже есть подробная инструкция и видео — мы покажем всё по шагам.", "kind": "textarea", "rows": 12},
+            {"key": "site_about_response", "label": "Экран: Что можно делать на сайте", "default": "Что можно делать на сайте\n\nВ личном кабинете вы можете:\n\n• увидеть все свои устройства\n• открыть доступ для подключения\n• показать QR-код\n• оплатить новый доступ или продление картой\n• открыть подробные инструкции и видео\n\nСайт и бот работают вместе — ваши данные будут одинаковыми везде.", "kind": "textarea", "rows": 10},
+            {"key": "menu_site_response", "label": "Текст: открыть кабинет на сайте", "default": "Откройте личный кабинет на сайте.", "kind": "textarea", "rows": 3},
+            {"key": "instructions_install_button", "label": "Кнопка: Установить приложение", "default": "📱 Установить приложение", "kind": "button"},
+            {"key": "instructions_access_button", "label": "Кнопка: Мой доступ на экране инструкций", "default": "📊 Мой доступ", "kind": "button"},
+            {"key": "instructions_support_button", "label": "Кнопка: Поддержка на экране инструкций", "default": "🆘 Поддержка", "kind": "button"},
+            {"key": "instructions_full_guide_button", "label": "Кнопка: Подробная инструкция", "default": "📖 Подробная инструкция", "kind": "button"},
+            {"key": "instructions_video_button", "label": "Кнопка: Видео-инструкция", "default": "🎬 Видео-инструкция", "kind": "button"},
+            {"key": "menu_instructions_buttons", "label": "Advanced JSON: inline-кнопки для меню инструкций", "default": "", "kind": "textarea", "rows": 6, "help": "Оставьте пустым для штатных кнопок. Формат: JSON массив строк/рядов кнопок."},
+            {"key": "instructions_install_buttons", "label": "Advanced JSON: inline-кнопки для экрана установки", "default": "", "kind": "textarea", "rows": 6, "help": "Оставьте пустым для штатных кнопок. Можно переопределить layout полностью."},
+            {"key": "site_about_buttons", "label": "Advanced JSON: inline-кнопки для экрана про сайт", "default": "", "kind": "textarea", "rows": 6, "help": "Используется только если вы вручную вызовете этот экран."},
+        ],
+    },
+    {
+        "title": "Оплата и восстановление",
+        "items": [
+            {"key": "pay_card_button", "label": "Кнопка: Оплатить картой", "default": "💳 Оплатить картой", "kind": "button"},
+            {"key": "open_instructions", "label": "Кнопка: Инструкция", "default": "💬 Инструкция", "kind": "button"},
+            {"key": "open_account", "label": "Кнопка: Личный кабинет на сайте", "default": "🌐 Личный кабинет на сайте", "kind": "button"},
+            {"key": "stars_only_notice", "label": "Текст: Stars only notice", "default": "Оплата в боте доступна только через звёзды Telegram ⭐\nДля iPhone обычно используется способ оплаты через мобильный баланс МТС.", "kind": "textarea", "rows": 4},
+            {"key": "invoice_title", "label": "Заголовок Stars invoice", "default": "Оплата VXcloud через звёзды", "kind": "input"},
+            {"key": "invoice_price_label", "label": "Label Stars price", "default": "Оплата звёздами", "kind": "input"},
+            {"key": "invoice_description", "label": "Описание Stars invoice", "default": "Оплата доступа в боте выполняется только через звёзды Telegram. Для iPhone чаще всего — через мобильный баланс МТС.", "kind": "textarea", "rows": 4},
+            {"key": "payment_already_processed_message", "label": "Текст: платёж уже обработан", "default": "Платёж уже обработан. Отправляю ваш доступ...", "kind": "textarea", "rows": 3},
+            {"key": "provision_delay_message", "label": "Текст: активация задерживается", "default": "Платёж получен, но активация задерживается. Нажмите «📊 Мой доступ» через 10-20 секунд. Если доступ не появится, напишите в поддержку.", "kind": "textarea", "rows": 4},
+            {"key": "recovering_subscription_message", "label": "Текст: найден оплаченный заказ", "default": "Найден оплаченный заказ. Пробую восстановить доступ...", "kind": "textarea", "rows": 3},
+            {"key": "recover_failed_message", "label": "Текст: восстановление не удалось", "default": "Не удалось автоматически восстановить доступ. Поддержка уже уведомлена, пожалуйста подождите.", "kind": "textarea", "rows": 4},
+        ],
+    },
+    {
+        "title": "Поддержка, linking и системные сообщения",
+        "items": [
+            {"key": "cancel_message", "label": "Текст: отмена действия", "default": "Операция отменена.", "kind": "textarea", "rows": 2},
+            {"key": "menu_unknown_message", "label": "Текст: неизвестная команда", "default": "Используйте кнопки меню ниже.", "kind": "textarea", "rows": 2},
+            {"key": "support_start_message", "label": "Текст: старт поддержки", "default": "Напишите сообщение одним сообщением в этот чат.\n\nМы получим его вместе с вашим ID и данными по доступу.", "kind": "textarea", "rows": 4},
+            {"key": "support_empty_message", "label": "Текст: пустое сообщение в поддержку", "default": "Текст обращения пустой. Нажмите «Поддержка» и попробуйте снова.", "kind": "textarea", "rows": 3},
+            {"key": "support_default_subject", "label": "Subject нового тикета", "default": "Запрос из Telegram-бота", "kind": "input"},
+            {"key": "support_received_message", "label": "Текст: сообщение принято", "default": "Сообщение отправлено\n\nМы получили ваш запрос и ответим сюда в Telegram.\n\nВаш ID:\n{client_code}", "kind": "textarea", "rows": 5},
+            {"key": "support_admin_new_ticket_header", "label": "Текст: шапка для admin-уведомления", "default": "🆘 Новый тикет поддержки", "kind": "input"},
+            {"key": "support_admin_reply_subject", "label": "Subject ответа поддержки", "default": "Ответ поддержки", "kind": "input"},
+            {"key": "support_admin_reply_prefix", "label": "Текст: ответ поддержки пользователю", "default": "💬 Ответ поддержки:\n\n{message}", "kind": "textarea", "rows": 4},
+            {"key": "link_success_message", "label": "Текст: Telegram привязан", "default": "Готово! Telegram успешно привязан к вашему аккаунту на сайте.", "kind": "textarea", "rows": 2},
+            {"key": "link_used_message", "label": "Текст: код уже использован", "default": "Этот код уже использован. Сгенерируйте новый код на сайте.", "kind": "textarea", "rows": 2},
+            {"key": "link_expired_message", "label": "Текст: код истёк", "default": "Срок действия кода истёк. Сгенерируйте новый код на сайте.", "kind": "textarea", "rows": 2},
+            {"key": "link_invalid_message", "label": "Текст: код неверный", "default": "Неверный код привязки. Проверьте код и попробуйте снова.", "kind": "textarea", "rows": 2},
+        ],
+    },
+    {
+        "title": "Ссылки и reminders",
+        "items": [
+            {"key": "site_url", "label": "Базовый URL сайта", "default": "https://vxcloud.ru", "kind": "input"},
+            {"key": "account_page_url", "label": "Прямой URL кабинета", "default": "", "kind": "input", "help": "Оставьте пустым, чтобы бот сам собирал magic-link или fallback /account/."},
+            {"key": "reminder_expired_message", "label": "Reminder: истёк конфиг", "default": "Истёк конфиг VXcloud: {name}\nДействовал до: {expires_at}\n\nИспользуйте /buy для продления.", "kind": "textarea", "rows": 4},
+            {"key": "reminder_1d_message", "label": "Reminder: меньше 24 часов", "default": "Напоминание: конфиг VXcloud скоро истекает\nУстройство: {name}\nДо: {expires_at}", "kind": "textarea", "rows": 3},
+            {"key": "reminder_3d_message", "label": "Reminder: меньше 3 дней", "default": "Напоминание: конфиг VXcloud истекает менее чем через 3 дня\nУстройство: {name}\nДо: {expires_at}", "kind": "textarea", "rows": 3},
+        ],
+    },
+]
 
 
 class StaffRequiredMixin:
@@ -323,6 +417,95 @@ def send_telegram_text(telegram_id: int, text: str) -> None:
         body = json.loads(response.read().decode("utf-8"))
     if not body.get("ok"):
         raise RuntimeError(f"Telegram API error: {body}")
+
+
+def _bot_override_key(key: str) -> str:
+    return f"{BOT_SITE_TEXT_PREFIX}{key}"
+
+
+def _iter_bot_content_items() -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for section in BOT_CONTENT_SECTIONS:
+        items.extend(section["items"])
+    return items
+
+
+class BotContentEditorView(StaffRequiredMixin, TemplateView):
+    template_name = "backoffice/bot_content.html"
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        updated = 0
+        removed = 0
+        for item in _iter_bot_content_items():
+            key = str(item["key"])
+            value = str(request.POST.get(key, "") or "").replace("\r\n", "\n").strip()
+            db_key = _bot_override_key(key)
+            if value:
+                SiteText.objects.update_or_create(key=db_key, defaults={"value": value})
+                updated += 1
+            else:
+                deleted, _ = SiteText.objects.filter(key=db_key).delete()
+                if deleted:
+                    removed += 1
+        if updated or removed:
+            messages.success(
+                request,
+                f"Bot content обновлён: сохранено {updated}, очищено {removed}. Бот подхватит изменения автоматически.",
+            )
+        else:
+            messages.info(request, "Изменений не найдено.")
+        return redirect("backoffice:bot_content_editor")
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Bot Content"
+        ctx["subtitle"] = "Визуальное редактирование текстов, кнопок и inline-экранов Telegram-бота."
+
+        overrides = {
+            obj.key[len(BOT_SITE_TEXT_PREFIX) :]: obj.value
+            for obj in SiteText.objects.filter(key__startswith=BOT_SITE_TEXT_PREFIX).order_by("key")
+        }
+        sections: list[dict[str, Any]] = []
+        total_items = 0
+        overridden_items = 0
+
+        for section in BOT_CONTENT_SECTIONS:
+            section_items: list[dict[str, Any]] = []
+            for item in section["items"]:
+                key = str(item["key"])
+                current_value = overrides.get(key, "")
+                has_override = key in overrides
+                if has_override:
+                    overridden_items += 1
+                total_items += 1
+                section_items.append(
+                    {
+                        "key": key,
+                        "label": item["label"],
+                        "kind": item.get("kind", "input"),
+                        "help": item.get("help", ""),
+                        "rows": item.get("rows", 3),
+                        "default": item.get("default", ""),
+                        "value": current_value,
+                        "has_override": has_override,
+                    }
+                )
+            sections.append({"title": section["title"], "items": section_items})
+
+        ctx["sections"] = sections
+        ctx["bot_content_stats"] = {
+            "total": total_items,
+            "overridden": overridden_items,
+            "defaulted": max(total_items - overridden_items, 0),
+        }
+        ctx["directus_enabled"] = bool(settings.CMS_BASE_URL and settings.CMS_TOKEN)
+        ctx["notes"] = [
+            "Пустое поле удаляет override и возвращает штатный текст или кнопку из кода.",
+            "Изменения подхватываются ботом автоматически примерно в течение минуты.",
+            "DB overrides из /ops/ имеют приоритет над legacy Directus.",
+            "Advanced JSON поля нужны только если вы хотите полностью переопределить layout inline-кнопок.",
+        ]
+        return self.add_wordpress_context(ctx)
 
 
 class DashboardView(StaffRequiredMixin, TemplateView):

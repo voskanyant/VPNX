@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.DashboardView.as_view(), name="dashboard"),
     path("login/", views.BackofficeLoginView.as_view(), name="login"),
     path("logout/", views.BackofficeLogoutView.as_view(), name="logout"),
+    path("bot/content/", views.BotContentEditorView.as_view(), name="bot_content_editor"),
     path("tickets/", views.SupportTicketListView.as_view(), name="ticket_list"),
     path("tickets/<int:pk>/", views.SupportTicketDetailView.as_view(), name="ticket_detail"),
     path("infra/nodes/", views.VPNNodeListView.as_view(), name="vpn_node_list"),

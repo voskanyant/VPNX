@@ -259,6 +259,136 @@ body {
   margin-top: 8px;
 }
 
+.bo-panel {
+  border-radius: 24px;
+  background: var(--bo-surface);
+  padding: 22px;
+}
+
+.bo-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.bo-panel-head h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.bo-info-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.bo-info-grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--bo-line);
+  padding-bottom: 10px;
+}
+
+.bo-info-grid > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.bo-info-grid span {
+  color: var(--bo-muted);
+  font-size: 0.92rem;
+}
+
+.bo-info-grid strong {
+  font-weight: 700;
+  text-align: right;
+}
+
+.bo-note-list {
+  display: grid;
+  gap: 10px;
+  color: var(--bo-text);
+}
+
+.bo-form-card {
+  height: 100%;
+  border: 1px solid var(--bo-line);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+  padding: 18px;
+}
+
+.bo-form-card.is-overridden {
+  border-color: #b9cdfc;
+  box-shadow: 0 12px 28px rgba(91, 132, 255, 0.12);
+}
+
+.bo-form-label {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.bo-field-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.bo-field-meta code {
+  background: var(--bo-surface-soft);
+  border-radius: 10px;
+  padding: 4px 8px;
+  color: var(--bo-primary);
+}
+
+.bo-input,
+.bo-textarea {
+  border-radius: 16px;
+  border-color: var(--bo-line-strong);
+  min-height: 54px;
+}
+
+.bo-textarea {
+  min-height: 120px;
+}
+
+.bo-field-help {
+  margin-top: 8px;
+  color: var(--bo-muted);
+  font-size: 0.9rem;
+}
+
+.bo-field-default {
+  margin-top: 12px;
+}
+
+.bo-field-default span {
+  display: block;
+  color: var(--bo-muted);
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bo-field-default pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f4f7fc;
+  border: 1px solid var(--bo-line);
+  border-radius: 14px;
+  padding: 12px;
+  color: #43526f;
+  font-size: 0.92rem;
+}
+
 .bo-stat-chip {
   border-radius: 20px;
   padding: 18px;

@@ -349,20 +349,33 @@ class VPNBot:
         if node_key == "menu_instructions":
             return InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton(text="📱 Установить приложение", callback_data="nav|instructions_install|menu_instructions")],
                     [
-                        InlineKeyboardButton(text="📊 Мой доступ", callback_data="act|start_mysub|_"),
+                        InlineKeyboardButton(
+                            text=self._button_label("instructions_install_button", "📱 Установить приложение"),
+                            callback_data="nav|instructions_install|menu_instructions",
+                        )
                     ],
-                    [InlineKeyboardButton(text="🆘 Поддержка", callback_data="act|support_hub|_")],
+                    [
+                        InlineKeyboardButton(
+                            text=self._button_label("instructions_access_button", "📊 Мой доступ"),
+                            callback_data="act|start_mysub|_",
+                        ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=self._button_label("instructions_support_button", "🆘 Поддержка"),
+                            callback_data="act|support_hub|_",
+                        )
+                    ],
                 ]
             )
         if node_key == "instructions_install":
             install_help_url = "https://vxcloud.ru/2026/04/06/kak-podklyuchitsya-k-vpn-vxcloud-polnyj-poshagovyj-gajd/"
             return InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton(text="📖 Подробная инструкция", url=install_help_url)],
-                    [InlineKeyboardButton(text="🎬 Видео-инструкция", url=install_help_url)],
-                    [InlineKeyboardButton(text="⬅️ Назад", callback_data="nav|menu_instructions|_")],
+                    [InlineKeyboardButton(text=self._button_label("instructions_full_guide_button", "📖 Подробная инструкция"), url=install_help_url)],
+                    [InlineKeyboardButton(text=self._button_label("instructions_video_button", "🎬 Видео-инструкция"), url=install_help_url)],
+                    [InlineKeyboardButton(text=self._button_label("back_button", "⬅️ Назад"), callback_data="nav|menu_instructions|_")],
                 ]
             )
         raw = self._cms_content.get(f"{node_key}_buttons")
@@ -815,9 +828,6 @@ class VPNBot:
         await update.message.reply_text(text=text, reply_markup=markup)
 
     async def _refresh_cms(self, force: bool = False) -> None:
-        if self.cms is None:
-            return
-
         now = time.monotonic()
         ttl = max(self.settings.cms_cache_ttl_seconds, 5)
         if not force and (now - self._cms_loaded_at) < ttl:
@@ -826,12 +836,26 @@ class VPNBot:
         async with self._cms_lock:
             if not force and (time.monotonic() - self._cms_loaded_at) < ttl:
                 return
+            content: dict[str, str] = {}
+            buttons: dict[str, str] = {}
             try:
-                self._cms_content = await self.cms.fetch_content()
-                self._cms_buttons = await self.cms.fetch_buttons()
-                self._cms_loaded_at = time.monotonic()
+                if self.cms is not None:
+                    content = await self.cms.fetch_content()
+                    buttons = await self.cms.fetch_buttons()
             except Exception:
                 LOGGER.exception("Failed to refresh CMS content")
+            try:
+                overrides = await self.db.fetch_bot_site_text_overrides()
+            except Exception:
+                LOGGER.exception("Failed to refresh bot text overrides from DB")
+                overrides = {}
+
+            self._cms_content = dict(content)
+            self._cms_buttons = dict(buttons)
+            for key, value in overrides.items():
+                self._cms_content[key] = value
+                self._cms_buttons[key] = value
+            self._cms_loaded_at = time.monotonic()
 
     async def _get_provision_lock(self, user_id: int) -> asyncio.Lock:
         async with self._provision_locks_guard:
@@ -1043,19 +1067,29 @@ class VPNBot:
     ) -> InlineKeyboardMarkup:
         renew_url = await self._account_url(user_id, f"/account/renew/?subscription_id={subscription_id}")
         rows = [
-            [InlineKeyboardButton(text="📋 Скопировать ссылку", api_kwargs={"copy_text": {"text": copy_text}})],
             [
-                InlineKeyboardButton(text="📷 QR-код", callback_data=f"act|cfg_qr:{subscription_id}|_"),
-                InlineKeyboardButton(text="🔄 Продлить", url=renew_url),
+                InlineKeyboardButton(
+                    text=self._button_label("config_copy_button", "📋 Скопировать ссылку"),
+                    api_kwargs={"copy_text": {"text": copy_text}},
+                )
+            ],
+            [
+                InlineKeyboardButton(text=self._button_label("config_qr_button", "📷 QR-код"), callback_data=f"act|cfg_qr:{subscription_id}|_"),
+                InlineKeyboardButton(text=self._button_label("config_renew_button", "🔄 Продлить"), url=renew_url),
             ],
         ]
         action_row = [
-            InlineKeyboardButton(text="✏️ Переименовать", callback_data=f"act|cfg_rename:{subscription_id}|_"),
+            InlineKeyboardButton(text=self._button_label("config_rename_button", "✏️ Переименовать"), callback_data=f"act|cfg_rename:{subscription_id}|_"),
         ]
         if can_delete:
-            action_row.append(InlineKeyboardButton(text="🗑️ Удалить", callback_data=f"act|cfg_delete:{subscription_id}|_"))
+            action_row.append(
+                InlineKeyboardButton(
+                    text=self._button_label("config_delete_button", "🗑️ Удалить"),
+                    callback_data=f"act|cfg_delete:{subscription_id}|_",
+                )
+            )
         rows.append(action_row)
-        rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="act|cfg_back|_")])
+        rows.append([InlineKeyboardButton(text=self._button_label("back_button", "⬅️ Назад"), callback_data="act|cfg_back|_")])
         return InlineKeyboardMarkup(rows)
 
     async def _config_card_text(self, user_id: int, sub: dict[str, object], *, client_code: str) -> tuple[str, str, str | None]:
@@ -2698,26 +2732,28 @@ class VPNBot:
             config_name = str(item.get("display_name") or f"Конфиг #{sub_id}")
             expires_label = self._format_local_dt(expires_at)
             if expires_at <= now:
-                msg = (
-                    f"Истёк конфиг VXcloud: {config_name}\n"
-                    f"Действовал до: {expires_label}\n\n"
-                    "Используйте /buy для продления."
+                msg = self._content_text(
+                    "reminder_expired_message",
+                    "Истёк конфиг VXcloud: {name}\nДействовал до: {expires_at}\n\nИспользуйте /buy для продления.",
                 )
                 tag = "expired"
             elif expires_at <= now + timedelta(days=1):
-                msg = (
-                    f"Напоминание: конфиг VXcloud скоро истекает\n"
-                    f"Устройство: {config_name}\n"
-                    f"До: {expires_label}"
+                msg = self._content_text(
+                    "reminder_1d_message",
+                    "Напоминание: конфиг VXcloud скоро истекает\nУстройство: {name}\nДо: {expires_at}",
                 )
                 tag = "1d"
             else:
-                msg = (
-                    f"Напоминание: конфиг VXcloud истекает менее чем через 3 дня\n"
-                    f"Устройство: {config_name}\n"
-                    f"До: {expires_label}"
+                msg = self._content_text(
+                    "reminder_3d_message",
+                    "Напоминание: конфиг VXcloud истекает менее чем через 3 дня\nУстройство: {name}\nДо: {expires_at}",
                 )
                 tag = "3d"
+            msg = (
+                msg.replace("{name}", config_name)
+                .replace("{expires_at}", expires_label)
+                .replace("{id}", str(sub_id))
+            )
 
             try:
                 await self.app.bot.send_message(chat_id=tg_id, text=msg)

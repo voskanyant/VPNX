@@ -1,0 +1,96 @@
+{% extends "backoffice/base.html" %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-xl-8">
+    <section class="bo-panel">
+      <div class="bo-panel-head">
+        <h3>Как это работает</h3>
+      </div>
+      <div class="bo-note-list">
+        {% for note in notes %}
+          <div>{{ note }}</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  <div class="col-12 col-xl-4">
+    <section class="bo-panel">
+      <div class="bo-panel-head">
+        <h3>Статус</h3>
+      </div>
+      <div class="bo-info-grid">
+        <div><span>Всего editable keys</span><strong>{{ bot_content_stats.total }}</strong></div>
+        <div><span>Переопределено</span><strong>{{ bot_content_stats.overridden }}</strong></div>
+        <div><span>По умолчанию</span><strong>{{ bot_content_stats.defaulted }}</strong></div>
+        <div><span>Legacy Directus</span><strong>{% if directus_enabled %}enabled{% else %}off{% endif %}</strong></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<form method="post" class="d-grid gap-4">
+  {% csrf_token %}
+
+  {% for section in sections %}
+    <section class="bo-panel">
+      <div class="bo-panel-head">
+        <h3>{{ section.title }}</h3>
+      </div>
+      <div class="row g-3">
+        {% for item in section.items %}
+          <div class="col-12 {% if item.kind == 'textarea' %}col-xl-6{% else %}col-xl-4{% endif %}">
+            <div class="bo-form-card {% if item.has_override %}is-overridden{% endif %}">
+              <label class="form-label bo-form-label" for="id_{{ item.key }}">{{ item.label }}</label>
+              <div class="bo-field-meta">
+                <code>bot.{{ item.key }}</code>
+                {% if item.has_override %}
+                  <span class="badge text-bg-primary">override</span>
+                {% else %}
+                  <span class="badge text-bg-secondary">default</span>
+                {% endif %}
+              </div>
+
+              {% if item.kind == 'textarea' %}
+                <textarea
+                  id="id_{{ item.key }}"
+                  name="{{ item.key }}"
+                  class="form-control bo-textarea"
+                  rows="{{ item.rows }}"
+                >{{ item.value }}</textarea>
+              {% else %}
+                <input
+                  id="id_{{ item.key }}"
+                  name="{{ item.key }}"
+                  type="text"
+                  class="form-control bo-input"
+                  value="{{ item.value }}"
+                >
+              {% endif %}
+
+              {% if item.help %}
+                <div class="bo-field-help">{{ item.help }}</div>
+              {% endif %}
+
+              <div class="bo-field-default">
+                <span>По умолчанию</span>
+                {% if item.default %}
+                  <pre>{{ item.default }}</pre>
+                {% else %}
+                  <pre>—</pre>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endfor %}
+
+  <section class="bo-panel">
+    <div class="d-flex flex-wrap gap-2 justify-content-end">
+      <button type="submit" class="btn btn-dark btn-lg">Сохранить bot content</button>
+    </div>
+  </section>
+</form>
+{% endblock %}
