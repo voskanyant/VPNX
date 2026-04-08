@@ -138,6 +138,25 @@ class DB:
             )
         return row is not None
 
+    async def delete_subscription(self, user_id: int, subscription_id: int) -> bool:
+        assert self.pool is not None
+        row = await self.pool.fetchrow(
+            """
+            DELETE FROM subscriptions
+            WHERE id = $1
+              AND user_id = $2
+              AND NOT (
+                    is_active = TRUE
+                AND expires_at > NOW()
+                AND revoked_at IS NULL
+              )
+            RETURNING id
+            """,
+            subscription_id,
+            user_id,
+        )
+        return row is not None
+
     async def get_user_client_code(self, user_id: int) -> str | None:
         assert self.pool is not None
         try:

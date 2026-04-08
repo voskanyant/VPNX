@@ -261,17 +261,16 @@ def _build_subscription_rows(bot_user: BotUser | None) -> tuple[list[dict[str, o
     now = timezone.now()
     rows: list[dict[str, object]] = []
     for item in subscriptions:
-        expires_at = getattr(item, "expires_at", None)
-        is_active = bool(getattr(item, "is_active", False) and expires_at and expires_at > now and getattr(item, "revoked_at", None) is None)
-        status_text = "Активна" if is_active else ("Отключена" if getattr(item, "revoked_at", None) else "Истекла")
+        state = _subscription_state(item, now=now)
         rows.append(
             {
                 "obj": item,
                 "id": int(item.id),
                 "display_name": _subscription_display_name(item),
-                "is_active": is_active,
-                "status_text": status_text,
-                "expires_at": expires_at,
+                "is_active": bool(state["is_active"]),
+                "can_delete": bool(state["can_delete"]),
+                "status_text": str(state["status_text"]),
+                "expires_at": state["expires_at"],
             }
         )
     active_configs = sum(1 for row in rows if bool(row["is_active"]))
@@ -295,6 +294,8 @@ def _serialize_subscription_row(row: dict[str, object]) -> dict[str, object]:
         "expires_at": _format_dt_label(row.get("expires_at")),
         "config_url": _account_frontend_url(f"config/{int(row['id'])}/"),
         "vless_url": vless_url,
+        "can_delete": bool(row.get("can_delete")),
+        "delete_url": _account_frontend_url(f"subscriptions/{int(row['id'])}/delete/"),
     }
 
 
@@ -330,31 +331,44 @@ def _build_dashboard_payload(request: HttpRequest) -> dict[str, object]:
             "password_reset": "/accounts/password_reset/",
         },
     }
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
+    empty_payload["telegram"] = {
+        "linked": bool(linked),
+        "status_text": "Привязан" if linked else "Не привязан",
+        "telegram_id": int(linked.telegram_id) if linked else None,
+        "link_url": _account_frontend_url("link/"),
+    }
+    empty_payload["user"]["client_code"] = getattr(bot_user, "client_code", "") or ""
+
     try:
-        linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
         rows, active_configs, inactive_configs = _build_subscription_rows(bot_user)
-        subscriptions_payload = [_serialize_subscription_row(row) for row in rows]
-        telegram_payload: dict[str, object] = {
-            "linked": bool(linked),
-            "status_text": "Привязан" if linked else "Не привязан",
-            "telegram_id": int(linked.telegram_id) if linked else None,
-            "link_url": _account_frontend_url("link/"),
-        }
-        empty_payload["access_count"] = len(subscriptions_payload)
-        empty_payload["user"]["client_code"] = getattr(bot_user, "client_code", "") or ""
-        empty_payload["stats"] = {
-            "active_configs": active_configs,
-            "inactive_configs": inactive_configs,
-        }
-        empty_payload["telegram"] = telegram_payload
-        empty_payload["subscriptions"] = subscriptions_payload
-        return empty_payload
     except Exception:
         LOGGER.exception(
-            "account_dashboard_payload_failed",
+            "account_dashboard_rows_failed",
             extra={"django_user_id": int(getattr(request.user, "id", 0) or 0)},
         )
         return empty_payload
+
+    subscriptions_payload: list[dict[str, object]] = []
+    for row in rows:
+        try:
+            subscriptions_payload.append(_serialize_subscription_row(row))
+        except Exception:
+            LOGGER.exception(
+                "account_dashboard_subscription_row_failed",
+                extra={
+                    "django_user_id": int(getattr(request.user, "id", 0) or 0),
+                    "subscription_id": int(row.get("id") or 0),
+                },
+            )
+
+    empty_payload["access_count"] = len(subscriptions_payload)
+    empty_payload["stats"] = {
+        "active_configs": active_configs,
+        "inactive_configs": inactive_configs,
+    }
+    empty_payload["subscriptions"] = subscriptions_payload
+    return empty_payload
 
 
 def _build_link_telegram_payload(request: HttpRequest, *, regenerate: bool = False) -> dict[str, object]:
@@ -431,6 +445,8 @@ def _build_config_payload(request: HttpRequest, subscription_id: int) -> tuple[d
                 "copy_text": qr_data,
                 "qr_image_data_url": f"data:image/png;base64,{qr_b64}",
                 "dashboard_url": _account_frontend_url(),
+                "can_delete": bool(current_row.get("can_delete")),
+                "delete_url": _account_frontend_url(f"subscriptions/{int(sub.id)}/delete/"),
                 "subscriptions": [
                     {
                         "id": int(row["id"]),
@@ -558,6 +574,31 @@ def _subscription_display_name(subscription: BotSubscription) -> str:
     return f"Конфиг #{subscription.id}"
 
 
+def _subscription_state(subscription: BotSubscription | None, *, now: datetime | None = None) -> dict[str, object]:
+    current_time = now or timezone.now()
+    expires_at = getattr(subscription, "expires_at", None)
+    revoked_at = getattr(subscription, "revoked_at", None)
+    is_active = bool(
+        subscription
+        and getattr(subscription, "is_active", False)
+        and expires_at
+        and expires_at > current_time
+        and revoked_at is None
+    )
+    if is_active:
+        status_text = "Активна"
+    elif revoked_at is not None:
+        status_text = "Отключена"
+    else:
+        status_text = "Истекла"
+    return {
+        "is_active": is_active,
+        "can_delete": bool(subscription and not is_active),
+        "status_text": status_text,
+        "expires_at": expires_at,
+    }
+
+
 def _site_placeholder_telegram_id_for_user(user_id: int) -> int:
     return -(WEB_PLACEHOLDER_TELEGRAM_ID_OFFSET + int(user_id))
 
@@ -609,6 +650,8 @@ def _resolve_account_bot_user(
 
     placeholder_telegram_id = _site_placeholder_telegram_id_for_user(int(request.user.id))
     placeholder_user = BotUser.objects.filter(telegram_id=placeholder_telegram_id).first()
+    if linked:
+        return linked, None
     if placeholder_user is not None:
         return linked, placeholder_user
 
@@ -705,17 +748,16 @@ def account_dashboard(request: HttpRequest) -> HttpResponse:
     now = timezone.now()
     subscription_rows: list[dict[str, object]] = []
     for item in subscriptions:
-        expires_at = getattr(item, "expires_at", None)
-        is_active = bool(getattr(item, "is_active", False) and expires_at and expires_at > now and getattr(item, "revoked_at", None) is None)
-        status_text = "Активна" if is_active else ("Отключена" if getattr(item, "revoked_at", None) else "Истекла")
+        state = _subscription_state(item, now=now)
         subscription_rows.append(
             {
                 "obj": item,
                 "id": int(item.id),
                 "display_name": _subscription_display_name(item),
-                "is_active": is_active,
-                "status_text": status_text,
-                "expires_at": expires_at,
+                "is_active": bool(state["is_active"]),
+                "can_delete": bool(state["can_delete"]),
+                "status_text": str(state["status_text"]),
+                "expires_at": state["expires_at"],
                 "vless_url": _normalize_vless_public_endpoint(
                     getattr(item, "vless_url", "") or "",
                     host=_vpn_public_host(),
@@ -1267,6 +1309,72 @@ def account_api_rename_subscription(request: HttpRequest, subscription_id: int) 
     )
 
 
+def _delete_subscription_everywhere(subscription: BotSubscription) -> tuple[bool, str | None]:
+    state = _subscription_state(subscription)
+    if bool(state["is_active"]):
+        return False, "Активный конфиг нельзя удалить. Сначала дождитесь окончания срока действия."
+
+    inbound_id = int(subscription.inbound_id)
+    client_uuid = str(subscription.client_uuid)
+    client_email = str(subscription.client_email or "")
+    expires_at = getattr(subscription, "expires_at", None)
+    xui_sub_id = str(getattr(subscription, "xui_sub_id", "") or "") or None
+
+    try:
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        from src.config import Settings as BotSettings  # type: ignore
+        from src.xui_client import XUIClient  # type: ignore
+
+        bot_settings = BotSettings.from_env()
+        if not bot_settings.vpn_cluster_enabled:
+            if bot_settings.xui_base_url and bot_settings.xui_username and bot_settings.xui_password:
+                xui = XUIClient(bot_settings.xui_base_url, bot_settings.xui_username, bot_settings.xui_password)
+                asyncio.run(xui.login())
+                try:
+                    asyncio.run(
+                        xui.delete_client(
+                            inbound_id,
+                            client_uuid,
+                            email=client_email or None,
+                            expiry=expires_at,
+                            limit_ip=bot_settings.max_devices_per_sub,
+                            flow=bot_settings.vpn_flow,
+                            sub_id=xui_sub_id,
+                        )
+                    )
+                finally:
+                    asyncio.run(xui.close())
+    except Exception:
+        LOGGER.exception(
+            "account_subscription_delete_xui_failed",
+            extra={"subscription_id": int(subscription.id)},
+        )
+
+    subscription.delete()
+    return True, None
+
+
+@require_POST
+def account_api_delete_subscription(request: HttpRequest, subscription_id: int) -> JsonResponse:
+    if not request.user.is_authenticated:
+        return _json_error("Требуется вход в аккаунт.", status=401)
+
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
+    if not bot_user:
+        return _json_error("Не удалось загрузить данные аккаунта.", status=404)
+
+    subscription = BotSubscription.objects.filter(id=subscription_id, user_id=bot_user.id).first()
+    if not subscription:
+        return _json_error("Конфиг не найден.", status=404)
+
+    deleted, error_message = _delete_subscription_everywhere(subscription)
+    if not deleted:
+        return _json_error(error_message or "Не удалось удалить конфиг.", status=400)
+    return JsonResponse({"ok": True, "subscription_id": int(subscription_id)})
+
+
 @login_required
 @require_POST
 def rename_subscription(request: HttpRequest, subscription_id: int) -> HttpResponse:
@@ -1312,6 +1420,28 @@ def revoke_subscription(request: HttpRequest, subscription_id: int) -> HttpRespo
     subscription.save(update_fields=["is_active", "revoked_at", "updated_at"])
     messages.success(request, "Конфиг отключен.")
     return _account_redirect(request)
+
+
+@login_required
+@require_POST
+def delete_subscription(request: HttpRequest, subscription_id: int) -> HttpResponse:
+    linked, bot_user = _resolve_account_bot_user(request, ensure_site_bot_user=True)
+    if not bot_user:
+        messages.error(request, "Не удалось загрузить данные аккаунта.")
+        return _redirect_after_account_post(request)
+
+    subscription = BotSubscription.objects.filter(id=subscription_id, user_id=bot_user.id).first()
+    if not subscription:
+        messages.error(request, "Конфиг не найден.")
+        return _redirect_after_account_post(request)
+
+    deleted, error_message = _delete_subscription_everywhere(subscription)
+    if not deleted:
+        messages.error(request, error_message or "Не удалось удалить конфиг.")
+        return _redirect_after_account_post(request)
+
+    messages.success(request, "Конфиг удален.")
+    return _redirect_after_account_post(request)
 
 
 def open_app_link(request: HttpRequest) -> HttpResponse:

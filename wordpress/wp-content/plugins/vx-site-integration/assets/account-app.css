@@ -233,6 +233,18 @@
   border-color: var(--vx-border-strong);
 }
 
+.vx-button--danger {
+  background: var(--vx-danger-bg);
+  color: var(--vx-danger-ink);
+  border-color: var(--vx-danger-border);
+}
+
+.vx-button--danger:hover {
+  color: var(--vx-danger-ink);
+  background: #ffecef;
+  border-color: #ebc0ca;
+}
+
 .vx-button--block {
   width: 100%;
 }

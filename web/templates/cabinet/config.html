@@ -31,6 +31,13 @@
       <div class="config-shell-actions">
         <button class="btn btn-primary" type="button" id="copy-config-button">📋 {{ cabinet_config_copy_action }}</button>
         <a class="btn btn-outline-secondary" href="{{ backend_dashboard_url }}">{{ cabinet_config_back_action }}</a>
+        {% if not has_active %}
+          <form method="post" action="/account/subscriptions/{{ subscription.id }}/delete/" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+            <button class="btn btn-outline-danger" type="submit">Удалить</button>
+          </form>
+        {% endif %}
       </div>
     </div>
 

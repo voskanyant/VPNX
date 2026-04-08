@@ -904,6 +904,16 @@ class VPNBot:
             return "истек" if expires_at <= now else "неактивен"
         return "активен" if expires_at > now else "истек"
 
+    @staticmethod
+    def _subscription_can_delete(sub: dict[str, object], now: datetime | None = None) -> bool:
+        current_time = now or datetime.now(timezone.utc)
+        if sub.get("revoked_at") is not None:
+            return True
+        expires_at = sub.get("expires_at")
+        if not isinstance(expires_at, datetime):
+            return not bool(sub.get("is_active"))
+        return not bool(sub.get("is_active") and expires_at > current_time)
+
     async def _start_buy_flow(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context.user_data.pop("buy_wait_phone", None)
         context.user_data.pop("buy_wait_name", None)
@@ -1023,22 +1033,30 @@ class VPNBot:
         )
         return InlineKeyboardMarkup(rows)
 
-    async def _config_card_markup(self, user_id: int | None, subscription_id: int, copy_text: str) -> InlineKeyboardMarkup:
+    async def _config_card_markup(
+        self,
+        user_id: int | None,
+        subscription_id: int,
+        copy_text: str,
+        *,
+        can_delete: bool,
+    ) -> InlineKeyboardMarkup:
         renew_url = await self._account_url(user_id, f"/account/renew/?subscription_id={subscription_id}")
-        return InlineKeyboardMarkup(
+        rows = [
+            [InlineKeyboardButton(text="📋 Скопировать ссылку", api_kwargs={"copy_text": {"text": copy_text}})],
             [
-                [InlineKeyboardButton(text="📋 Скопировать ссылку", api_kwargs={"copy_text": {"text": copy_text}})],
-                [
-                    InlineKeyboardButton(text="📷 QR-код", callback_data=f"act|cfg_qr:{subscription_id}|_"),
-                    InlineKeyboardButton(text="🔄 Продлить", url=renew_url),
-                ],
-                [
-                    InlineKeyboardButton(text="✏️ Переименовать", callback_data=f"act|cfg_rename:{subscription_id}|_"),
-                    InlineKeyboardButton(text="❌ Отключить", callback_data=f"act|cfg_revoke:{subscription_id}|_"),
-                ],
-                [InlineKeyboardButton(text="⬅️ Назад", callback_data="act|cfg_back|_")],
-            ]
-        )
+                InlineKeyboardButton(text="📷 QR-код", callback_data=f"act|cfg_qr:{subscription_id}|_"),
+                InlineKeyboardButton(text="🔄 Продлить", url=renew_url),
+            ],
+        ]
+        action_row = [
+            InlineKeyboardButton(text="✏️ Переименовать", callback_data=f"act|cfg_rename:{subscription_id}|_"),
+        ]
+        if can_delete:
+            action_row.append(InlineKeyboardButton(text="🗑️ Удалить", callback_data=f"act|cfg_delete:{subscription_id}|_"))
+        rows.append(action_row)
+        rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="act|cfg_back|_")])
+        return InlineKeyboardMarkup(rows)
 
     async def _config_card_text(self, user_id: int, sub: dict[str, object], *, client_code: str) -> tuple[str, str, str | None]:
         vless_url, sub_url = await self._resolve_subscription_links(user_id, sub)
@@ -1747,7 +1765,12 @@ class VPNBot:
                 await query.answer()
                 await query.edit_message_text(
                     text=text,
-                    reply_markup=await self._config_card_markup(user_id, subscription_id, vless_url),
+                    reply_markup=await self._config_card_markup(
+                        user_id,
+                        subscription_id,
+                        vless_url,
+                        can_delete=self._subscription_can_delete(sub),
+                    ),
                 )
                 return
             if target.startswith("cfg_copy:"):
@@ -1771,7 +1794,12 @@ class VPNBot:
                 if query.message is not None:
                     await query.edit_message_text(
                         text=text,
-                        reply_markup=await self._config_card_markup(user_id, subscription_id, vless_url),
+                        reply_markup=await self._config_card_markup(
+                            user_id,
+                            subscription_id,
+                            vless_url,
+                            can_delete=self._subscription_can_delete(sub),
+                        ),
                     )
                 return
             if target.startswith("cfg_qr:"):
@@ -1821,7 +1849,12 @@ class VPNBot:
                 if query.message is not None:
                     await query.edit_message_text(
                         text=text,
-                        reply_markup=await self._config_card_markup(user_id, subscription_id, vless_url),
+                        reply_markup=await self._config_card_markup(
+                            user_id,
+                            subscription_id,
+                            vless_url,
+                            can_delete=self._subscription_can_delete(sub),
+                        ),
                     )
                 return
             if target.startswith("cfg_rename:"):
@@ -1835,7 +1868,7 @@ class VPNBot:
                 if query.message is not None:
                     await query.message.reply_text("Отправьте новое имя устройства одним сообщением.")
                 return
-            if target.startswith("cfg_revoke:"):
+            if target.startswith("cfg_delete:"):
                 user_id = await self._ensure_user(update)
                 try:
                     subscription_id = int(target.split(":", 1)[1])
@@ -1846,20 +1879,23 @@ class VPNBot:
                 if not sub:
                     await query.answer("Устройство не найдено", show_alert=True)
                     return
-                revoked = await self.db.revoke_subscription(user_id, subscription_id)
-                if revoked:
+                if not self._subscription_can_delete(sub):
+                    await query.answer("Активный конфиг удалить нельзя", show_alert=True)
+                    return
+                deleted = await self.db.delete_subscription(user_id, subscription_id)
+                if deleted:
                     try:
-                        await self.xui.set_client_enabled(
+                        await self.xui.delete_client(
                             int(sub["inbound_id"]),
                             str(sub["client_uuid"]),
-                            str(sub["client_email"]),
-                            sub["expires_at"],
-                            enable=False,
+                            email=str(sub["client_email"]),
+                            expiry=sub["expires_at"],
                             limit_ip=self.settings.max_devices_per_sub,
+                            flow=self.settings.vpn_flow,
                         )
                     except Exception:
-                        LOGGER.exception("Failed to disable revoked config in x-ui subscription_id=%s", subscription_id)
-                await query.answer("Устройство отключено" if revoked else "Не удалось отключить устройство")
+                        LOGGER.exception("Failed to delete config in x-ui subscription_id=%s", subscription_id)
+                await query.answer("Конфиг удален" if deleted else "Не удалось удалить конфиг")
                 subscriptions = await self.db.list_subscriptions(user_id)
                 client_code = await self.db.get_user_client_code(user_id) or f"VX-{user_id:06d}"
                 await query.edit_message_text(

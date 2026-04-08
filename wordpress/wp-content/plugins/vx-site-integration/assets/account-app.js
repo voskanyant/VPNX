@@ -109,6 +109,11 @@
     return base.replace(/\/?$/, "/") + String(subscriptionId) + "/rename/";
   }
 
+  function subscriptionDeleteUrl(subscriptionId) {
+    const base = String(cfg.apiSubscriptionBaseUrl || "/account-app/api/subscriptions/");
+    return base.replace(/\/?$/, "/") + String(subscriptionId) + "/delete/";
+  }
+
   function apiFetch(url, options) {
     const opts = options || {};
     const headers = Object.assign(
@@ -322,7 +327,13 @@
                 "</button></div></div>",
               '<div class="vx-config-card__actions"><button type="button" class="vx-button vx-button--ghost" data-nav="' +
                 escapeHtml(sub.config_url) +
-                '">QR \u0438 \u043a\u043e\u043d\u0444\u0438\u0433</button></div>',
+                '">QR \u0438 \u043a\u043e\u043d\u0444\u0438\u0433</button>' +
+                (sub.can_delete
+                  ? '<button type="button" class="vx-button vx-button--danger" data-delete-subscription="' +
+                    escapeHtml(String(sub.id)) +
+                    '">\u0423\u0434\u0430\u043b\u0438\u0442\u044c</button>'
+                  : "") +
+                "</div>",
               "</article>",
             ].join("");
           })
@@ -443,6 +454,11 @@
       '<button type="button" class="vx-button vx-button--primary" data-copy-text="' +
         escapeHtml(model.copy_text || "") +
         '">Скопировать ссылку</button>',
+      (model.can_delete
+        ? '<button type="button" class="vx-button vx-button--danger" data-delete-subscription="' +
+          escapeHtml(String(model.id || "")) +
+          '">Удалить</button>'
+        : "") +
       '<button type="button" class="vx-button vx-button--ghost" data-nav="' +
         escapeHtml(model.dashboard_url || cfg.accountUrl) +
         '">Назад в кабинет</button>',
@@ -593,6 +609,33 @@
           showToast("Ссылка скопирована");
         } catch (error) {
           console.debug("copy failed", error);
+        }
+      });
+    });
+
+    mount.querySelectorAll("[data-delete-subscription]").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        const subscriptionId = button.getAttribute("data-delete-subscription") || "";
+        if (!subscriptionId || state.pending) return;
+        if (!window.confirm("Удалить этот неактивный конфиг?")) return;
+
+        state.pending = true;
+        button.setAttribute("disabled", "disabled");
+        try {
+          await apiFetch(subscriptionDeleteUrl(subscriptionId), {
+            method: "POST",
+            body: {},
+          });
+          showToast("Конфиг удален");
+          if (/^\/account\/config\/\d+\/?$/i.test(window.location.pathname)) {
+            window.history.pushState({}, "", normalizePath(cfg.accountPath || "/account/"));
+          }
+          await loadCurrentView();
+        } catch (error) {
+          showToast((error.payload && error.payload.error) || "Не удалось удалить конфиг");
+        } finally {
+          state.pending = false;
+          button.removeAttribute("disabled");
         }
       });
     });
