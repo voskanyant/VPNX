@@ -1727,8 +1727,11 @@ class VPNBot:
                     await self._send_start_screen(query.message, user_id)
                 return
             if target == "trial_activate":
-                await query.answer()
                 if query.message is not None:
+                    if context.user_data.get("trial_activating"):
+                        await query.answer("Пробный доступ уже активируется…")
+                        return
+                    await query.answer()
                     user_id = await self._ensure_user(update)
                     if await self.db.has_any_subscription(user_id):
                         await query.message.reply_text(
@@ -1737,11 +1740,18 @@ class VPNBot:
                             reply_markup=self._trial_used_markup(),
                         )
                     else:
-                        await query.message.reply_text("Активирую пробный доступ...")
-                        await self._run_user_provision(
-                            user_id,
-                            lambda: self._create_trial_for_user(update, user_id=user_id, days=7),
-                        )
+                        context.user_data["trial_activating"] = True
+                        try:
+                            await query.message.reply_text(
+                                "Активирую пробный доступ...",
+                                reply_markup=await self._menu_keyboard_for_user(user_id),
+                            )
+                            await self._run_user_provision(
+                                user_id,
+                                lambda: self._create_trial_for_user(update, user_id=user_id, days=7),
+                            )
+                        finally:
+                            context.user_data.pop("trial_activating", None)
                 return
             if target == "start_back":
                 await query.answer()
