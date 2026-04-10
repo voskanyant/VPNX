@@ -1,5 +1,7 @@
 # VXcloud Go-Live Checklist
 
+Аварийный план: [emergency_runbook.md](./emergency_runbook.md)
+
 Этот чек-лист нужен не для разработки, а для реального запуска. Идите по нему сверху вниз и не пропускайте шаги.
 
 ## 1. Production env
