@@ -27,6 +27,17 @@ VXcloud состоит из 3 основных частей:
 
 Это удобно на старте, но это всё ещё single point of failure для control plane.
 
+Current intended node management model:
+
+- current main server should exist in `/ops/ -> VPN ноды` as `node-1`
+- this lets one physical server stay both control plane and one LB-manageable VPN node
+- if routing problem happens only on the VPN side of the main server, disable `lb_enabled` for `node-1`
+- site, bot, backoffice and payments can still keep working on that server while new VPN traffic goes to other nodes
+
+Важно:
+- это помогает только когда сам сервер жив
+- это не спасает от полного падения main server
+
 ## 3. Источник правды
 
 Что считается source of truth:
@@ -100,12 +111,37 @@ Safe node-add rule:
 5. verify manually
 6. only then enable LB
 
+Backoffice support now exists for node CRUD:
+
+- `/ops/ -> VPN ноды` shows inventory
+- add node
+- edit node
+- disable or enable LB participation
+- delete node
+
+Recommended meanings of key flags:
+
+- `is_active = true`: node is a live cluster member
+- `lb_enabled = true`: HAProxy may send new VPN connections there
+- `needs_backfill = true`: do not put into LB yet; sync and manual checks are still pending
+
 Safe node-remove rule:
 
 1. disable `lb_enabled`
 2. reload HAProxy
 3. wait
 4. then stop/remove node
+
+Recommended initial values:
+
+- current main server as `node-1`:
+  - `is_active = true`
+  - `lb_enabled = true` only if you want it serving LB traffic
+  - `needs_backfill = false`
+- brand new extra node:
+  - `is_active = true`
+  - `lb_enabled = false`
+  - `needs_backfill = true` until sync and manual validation are complete
 
 ## 8. Current launch-critical risks
 

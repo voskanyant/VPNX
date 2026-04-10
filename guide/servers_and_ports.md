@@ -12,7 +12,14 @@ Roles:
 - HAProxy / proxy
 - Postgres
 - MariaDB
-- current VPN node
+- current VPN node (`node-1`)
+
+Operational model:
+
+- this same server should be represented in `/ops/ -> VPN ноды`
+- node record purpose: allow enabling/disabling only the VPN role in LB without turning off site/bot/backend
+- if this server has VPN routing trouble but site is still alive, set `lb_enabled = false` for `node-1`
+- new VPN traffic should then go only to the other enabled nodes
 
 ## 2. Ports that are intentionally important
 
@@ -45,6 +52,7 @@ Observed and must be reviewed:
 Current:
 
 - main server acts as node-1
+- control plane and node-1 are still on the same physical server
 
 Target future architecture:
 
@@ -52,6 +60,13 @@ Target future architecture:
 - separate node-1
 - node-2
 - node-3
+
+Current `/ops/` capabilities:
+
+- create node
+- edit node
+- disable/enable LB participation
+- delete node
 
 ## 5. Node checklist before enabling LB
 
@@ -64,3 +79,14 @@ Target future architecture:
   - config import
 - backfill complete
 - `lb_enabled = false` until all above is true
+
+Suggested field values:
+
+- for current main server / `node-1`:
+  - `backend_port = 29940`
+  - `is_active = true`
+  - `needs_backfill = false`
+- for a fresh new node:
+  - `is_active = true`
+  - `lb_enabled = false`
+  - `needs_backfill = true` until first sync and manual tests are done

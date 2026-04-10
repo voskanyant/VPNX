@@ -21,6 +21,7 @@
    - `Telegram only`
 4. Сначала убрать плохой узел из трафика, и только потом чинить его.
 5. Если не уверены, не делайте destructive actions на проде.
+6. Если ломается только VPN-трафик на main server, сначала отключайте VPN-роль этого сервера из LB, а не весь сервер целиком.
 
 ## 1. Быстрые команды
 
@@ -55,6 +56,12 @@ cd /srv/apps/vxcloud/app
 python scripts/ops/render_haproxy_cfg.py --env-file .env --dry-run
 ```
 
+Быстрые operational reminders:
+
+- current main server может быть одновременно control plane и `node-1`
+- если сломан только VPN routing на main server, сначала выключайте `lb_enabled` у `node-1`
+- это не должно останавливать site, bot, payments и `/ops/`
+
 Deploy/restart:
 
 ```bash
@@ -81,6 +88,11 @@ chmod +x scripts/ops/deploy-auto.sh
 3. Убедиться, что новые подключения больше не попадают на этот узел.
 4. Проверить рабочие узлы.
 5. Только после этого чинить сломанный узел.
+
+Если это именно main server как `node-1`, но сам control plane жив:
+
+6. Не останавливать сайт, бот и backoffice.
+7. Временно использовать main server только как control plane, пока VPN-часть не исправлена.
 
 Цель:
 - новые пользователи и переподключения должны уйти на живые узлы
@@ -294,6 +306,7 @@ git rev-parse HEAD
 - documented DNS access
 - быстрый способ выключить `lb_enabled` у плохого node
 - проверенный HAProxy reload path
+- понимание, что main server можно временно оставить только control plane, отключив его VPN-роль через `/ops/`
 
 ## 10. Минимальный emergency checklist
 
@@ -323,4 +336,3 @@ git rev-parse HEAD
 - какой был реальный root cause
 - как быстро нашли
 - что нужно автоматизировать, чтобы второй раз это не повторилось
-

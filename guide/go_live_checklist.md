@@ -126,6 +126,8 @@ docker compose --env-file .env ps
 - нет ли старых `pending` card orders старше 30 минут
 - если есть, нажмите `Очистить stale card pending`
 - `Legacy Directus` должен быть `Off`
+- current main server должен быть заведён в `VPN ноды` как `node-1`
+- у `node-1` должно быть понятно, что его можно отдельно выключить из LB через `lb_enabled`, не ломая site/bot/backend
 
 ## 9. Support path
 

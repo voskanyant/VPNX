@@ -33,6 +33,15 @@ Node может:
 - payments/webhooks
 - HAProxy on main server
 
+### Main server can still be used as node-1
+
+Current intended model:
+
+- main server is both control plane and `node-1`
+- if only VPN routing on that server goes bad, disable `lb_enabled` for `node-1`
+- this should leave site, bot, `/ops/` and payments alive on the same machine
+- this is not a substitute for full standby control plane
+
 ## 2. Practical rules
 
 - new configs must use public port `29940`
@@ -44,6 +53,8 @@ Node может:
 
 - before launch, keep Directus disabled unless intentionally used
 - before enabling a new node in LB, manually test Telegram through it
+- keep current main server represented in `/ops/ -> VPN ноды` as `node-1`
+- use `/ops/` as the place to add, edit, disable and delete nodes
 - if one node behaves strangely, remove it from LB first and investigate second
 - do not do incident response by editing random production rows without understanding source of truth
 
