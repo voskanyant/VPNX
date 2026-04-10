@@ -8,10 +8,24 @@
     {% if delete_warning %}
       <div class="alert alert-warning">{{ delete_warning }}</div>
     {% endif %}
+    {% if related_counts %}
+      <div class="border rounded p-3 mb-3 bg-light-subtle">
+        <div class="fw-semibold mb-2">Связанные данные</div>
+        <ul class="mb-0 ps-3">
+          <li>Подписки: {{ related_counts.subscriptions }}</li>
+          <li>Активные подписки: {{ related_counts.active_subscriptions }}</li>
+          <li>Заказы: {{ related_counts.orders }}</li>
+          <li>Node sync записи: {{ related_counts.node_clients }}</li>
+          <li>Тикеты поддержки: {{ related_counts.support_tickets }}</li>
+          <li>Сообщения поддержки: {{ related_counts.support_messages }}</li>
+          <li>Связки Telegram с сайтом: {{ related_counts.linked_accounts }}</li>
+        </ul>
+      </div>
+    {% endif %}
     <form method="post">
       {% csrf_token %}
       <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-danger">Удалить</button>
+        <button type="submit" class="btn btn-danger" {% if delete_blocked %}disabled{% endif %}>Удалить</button>
         <a href="javascript:history.back()" class="btn btn-outline-secondary">Отмена</a>
       </div>
     </form>

@@ -809,28 +809,68 @@ class BotUserListView(BaseListView):
         return rows
 
 
-class BotUserDeleteView(StaffRequiredMixin, DeleteView):
+class BotUserDeleteView(LegacyContentContextMixin, StaffRequiredMixin, DeleteView):
     model = BotUser
     template_name = "backoffice/confirm_delete.html"
     success_url = reverse_lazy("backoffice:bot_user_list")
 
+    def _related_counts(self, user: BotUser) -> dict[str, int]:
+        subscriptions_qs = BotSubscription.objects.filter(user_id=user.id)
+        subscription_ids = list(subscriptions_qs.values_list("id", flat=True))
+        telegram_id = int(getattr(user, "telegram_id", 0) or 0)
+        return {
+            "subscriptions": safe_count(subscriptions_qs),
+            "active_subscriptions": safe_count(subscriptions_qs.filter(is_active=True)),
+            "orders": safe_count(BotOrder.objects.filter(user_id=user.id)),
+            "node_clients": safe_count(VPNNodeClient.objects.filter(subscription_id__in=subscription_ids)),
+            "support_tickets": safe_count(SupportTicket.objects.filter(user_id=user.id)),
+            "support_messages": safe_count(SupportMessage.objects.filter(sender_user_id=user.id)),
+            "linked_accounts": safe_count(LinkedAccount.objects.filter(telegram_id=telegram_id)),
+        }
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
+        counts = self._related_counts(self.object)
+        delete_blocked = counts["active_subscriptions"] > 0
         ctx["title"] = "Удаление пользователя"
-        ctx["delete_warning"] = (
-            "Будут удалены связанные подписки, заказы, reminder logs и node sync записи. "
-            "Тикеты и сообщения поддержки сохранятся, но отвяжутся от пользователя. "
-            "Если Telegram аккаунт был привязан к сайту, связка LinkedAccount тоже будет удалена."
-        )
+        ctx["delete_blocked"] = delete_blocked
+        ctx["related_counts"] = counts
+        if delete_blocked:
+            ctx["delete_warning"] = (
+                "У пользователя есть активные подписки. Сначала отключите их или дождитесь окончания срока, "
+                "затем удаляйте пользователя."
+            )
+        else:
+            ctx["delete_warning"] = (
+                "Будут удалены связанные подписки, заказы и node sync записи. Тикеты и сообщения поддержки "
+                "сохранятся, но отвяжутся от пользователя. Если Telegram аккаунт был привязан к сайту, "
+                "связка LinkedAccount тоже будет удалена."
+            )
         return self.add_wordpress_context(ctx)
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         self.object = self.get_object()
+        counts = self._related_counts(self.object)
+        if counts["active_subscriptions"] > 0:
+            messages.error(request, "Нельзя удалить пользователя с активными подписками.")
+            return self.render_to_response(self.get_context_data())
+
         telegram_id = int(getattr(self.object, "telegram_id", 0) or 0)
-        LinkedAccount.objects.filter(telegram_id=telegram_id).delete()
-        response = super().post(request, *args, **kwargs)
+        subscriptions_qs = BotSubscription.objects.filter(user_id=self.object.id)
+        subscription_ids = list(subscriptions_qs.values_list("id", flat=True))
+
+        with transaction.atomic():
+            LinkedAccount.objects.filter(telegram_id=telegram_id).delete()
+            SupportMessage.objects.filter(sender_user_id=self.object.id).update(sender_user_id=None)
+            SupportTicket.objects.filter(user_id=self.object.id).update(user_id=None)
+            if subscription_ids:
+                VPNNodeClient.objects.filter(subscription_id__in=subscription_ids).delete()
+            BotOrder.objects.filter(user_id=self.object.id).delete()
+            subscriptions_qs.delete()
+            self.object.delete()
+
         messages.success(request, "Пользователь удалён")
-        return response
+        return redirect(self.success_url)
 
 
 class BotSubscriptionListView(BaseListView):
