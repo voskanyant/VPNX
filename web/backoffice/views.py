@@ -47,6 +47,7 @@ from .forms import (
     BackofficeCategoryForm,
     BackofficePageForm,
     BackofficeSubscriptionExpiryForm,
+    BackofficeVPNNodeForm,
     BackofficePostForm,
     BackofficePostTypeForm,
     BackofficeSiteTextForm,
@@ -1252,7 +1253,10 @@ class VPNNodeListView(BaseListView):
     model = VPNNode
     title = "VPN ноды"
     subtitle = "Состояние нод, load balancer eligibility и health snapshots."
-    readonly = True
+    readonly = False
+    add_url_name = "backoffice:vpn_node_create"
+    edit_url_name = "backoffice:vpn_node_update"
+    delete_url_name = "backoffice:vpn_node_delete"
     columns = [
         ("id", "ID"),
         ("name", "Нода"),
@@ -1290,6 +1294,85 @@ class VPNNodeListView(BaseListView):
                 }
             )
         return rows
+
+
+class VPNNodeCreateView(LegacyContentMutationGuardMixin, StaffRequiredMixin, CreateView):
+    model = VPNNode
+    form_class = BackofficeVPNNodeForm
+    title_create = "Новая VPN нода"
+
+    def get_success_url(self):
+        return reverse("backoffice:vpn_node_list")
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = self.title_create
+        ctx["block_editor_asset_version"] = BLOCK_EDITOR_ASSET_VERSION
+        return self.add_wordpress_context(ctx)
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Сохранено")
+        return response
+
+
+class VPNNodeUpdateView(LegacyContentMutationGuardMixin, StaffRequiredMixin, UpdateView):
+    model = VPNNode
+    form_class = BackofficeVPNNodeForm
+    title_update = "Редактирование VPN ноды"
+
+    def get_success_url(self):
+        return reverse("backoffice:vpn_node_list")
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = self.title_update
+        ctx["block_editor_asset_version"] = BLOCK_EDITOR_ASSET_VERSION
+        return self.add_wordpress_context(ctx)
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Сохранено")
+        return response
+
+
+class VPNNodeDeleteView(LegacyContentContextMixin, StaffRequiredMixin, DeleteView):
+    model = VPNNode
+    template_name = "backoffice/confirm_delete.html"
+    success_url = reverse_lazy("backoffice:vpn_node_list")
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        related_count = safe_count(VPNNodeClient.objects.filter(node_id=self.object.id))
+        ctx["title"] = "Удаление VPN ноды"
+        ctx["delete_blocked"] = False
+        ctx["related_counts"] = {
+            "subscriptions": "—",
+            "active_subscriptions": "—",
+            "orders": "—",
+            "node_clients": related_count,
+            "support_tickets": "—",
+            "support_messages": "—",
+            "linked_accounts": "—",
+        }
+        if bool(getattr(self.object, "lb_enabled", False)):
+            ctx["delete_warning"] = (
+                "Нода сейчас включена в load balancer. Перед удалением лучше сначала выключить lb_enabled, "
+                "убедиться, что новые подключения больше не идут на неё, и только потом удалять запись."
+            )
+        else:
+            ctx["delete_warning"] = (
+                "Будут удалены запись ноды и связанные node sync записи. Сами подписки пользователей удалены не будут."
+            )
+        return self.add_wordpress_context(ctx)
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        self.object = self.get_object()
+        with transaction.atomic():
+            VPNNodeClient.objects.filter(node_id=self.object.id).delete()
+            self.object.delete()
+        messages.success(request, "VPN нода удалена")
+        return redirect(self.success_url)
 
 
 class VPNNodeClientListView(BaseListView):

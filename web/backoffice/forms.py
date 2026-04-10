@@ -5,6 +5,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 
 from blog.models import Category, Page, Post, PostType, SiteText
+from cabinet.models import VPNNode
 
 
 class StaffAuthenticationForm(AuthenticationForm):
@@ -209,4 +210,49 @@ class BackofficeSubscriptionExpiryForm(BootstrapFormMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._apply_bootstrap_classes()
+
+
+class BackofficeVPNNodeForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = VPNNode
+        fields = [
+            "name",
+            "region",
+            "xui_base_url",
+            "xui_username",
+            "xui_password",
+            "xui_inbound_id",
+            "backend_host",
+            "backend_port",
+            "backend_weight",
+            "is_active",
+            "lb_enabled",
+            "needs_backfill",
+        ]
+        widgets = {
+            "xui_password": forms.PasswordInput(render_value=True),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["name"].label = "Имя ноды"
+        self.fields["region"].label = "Регион"
+        self.fields["xui_base_url"].label = "3x-ui URL"
+        self.fields["xui_username"].label = "3x-ui логин"
+        self.fields["xui_password"].label = "3x-ui пароль"
+        self.fields["xui_inbound_id"].label = "3x-ui inbound ID"
+        self.fields["backend_host"].label = "Backend host"
+        self.fields["backend_port"].label = "Backend port"
+        self.fields["backend_weight"].label = "Вес в HAProxy"
+        self.fields["is_active"].label = "Нода активна"
+        self.fields["lb_enabled"].label = "Включить в load balancer"
+        self.fields["needs_backfill"].label = "Требует backfill"
+
+        self.fields["xui_base_url"].help_text = "Например: https://node-1.example.com:2053"
+        self.fields["backend_host"].help_text = "Куда HAProxy будет направлять VPN-трафик."
+        self.fields["backend_port"].help_text = "Обычно тот же inbound port Xray на ноде."
+        self.fields["lb_enabled"].help_text = "Новые подключения пойдут на ноду только если это поле включено, health=ok и backfill завершён."
+        self.fields["needs_backfill"].help_text = "Оставьте включённым для новой ноды, пока не закончите sync и ручную проверку."
+
         self._apply_bootstrap_classes()
