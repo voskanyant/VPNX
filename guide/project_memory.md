@@ -61,6 +61,7 @@ Current intended node management model:
 VPN/public ports:
 
 - main VPN public port: `29940`
+- temporary HAProxy test frontend used to prove LB routing: `30940`
 - subscription port: `2096`
 - legacy 3x-ui/admin-like port observed on server: `24886` and must be reviewed carefully before launch exposure
 
@@ -102,6 +103,23 @@ Current HAProxy behavior:
 - does not detect "Telegram broken but node otherwise alive"
 - does not migrate already established VPN sessions
 
+Current proven state on production:
+
+- current main server is registered in `/ops/ -> VPN ноды` as `node-1-main`
+- cluster mode is enabled in app env
+- `/ops/ -> Node sync` shows subscriptions mirrored to `node-1-main`
+- test HAProxy frontend on `30940` was verified end-to-end:
+  - when `node-1-main` is enabled and HAProxy test config is rendered/restarted, VPN works through `30940`
+  - when `node-1-main` is disabled in `/ops/` and HAProxy test config is rendered/restarted, VPN through `30940` stops working
+- this proves `/ops/ -> VPN ноды` really controls HAProxy-routed traffic
+- direct production traffic on `29940` still goes straight to Xray and does not yet depend on HAProxy
+
+Important operational rule:
+
+- changing node flags in `/ops/` does not magically reconfigure the host HAProxy process
+- after changing node flags, HAProxy config must be re-rendered and the relevant HAProxy instance must be restarted/reloaded
+- without that step, old routing behavior can continue
+
 Safe node-add rule:
 
 1. add node
@@ -131,6 +149,17 @@ Safe node-remove rule:
 2. reload HAProxy
 3. wait
 4. then stop/remove node
+
+Current tested safe procedure for the temporary HAProxy test path:
+
+1. edit node flags in `/ops/`
+2. re-render test HAProxy config:
+   - `docker compose --env-file .env exec -T web python /app/scripts/ops/render_haproxy_cfg.py --env-file /app/.env --frontend-port 30940 --dry-run > /tmp/haproxy-vpn-test.cfg`
+3. restart test HAProxy instance:
+   - `sudo pkill -f "/tmp/haproxy-vpn-test.cfg" || true`
+   - `sudo haproxy -f /tmp/haproxy-vpn-test.cfg -p /tmp/haproxy-vpn-test.pid -D`
+4. wait about 10 seconds for checks/warm-up
+5. reconnect the client using the same config but with port `30940`
 
 Recommended initial values:
 

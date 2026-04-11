@@ -27,7 +27,8 @@ Public:
 
 - `80/tcp` - site HTTP
 - `443/tcp` - site HTTPS
-- `29940/tcp` - main VPN client port
+- `29940/tcp` - current direct Xray production VPN port
+- `30940/tcp` - temporary HAProxy test frontend used to verify node/LB routing
 - `2096/tcp` - subscription/config delivery port
 
 Internal/localhost:
@@ -83,6 +84,7 @@ Current `/ops/` capabilities:
 Suggested field values:
 
 - for current main server / `node-1`:
+  - `backend_host = 82.21.117.154`
   - `backend_port = 29940`
   - `is_active = true`
   - `needs_backfill = false`
@@ -90,3 +92,11 @@ Suggested field values:
   - `is_active = true`
   - `lb_enabled = false`
   - `needs_backfill = true` until first sync and manual tests are done
+
+## 6. Proven test state
+
+- `30940` was tested as a separate HAProxy frontend on the main server
+- client config with only `29940 -> 30940` changed works when `node-1-main` is enabled and HAProxy test config is rendered/restarted
+- the same `30940` client config stops working when `node-1-main` is disabled in `/ops/` and HAProxy test config is rendered/restarted
+- this proves `/ops/ -> VPN ноды` already controls HAProxy-routed traffic
+- `29940` still bypasses HAProxy and goes directly to local Xray

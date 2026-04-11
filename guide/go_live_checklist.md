@@ -128,6 +128,7 @@ docker compose --env-file .env ps
 - `Legacy Directus` должен быть `Off`
 - current main server должен быть заведён в `VPN ноды` как `node-1`
 - у `node-1` должно быть понятно, что его можно отдельно выключить из LB через `lb_enabled`, не ломая site/bot/backend
+- помнить, что это уже доказано только на тестовом HAProxy frontend `30940`; production `29940` пока остаётся прямым Xray path
 
 ## 9. Support path
 
@@ -159,6 +160,19 @@ python scripts/ops/render_haproxy_cfg.py --env-file .env --dry-run
 - в output только здоровые ноды
 - frontend port правильный
 - backend servers правильные
+
+Temporary tested HAProxy path:
+
+```bash
+docker compose --env-file .env exec -T web python /app/scripts/ops/render_haproxy_cfg.py --env-file /app/.env --frontend-port 30940 --dry-run > /tmp/haproxy-vpn-test.cfg
+sudo pkill -f "/tmp/haproxy-vpn-test.cfg" || true
+sudo haproxy -f /tmp/haproxy-vpn-test.cfg -p /tmp/haproxy-vpn-test.pid -D
+```
+
+Expected behavior:
+
+- if `node-1-main` is enabled, VPN through client port `30940` works
+- if `node-1-main` is disabled and test HAProxy is re-rendered/restarted, VPN through `30940` stops
 
 ## 11. First node add rehearsal
 

@@ -56,6 +56,15 @@ cd /srv/apps/vxcloud/app
 python scripts/ops/render_haproxy_cfg.py --env-file .env --dry-run
 ```
 
+Temporary HAProxy test path already proven on production:
+
+```bash
+cd /srv/apps/vxcloud/app
+docker compose --env-file .env exec -T web python /app/scripts/ops/render_haproxy_cfg.py --env-file /app/.env --frontend-port 30940 --dry-run > /tmp/haproxy-vpn-test.cfg
+sudo pkill -f "/tmp/haproxy-vpn-test.cfg" || true
+sudo haproxy -f /tmp/haproxy-vpn-test.cfg -p /tmp/haproxy-vpn-test.pid -D
+```
+
 Быстрые operational reminders:
 
 - current main server может быть одновременно control plane и `node-1`
@@ -100,6 +109,7 @@ chmod +x scripts/ops/deploy-auto.sh
 Важно:
 - уже существующие активные TCP-сессии на этом узле могут оборваться
 - HAProxy не переносит уже установленную VPN-сессию на другой node
+- изменение флагов ноды в `/ops/` само по себе не меняет уже запущенный HAProxy; нужен отдельный render/restart or reload step
 
 ## 3. Сценарий: node жив, но Telegram не работает
 
@@ -307,6 +317,7 @@ git rev-parse HEAD
 - быстрый способ выключить `lb_enabled` у плохого node
 - проверенный HAProxy reload path
 - понимание, что main server можно временно оставить только control plane, отключив его VPN-роль через `/ops/`
+- понимание, что текущий production `29940` всё ещё direct Xray path, а уже доказанный HAProxy-controlled test path сейчас `30940`
 
 ## 10. Минимальный emergency checklist
 

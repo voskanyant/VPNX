@@ -42,6 +42,13 @@ Current intended model:
 - this should leave site, bot, `/ops/` and payments alive on the same machine
 - this is not a substitute for full standby control plane
 
+### Current production port split
+
+- `29940` is still the current direct Xray path
+- `30940` was introduced only as a temporary HAProxy test frontend
+- node on/off behavior in `/ops/` has already been proven on `30940`
+- do not assume disabling a node in `/ops/` will immediately stop direct `29940` traffic
+
 ## 2. Practical rules
 
 - new configs must use public port `29940`
@@ -57,6 +64,8 @@ Current intended model:
 - use `/ops/` as the place to add, edit, disable and delete nodes
 - if one node behaves strangely, remove it from LB first and investigate second
 - do not do incident response by editing random production rows without understanding source of truth
+- after changing node flags in `/ops/`, re-render and restart/reload the relevant HAProxy instance before concluding anything about routing
+- do not change the main 3x-ui inbound port during HAProxy tests unless the goal is an intentional production cutover
 
 ## 4. When returning to this project later
 
