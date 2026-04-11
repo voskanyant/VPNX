@@ -1395,7 +1395,11 @@ class BotSubscriptionCreateView(StaffRequiredMixin, TemplateView):
             created_at=now,
             updated_at=now,
         )
-        subscription.save(force_insert=True)
+        try:
+            subscription.save(force_insert=True)
+        except Exception as exc:
+            form.add_error(None, f"Не удалось сохранить подписку в базе: {exc}")
+            return self.render_to_response(self.get_context_data(form=form))
 
         try:
             provision_results = _run_async_from_sync(
@@ -1422,67 +1426,87 @@ class BotSubscriptionCreateView(StaffRequiredMixin, TemplateView):
 
         primary_sub_id = xui_sub_id or str(successful[0].get("xui_sub_id") or "").strip() or None
         if primary_sub_id != getattr(subscription, "xui_sub_id", None):
-            subscription.xui_sub_id = primary_sub_id
-            subscription.updated_at = timezone.now()
-            subscription.save(update_fields=["xui_sub_id", "updated_at"])
+            try:
+                subscription.xui_sub_id = primary_sub_id
+                subscription.updated_at = timezone.now()
+                subscription.save(update_fields=["xui_sub_id", "updated_at"])
+            except Exception:
+                LOGGER.exception(
+                    "backoffice_subscription_create_update_sub_id_failed",
+                    extra={"subscription_id": int(getattr(subscription, "id", 0) or 0)},
+                )
 
+        sync_state_errors: list[str] = []
         if cluster_nodes:
-            results_by_node = {int(item.get("node_id", 0) or 0): item for item in provision_results}
-            sync_now = timezone.now()
-            for node in cluster_nodes:
-                node_id = int(node.get("id", 0) or 0)
-                result = results_by_node.get(node_id) or {"ok": False, "error": "node was not provisioned"}
-                defaults = {
-                    "client_uuid": client_uuid,
-                    "client_email": client_email,
-                    "xui_sub_id": result.get("xui_sub_id") or primary_sub_id,
-                    "desired_enabled": should_be_active,
-                    "desired_expires_at": expires_at,
-                    "observed_enabled": should_be_active if result.get("ok") else None,
-                    "observed_expires_at": expires_at if result.get("ok") else None,
-                    "sync_state": "ok" if result.get("ok") else "error",
-                    "last_synced_at": sync_now if result.get("ok") else None,
-                    "last_error": None if result.get("ok") else str(result.get("error") or "unknown error")[:1000],
-                    "updated_at": sync_now,
-                }
-                existing = VPNNodeClient.objects.filter(node_id=node_id, subscription_id=subscription.id).first()
-                if existing:
-                    for field, value in defaults.items():
-                        setattr(existing, field, value)
-                    existing.save(
-                        update_fields=[
-                            "client_uuid",
-                            "client_email",
-                            "xui_sub_id",
-                            "desired_enabled",
-                            "desired_expires_at",
-                            "observed_enabled",
-                            "observed_expires_at",
-                            "sync_state",
-                            "last_synced_at",
-                            "last_error",
-                            "updated_at",
-                        ]
-                    )
-                else:
-                    VPNNodeClient.objects.create(
-                        node_id=node_id,
-                        subscription_id=subscription.id,
-                        created_at=sync_now,
-                        **defaults,
-                    )
+            try:
+                results_by_node = {int(item.get("node_id", 0) or 0): item for item in provision_results}
+                sync_now = timezone.now()
+                for node in cluster_nodes:
+                    node_id = int(node.get("id", 0) or 0)
+                    result = results_by_node.get(node_id) or {"ok": False, "error": "node was not provisioned"}
+                    defaults = {
+                        "client_uuid": client_uuid,
+                        "client_email": client_email,
+                        "xui_sub_id": result.get("xui_sub_id") or primary_sub_id,
+                        "desired_enabled": should_be_active,
+                        "desired_expires_at": expires_at,
+                        "observed_enabled": should_be_active if result.get("ok") else None,
+                        "observed_expires_at": expires_at if result.get("ok") else None,
+                        "sync_state": "ok" if result.get("ok") else "error",
+                        "last_synced_at": sync_now if result.get("ok") else None,
+                        "last_error": None if result.get("ok") else str(result.get("error") or "unknown error")[:1000],
+                        "updated_at": sync_now,
+                    }
+                    existing = VPNNodeClient.objects.filter(node_id=node_id, subscription_id=subscription.id).first()
+                    if existing:
+                        for field, value in defaults.items():
+                            setattr(existing, field, value)
+                        existing.save(
+                            update_fields=[
+                                "client_uuid",
+                                "client_email",
+                                "xui_sub_id",
+                                "desired_enabled",
+                                "desired_expires_at",
+                                "observed_enabled",
+                                "observed_expires_at",
+                                "sync_state",
+                                "last_synced_at",
+                                "last_error",
+                                "updated_at",
+                            ]
+                        )
+                    else:
+                        VPNNodeClient.objects.create(
+                            node_id=node_id,
+                            subscription_id=subscription.id,
+                            created_at=sync_now,
+                            **defaults,
+                        )
+            except Exception as exc:
+                LOGGER.exception(
+                    "backoffice_subscription_create_sync_state_failed",
+                    extra={"subscription_id": int(getattr(subscription, "id", 0) or 0)},
+                )
+                sync_state_errors.append(str(exc))
 
         failed = [item for item in provision_results if not item.get("ok")]
-        if failed:
+        if failed or sync_state_errors:
+            problem_chunks: list[str] = []
+            if failed:
+                problem_chunks.append(
+                    "; ".join(
+                        f"node#{int(item.get('node_id', 0) or 0)}: {item.get('error')}" for item in failed[:3]
+                    )
+                )
+            if sync_state_errors:
+                problem_chunks.append(f"sync-state: {sync_state_errors[0]}")
             messages.warning(
                 request,
-                "ÐŸÐ¾Ð´Ð¿Ð¸ÑÐºÐ° ÑÐ¾Ð·Ð´Ð°Ð½Ð° Ð² Ð±Ð°Ð·Ðµ, Ð½Ð¾ Ð½Ðµ Ð½Ð° Ð²ÑÐµÑ… Ð½Ð¾Ð´Ð°Ñ… 3x-ui: "
-                + "; ".join(
-                    f"node#{int(item.get('node_id', 0) or 0)}: {item.get('error')}" for item in failed[:3]
-                ),
+                "Подписка создана, но есть неполная синхронизация: " + " | ".join(problem_chunks),
             )
         else:
-            messages.success(request, "ÐŸÐ¾Ð´Ð¿Ð¸ÑÐºÐ° ÑÐ¾Ð·Ð´Ð°Ð½Ð°")
+            messages.success(request, "Подписка создана")
         return redirect("backoffice:bot_subscription_list")
 
 

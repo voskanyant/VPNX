@@ -90,6 +90,53 @@ class BackofficeSubscriptionCreateUnitTests(unittest.TestCase):
         self.assertEqual(provision_mock.await_args.kwargs["display_name"], "my VPN")
         self.assertEqual(provision_mock.await_args.kwargs["enabled"], True)
 
+    def test_create_subscription_does_not_500_when_cluster_sync_state_write_fails(self):
+        now = timezone.now()
+        expires_at = timezone.localtime(now + timedelta(days=16)).strftime("%Y-%m-%dT%H:%M")
+        runtime = {
+            "inbound_id": 1,
+            "inbound_port": 29940,
+            "reality": SimpleNamespace(
+                public_key="pub",
+                short_id="ec40",
+                sni="www.apple.com",
+                fingerprint="chrome",
+            ),
+        }
+        cluster_nodes = [{"id": 10, "xui_base_url": "https://node.local", "xui_username": "u", "xui_password": "p", "xui_inbound_id": 1}]
+        provision_mock = AsyncMock(return_value=[{"node_id": 10, "ok": True, "xui_sub_id": "sub-ops-001"}])
+        filter_mock = MagicMock()
+        filter_mock.first.side_effect = RuntimeError("vpn_node_clients write failed")
+
+        with (
+            patch("backoffice.forms.BotUser.objects.filter") as user_filter_mock,
+            patch(
+                "backoffice.views.get_object_or_404",
+                return_value=SimpleNamespace(id=1, username="tester", first_name="Test", client_code="VX-000001"),
+            ),
+            patch("backoffice.views._load_subscription_runtime", new=AsyncMock(return_value=runtime)),
+            patch("backoffice.views._create_subscription_on_xui", new=provision_mock),
+            patch("backoffice.views._active_vpn_nodes_snapshot", return_value=cluster_nodes),
+            patch("backoffice.views.VPNNodeClient.objects.filter", return_value=filter_mock),
+            patch(
+                "backoffice.views.env_value",
+                side_effect=lambda name, default="": {
+                    "VPN_PUBLIC_HOST": "vxcloud.ru",
+                    "VPN_TAG": "VXcloud",
+                    "VPN_FLOW": "xtls-rprx-vision",
+                }.get(name, default),
+            ),
+            patch("backoffice.views.int_env", side_effect=lambda name, default: 29940 if name == "VPN_PUBLIC_PORT" else default),
+            patch("backoffice.views.bool_env", side_effect=lambda name, default=False: True if name == "VPN_CLUSTER_ENABLED" else default),
+            patch("backoffice.views.BotSubscription.save", new=MagicMock()),
+        ):
+            user_filter_mock.return_value.exists.return_value = True
+            response = BotSubscriptionCreateView.as_view()(
+                self._build_request(user_id=1, display_name="my VPN", expires_at=expires_at)
+            )
+
+        self.assertEqual(response.status_code, 302)
+
 
 if __name__ == "__main__":
     unittest.main()
