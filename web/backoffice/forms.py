@@ -203,7 +203,13 @@ class TicketReplyForm(BootstrapFormMixin, forms.Form):
 class BackofficeSubscriptionExpiryForm(BootstrapFormMixin, forms.Form):
     expires_at = forms.DateTimeField(
         label="Дата окончания",
-        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"],
+        input_formats=[
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M",
+            "%m/%d/%Y %I:%M %p",
+            "%m/%d/%Y %I:%M:%S %p",
+        ],
         widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M"),
         help_text="Изменение применяется в базе и сразу отправляется в 3x-ui.",
     )

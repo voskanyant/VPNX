@@ -11,6 +11,7 @@ from typing import Any
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 
+from asgiref.sync import async_to_sync
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import User
@@ -484,6 +485,9 @@ async def _push_subscription_expiry_to_xui(subscription: BotSubscription, expire
     errors: list[str] = []
 
     async def apply_on_node(base_url: str, username: str, password: str, inbound_id: int, label: str) -> None:
+        if not (base_url and username and password):
+            errors.append(f"{label}: x-ui credentials are not configured")
+            return
         xui = XUIClient(base_url.rstrip("/"), username, password)
         try:
             await xui.start()
@@ -504,23 +508,43 @@ async def _push_subscription_expiry_to_xui(subscription: BotSubscription, expire
     if bool_env("VPN_CLUSTER_ENABLED", False):
         nodes = list(VPNNode.objects.filter(is_active=True).order_by("id"))
         for node in nodes:
+            label = f"node#{int(node.id)}"
+            try:
+                inbound_id = int(getattr(node, "xui_inbound_id", None))
+            except (TypeError, ValueError):
+                errors.append(f"{label}: invalid x-ui inbound id")
+                continue
             await apply_on_node(
-                str(node.xui_base_url),
-                str(node.xui_username),
-                str(node.xui_password),
-                int(node.xui_inbound_id),
-                f"node#{int(node.id)}",
+                str(getattr(node, "xui_base_url", "") or ""),
+                str(getattr(node, "xui_username", "") or ""),
+                str(getattr(node, "xui_password", "") or ""),
+                inbound_id,
+                label,
             )
+        return errors
+
+    try:
+        inbound_id = int_env("XUI_INBOUND_ID", int(getattr(subscription, "inbound_id", 1) or 1))
+    except (TypeError, ValueError):
+        errors.append("primary: invalid x-ui inbound id")
         return errors
 
     await apply_on_node(
         env_value("XUI_BASE_URL"),
         env_value("XUI_USERNAME"),
         env_value("XUI_PASSWORD"),
-        int_env("XUI_INBOUND_ID", int(getattr(subscription, "inbound_id", 1) or 1)),
+        inbound_id,
         "primary",
     )
     return errors
+
+
+async def _await_passthrough(awaitable):
+    return await awaitable
+
+
+def _run_async_from_sync(awaitable):
+    return async_to_sync(_await_passthrough)(awaitable)
 
 
 async def _delete_subscription_from_xui(subscription: BotSubscription) -> list[str]:
@@ -1138,7 +1162,7 @@ class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
             subscription.updated_at = timezone.now()
             subscription.save(update_fields=["expires_at", "is_active", "updated_at"])
 
-        errors = asyncio.run(_push_subscription_expiry_to_xui(subscription, expires_at))
+        errors = _run_async_from_sync(_push_subscription_expiry_to_xui(subscription, expires_at))
         if errors:
             messages.warning(request, "Срок обновлён в базе, но не везде применился в 3x-ui: " + "; ".join(errors[:3]))
         else:

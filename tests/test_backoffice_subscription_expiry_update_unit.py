@@ -98,6 +98,66 @@ class BackofficeSubscriptionExpiryUpdateUnitTests(unittest.TestCase):
         self.assertFalse(subscription.is_active)
         subscription.save.assert_called_once()
 
+    def test_post_accepts_us_ampm_datetime_without_500(self):
+        current = timezone.now()
+        subscription = SimpleNamespace(
+            id=57,
+            display_name="US format config",
+            client_email="us-format@example.com",
+            expires_at=current,
+            is_active=True,
+            revoked_at=None,
+            updated_at=current,
+            save=MagicMock(),
+        )
+        target_local = timezone.localtime(current + timedelta(days=15)).strftime("%m/%d/%Y %I:%M %p")
+        view = BotSubscriptionExpiryUpdateView.as_view()
+
+        with (
+            patch.object(BotSubscriptionExpiryUpdateView, "_subscription", return_value=subscription),
+            patch("backoffice.views._push_subscription_expiry_to_xui", new=AsyncMock(return_value=[])),
+        ):
+            response = view(self._build_request(target_local), pk=57)
+
+        self.assertEqual(response.status_code, 302)
+        subscription.save.assert_called_once()
+
+    def test_post_does_not_500_when_cluster_node_has_bad_inbound_id(self):
+        current = timezone.now()
+        subscription = SimpleNamespace(
+            id=58,
+            display_name="Broken node config",
+            client_uuid="11111111-1111-1111-1111-111111111111",
+            client_email="broken-node@example.com",
+            inbound_id=1,
+            expires_at=current,
+            is_active=True,
+            revoked_at=None,
+            updated_at=current,
+            save=MagicMock(),
+        )
+        target_local = timezone.localtime(current + timedelta(days=3)).strftime("%Y-%m-%dT%H:%M")
+        view = BotSubscriptionExpiryUpdateView.as_view()
+        broken_node = SimpleNamespace(
+            id=10,
+            xui_base_url="https://node.local",
+            xui_username="u",
+            xui_password="p",
+            xui_inbound_id=None,
+            is_active=True,
+        )
+
+        with (
+            patch.object(BotSubscriptionExpiryUpdateView, "_subscription", return_value=subscription),
+            patch("backoffice.views.bool_env", return_value=True),
+            patch("backoffice.views.VPNNode.objects.filter") as filter_mock,
+        ):
+            filter_mock.return_value.order_by.return_value = [broken_node]
+            response = view(self._build_request(target_local), pk=58)
+
+        self.assertEqual(response.status_code, 302)
+        subscription.save.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
