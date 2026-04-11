@@ -588,12 +588,18 @@ async def _delete_subscription_from_xui(subscription: BotSubscription) -> list[s
     if bool_env("VPN_CLUSTER_ENABLED", False):
         nodes = list(VPNNode.objects.filter(is_active=True).order_by("id"))
         for node in nodes:
+            label = f"node#{int(getattr(node, 'id', 0) or 0)}"
+            try:
+                inbound_id = int(getattr(node, "xui_inbound_id", None))
+            except (TypeError, ValueError):
+                errors.append(f"{label}: invalid x-ui inbound id")
+                continue
             await apply_on_node(
                 str(node.xui_base_url),
                 str(node.xui_username),
                 str(node.xui_password),
-                int(node.xui_inbound_id),
-                f"node#{int(node.id)}",
+                inbound_id,
+                label,
             )
         return errors
 
@@ -1249,7 +1255,18 @@ class BotSubscriptionDeleteView(LegacyContentContextMixin, StaffRequiredMixin, D
             messages.error(request, "Нельзя удалить активную подписку.")
             return self.render_to_response(self.get_context_data())
 
-        xui_errors = _run_async_from_sync(_delete_subscription_from_xui(self.object))
+        try:
+            xui_errors = _run_async_from_sync(_delete_subscription_from_xui(self.object))
+        except Exception:
+            LOGGER.exception(
+                "backoffice_subscription_delete_xui_failed",
+                extra={"subscription_id": int(getattr(self.object, "id", 0) or 0)},
+            )
+            messages.error(
+                request,
+                "Не удалось удалить клиента в 3x-ui. Подписка не удалена, проверьте ноду вручную.",
+            )
+            return self.render_to_response(self.get_context_data())
         if xui_errors:
             messages.error(
                 request,

@@ -89,6 +89,27 @@ class BackofficeSubscriptionDeleteUnitTests(unittest.TestCase):
         node_clients_qs.delete.assert_called_once()
         subscription.delete.assert_called_once()
 
+    def test_delete_does_not_500_when_xui_delete_raises(self):
+        now = timezone.now()
+        subscription = SimpleNamespace(
+            id=7,
+            display_name="Broken delete config",
+            client_email="broken-delete@example.com",
+            is_active=False,
+            expires_at=now - timedelta(days=1),
+            revoked_at=None,
+            delete=MagicMock(),
+        )
+
+        with (
+            patch.object(BotSubscriptionDeleteView, "get_object", return_value=subscription),
+            patch("backoffice.views._delete_subscription_from_xui", new=AsyncMock(side_effect=RuntimeError("boom"))),
+        ):
+            response = BotSubscriptionDeleteView.as_view()(self._build_request(), pk=7)
+
+        self.assertEqual(response.status_code, 200)
+        subscription.delete.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
