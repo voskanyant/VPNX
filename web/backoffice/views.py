@@ -1340,6 +1340,17 @@ class BotSubscriptionCreateView(StaffRequiredMixin, TemplateView):
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(form=form))
 
+        try:
+            return self._post_impl(request, form)
+        except Exception as exc:
+            LOGGER.exception(
+                "backoffice_subscription_create_failed",
+                extra={"user_id": int(form.cleaned_data.get("user_id", 0) or 0)},
+            )
+            form.add_error(None, f"?? ??????? ??????? ????????: {exc}")
+            return self.render_to_response(self.get_context_data(form=form))
+
+    def _post_impl(self, request: HttpRequest, form: BackofficeSubscriptionCreateForm) -> HttpResponse:
         user_id = int(form.cleaned_data["user_id"])
         display_name = str(form.cleaned_data["display_name"]).strip()
         expires_at = form.cleaned_data["expires_at"]
@@ -1365,7 +1376,7 @@ class BotSubscriptionCreateView(StaffRequiredMixin, TemplateView):
         try:
             runtime = _run_async_from_sync(_load_subscription_runtime(cluster_nodes=cluster_nodes))
         except Exception as exc:
-            form.add_error(None, f"ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð¿Ñ€Ð¾Ñ‡Ð¸Ñ‚Ð°Ñ‚ÑŒ inbound/reality Ð¸Ð· 3x-ui: {exc}")
+            form.add_error(None, f"?? ??????? ????????? inbound/reality ?? 3x-ui: {exc}")
             return self.render_to_response(self.get_context_data(form=form))
 
         reality = runtime["reality"]
@@ -1398,7 +1409,7 @@ class BotSubscriptionCreateView(StaffRequiredMixin, TemplateView):
         try:
             subscription.save(force_insert=True)
         except Exception as exc:
-            form.add_error(None, f"Не удалось сохранить подписку в базе: {exc}")
+            form.add_error(None, f"?? ??????? ????????? ???????? ? ????: {exc}")
             return self.render_to_response(self.get_context_data(form=form))
 
         try:
@@ -1415,13 +1426,13 @@ class BotSubscriptionCreateView(StaffRequiredMixin, TemplateView):
             )
         except Exception as exc:
             subscription.delete()
-            form.add_error(None, f"ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ ÑÐ¾Ð·Ð´Ð°Ñ‚ÑŒ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð° Ð² 3x-ui: {exc}")
+            form.add_error(None, f"?? ??????? ??????? ??????? ? 3x-ui: {exc}")
             return self.render_to_response(self.get_context_data(form=form))
 
         successful = [item for item in provision_results if item.get("ok")]
         if not successful:
             subscription.delete()
-            form.add_error(None, "ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ ÑÐ¾Ð·Ð´Ð°Ñ‚ÑŒ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð° Ð½Ð¸ Ð½Ð° Ð¾Ð´Ð½Ð¾Ð¹ Ð½Ð¾Ð´Ðµ 3x-ui.")
+            form.add_error(None, "?? ??????? ??????? ??????? ?? ?? ????? ???? 3x-ui.")
             return self.render_to_response(self.get_context_data(form=form))
 
         primary_sub_id = xui_sub_id or str(successful[0].get("xui_sub_id") or "").strip() or None
@@ -1503,12 +1514,11 @@ class BotSubscriptionCreateView(StaffRequiredMixin, TemplateView):
                 problem_chunks.append(f"sync-state: {sync_state_errors[0]}")
             messages.warning(
                 request,
-                "Подписка создана, но есть неполная синхронизация: " + " | ".join(problem_chunks),
+                "???????? ???????, ?? ???? ???????? ?????????????: " + " | ".join(problem_chunks),
             )
         else:
-            messages.success(request, "Подписка создана")
+            messages.success(request, "???????? ???????")
         return redirect("backoffice:bot_subscription_list")
-
 
 class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
     template_name = "backoffice/form.html"
