@@ -390,6 +390,7 @@ def ensure_local_main_node() -> VPNNode | None:
 
         inbound_id = int_env("XUI_INBOUND_ID", 1)
         backend_weight = int_env("MAIN_NODE_BACKEND_WEIGHT", 100)
+        now = timezone.now()
 
         return VPNNode.objects.create(
             name=inferred_name,
@@ -404,6 +405,8 @@ def ensure_local_main_node() -> VPNNode | None:
             is_active=True,
             lb_enabled=bool_env("MAIN_NODE_LB_ENABLED", False),
             needs_backfill=False,
+            created_at=now,
+            updated_at=now,
         )
     except Exception:
         return None
@@ -1358,6 +1361,9 @@ class VPNNodeCreateView(LegacyContentMutationGuardMixin, StaffRequiredMixin, Cre
         return self.add_wordpress_context(ctx)
 
     def form_valid(self, form):
+        now = timezone.now()
+        form.instance.created_at = now
+        form.instance.updated_at = now
         response = super().form_valid(form)
         messages.success(self.request, "Сохранено")
         return response
@@ -1379,6 +1385,7 @@ class VPNNodeUpdateView(LegacyContentMutationGuardMixin, StaffRequiredMixin, Upd
         return self.add_wordpress_context(ctx)
 
     def form_valid(self, form):
+        form.instance.updated_at = timezone.now()
         response = super().form_valid(form)
         messages.success(self.request, "Сохранено")
         return response
