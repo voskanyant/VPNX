@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections import Counter
 import json
+import logging
 import os
 import sys
 from datetime import timedelta, timezone as dt_timezone
@@ -44,6 +45,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.xui_client import XUIClient
+
+
+LOGGER = logging.getLogger(__name__)
 
 from .forms import (
     BackofficeCategoryForm,
@@ -1162,7 +1166,18 @@ class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
             subscription.updated_at = timezone.now()
             subscription.save(update_fields=["expires_at", "is_active", "updated_at"])
 
-        errors = _run_async_from_sync(_push_subscription_expiry_to_xui(subscription, expires_at))
+        try:
+            errors = _run_async_from_sync(_push_subscription_expiry_to_xui(subscription, expires_at))
+        except Exception:
+            LOGGER.exception(
+                "backoffice_subscription_expiry_push_failed",
+                extra={"subscription_id": int(getattr(subscription, "id", 0) or 0)},
+            )
+            messages.warning(
+                request,
+                "Срок обновлён в базе, но отправка изменения в 3x-ui завершилась ошибкой. Проверьте ноды вручную.",
+            )
+            return redirect("backoffice:bot_subscription_list")
         if errors:
             messages.warning(request, "Срок обновлён в базе, но не везде применился в 3x-ui: " + "; ".join(errors[:3]))
         else:

@@ -158,6 +158,30 @@ class BackofficeSubscriptionExpiryUpdateUnitTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         subscription.save.assert_called_once()
 
+    def test_post_does_not_500_when_xui_push_raises(self):
+        current = timezone.now()
+        subscription = SimpleNamespace(
+            id=59,
+            display_name="Push fail config",
+            client_email="push-fail@example.com",
+            expires_at=current,
+            is_active=True,
+            revoked_at=None,
+            updated_at=current,
+            save=MagicMock(),
+        )
+        target_local = timezone.localtime(current + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M")
+        view = BotSubscriptionExpiryUpdateView.as_view()
+
+        with (
+            patch.object(BotSubscriptionExpiryUpdateView, "_subscription", return_value=subscription),
+            patch("backoffice.views._push_subscription_expiry_to_xui", new=AsyncMock(side_effect=RuntimeError("boom"))),
+        ):
+            response = view(self._build_request(target_local), pk=59)
+
+        self.assertEqual(response.status_code, 302)
+        subscription.save.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
