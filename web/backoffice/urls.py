@@ -41,5 +41,6 @@ urlpatterns = [
     path("bot/users/<int:pk>/delete/", views.BotUserDeleteView.as_view(), name="bot_user_delete"),
     path("bot/subscriptions/", views.BotSubscriptionListView.as_view(), name="bot_subscription_list"),
     path("bot/subscriptions/<int:pk>/edit/", views.BotSubscriptionExpiryUpdateView.as_view(), name="bot_subscription_expiry_update"),
+    path("bot/subscriptions/<int:pk>/delete/", views.BotSubscriptionDeleteView.as_view(), name="bot_subscription_delete"),
     path("bot/orders/", views.BotOrderListView.as_view(), name="bot_order_list"),
 ]

@@ -4,7 +4,7 @@
 <div class="card border-0 shadow-sm">
   <div class="card-body">
     <h2 class="h5 mb-3">Подтвердите удаление</h2>
-    <p class="text-muted">Объект: <strong>{{ object }}</strong></p>
+    <p class="text-muted">Объект: <strong>{{ object_label|default:object }}</strong></p>
     {% if delete_warning %}
       <div class="alert alert-warning">{{ delete_warning }}</div>
     {% endif %}

@@ -551,6 +551,13 @@ def _run_async_from_sync(awaitable):
     return async_to_sync(_await_passthrough)(awaitable)
 
 
+def _update_node_client_sync_state(subscription_id: int, **fields: Any) -> None:
+    try:
+        VPNNodeClient.objects.filter(subscription_id=subscription_id).update(**fields)
+    except (OperationalError, ProgrammingError):
+        return
+
+
 async def _delete_subscription_from_xui(subscription: BotSubscription) -> list[str]:
     limit_ip = int_env("MAX_DEVICES_PER_SUB", 1)
     flow = env_value("VPN_FLOW", "xtls-rprx-vision")
@@ -1094,6 +1101,7 @@ class BotSubscriptionListView(BaseListView):
     subtitle = "Текущие устройства, сроки и импортные конфиги."
     readonly = False
     edit_url_name = "backoffice:bot_subscription_expiry_update"
+    delete_url_name = "backoffice:bot_subscription_delete"
     columns = [
         ("id", "ID"),
         ("user_id", "User ID"),
@@ -1158,13 +1166,22 @@ class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
         if timezone.is_naive(expires_at):
             expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
         expires_at = expires_at.astimezone(dt_timezone.utc)
-        should_be_active = bool(expires_at > timezone.now() and getattr(subscription, "revoked_at", None) is None)
+        change_time = timezone.now()
+        should_be_active = bool(expires_at > change_time and getattr(subscription, "revoked_at", None) is None)
 
         with transaction.atomic():
             subscription.expires_at = expires_at
             subscription.is_active = should_be_active
-            subscription.updated_at = timezone.now()
+            subscription.updated_at = change_time
             subscription.save(update_fields=["expires_at", "is_active", "updated_at"])
+            _update_node_client_sync_state(
+                subscription.id,
+                desired_enabled=should_be_active,
+                desired_expires_at=expires_at,
+                sync_state="pending",
+                last_error=None,
+                updated_at=change_time,
+            )
 
         try:
             errors = _run_async_from_sync(_push_subscription_expiry_to_xui(subscription, expires_at))
@@ -1173,16 +1190,79 @@ class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
                 "backoffice_subscription_expiry_push_failed",
                 extra={"subscription_id": int(getattr(subscription, "id", 0) or 0)},
             )
+            _update_node_client_sync_state(
+                subscription.id,
+                sync_state="error",
+                last_error="backoffice expiry push failed",
+                updated_at=timezone.now(),
+            )
             messages.warning(
                 request,
                 "Срок обновлён в базе, но отправка изменения в 3x-ui завершилась ошибкой. Проверьте ноды вручную.",
             )
             return redirect("backoffice:bot_subscription_list")
         if errors:
+            _update_node_client_sync_state(
+                subscription.id,
+                sync_state="error",
+                last_error="; ".join(errors[:3])[:1000],
+                updated_at=timezone.now(),
+            )
             messages.warning(request, "Срок обновлён в базе, но не везде применился в 3x-ui: " + "; ".join(errors[:3]))
         else:
+            synced_at = timezone.now()
+            _update_node_client_sync_state(
+                subscription.id,
+                observed_enabled=should_be_active,
+                observed_expires_at=expires_at,
+                sync_state="ok",
+                last_error=None,
+                last_synced_at=synced_at,
+                updated_at=synced_at,
+            )
             messages.success(request, "Срок подписки обновлён в базе и 3x-ui.")
         return redirect("backoffice:bot_subscription_list")
+
+
+class BotSubscriptionDeleteView(LegacyContentContextMixin, StaffRequiredMixin, DeleteView):
+    model = BotSubscription
+    template_name = "backoffice/confirm_delete.html"
+    success_url = reverse_lazy("backoffice:bot_subscription_list")
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        is_active, _, _ = subscription_status_state(self.object)
+        title_name = self.object.display_name or self.object.client_email or f"#{self.object.id}"
+        ctx["title"] = "Удаление подписки"
+        ctx["object_label"] = title_name
+        ctx["delete_blocked"] = is_active
+        if is_active:
+            ctx["delete_warning"] = "Активную подписку удалять нельзя. Сначала дождитесь окончания срока или отключите её."
+        else:
+            ctx["delete_warning"] = "Будет удалена запись в базе, node sync записи и клиент в 3x-ui."
+        return self.add_wordpress_context(ctx)
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        self.object = self.get_object()
+        is_active, _, _ = subscription_status_state(self.object)
+        if is_active:
+            messages.error(request, "Нельзя удалить активную подписку.")
+            return self.render_to_response(self.get_context_data())
+
+        xui_errors = _run_async_from_sync(_delete_subscription_from_xui(self.object))
+        if xui_errors:
+            messages.error(
+                request,
+                "Не удалось удалить клиента в 3x-ui. Подписка не удалена: " + "; ".join(xui_errors[:3]),
+            )
+            return self.render_to_response(self.get_context_data())
+
+        with transaction.atomic():
+            VPNNodeClient.objects.filter(subscription_id=self.object.id).delete()
+            self.object.delete()
+
+        messages.success(request, "Подписка удалена")
+        return redirect(self.success_url)
 
 
 class BotOrderListView(BaseListView):

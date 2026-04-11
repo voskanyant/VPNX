@@ -158,6 +158,33 @@ class BackofficeSubscriptionExpiryUpdateUnitTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         subscription.save.assert_called_once()
 
+    def test_post_updates_node_sync_desired_and_observed_state(self):
+        current = timezone.now()
+        subscription = SimpleNamespace(
+            id=60,
+            display_name="Sync update config",
+            client_email="sync-update@example.com",
+            expires_at=current,
+            is_active=True,
+            revoked_at=None,
+            updated_at=current,
+            save=MagicMock(),
+        )
+        target_local = timezone.localtime(current + timedelta(days=4)).strftime("%Y-%m-%dT%H:%M")
+        view = BotSubscriptionExpiryUpdateView.as_view()
+        node_clients_qs = MagicMock()
+
+        with (
+            patch.object(BotSubscriptionExpiryUpdateView, "_subscription", return_value=subscription),
+            patch("backoffice.views.VPNNodeClient.objects.filter", return_value=node_clients_qs) as filter_mock,
+            patch("backoffice.views._push_subscription_expiry_to_xui", new=AsyncMock(return_value=[])),
+        ):
+            response = view(self._build_request(target_local), pk=60)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertGreaterEqual(node_clients_qs.update.call_count, 2)
+        filter_mock.assert_called_with(subscription_id=60)
+
     def test_post_does_not_500_when_xui_push_raises(self):
         current = timezone.now()
         subscription = SimpleNamespace(
