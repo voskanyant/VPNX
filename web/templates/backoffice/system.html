@@ -45,4 +45,149 @@
     </section>
   </div>
 </div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-xl-6">
+    <section class="bo-panel">
+      <div class="bo-panel-head">
+        <h3>HAProxy pool</h3>
+      </div>
+      <div class="table-responsive">
+        <table class="table bo-table align-middle">
+          <thead>
+            <tr>
+              <th>Node</th>
+              <th>Backend</th>
+              <th>Health</th>
+              <th>LB</th>
+              <th>Backfill</th>
+              <th>Routing</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in lb_rows %}
+              <tr>
+                <td>{{ row.name }}</td>
+                <td><code>{{ row.backend }}</code></td>
+                <td>{{ row.health }}</td>
+                <td>{{ row.lb }}</td>
+                <td>{{ row.backfill }}</td>
+                <td>{{ row.reason }}</td>
+                <td>{{ row.updated_at }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7" class="text-muted">Ноды пока не найдены.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-12 col-xl-6">
+    <section class="bo-panel">
+      <div class="bo-panel-head">
+        <h3>Rendered backend preview</h3>
+      </div>
+      <div class="bo-command-stack">
+        <code>{{ haproxy_backend_preview }}</code>
+      </div>
+      {% if majority_reality %}
+        <div class="bo-info-grid mt-3">
+          <div><span>Majority public key</span><strong>{{ majority_reality.public_key }}</strong></div>
+          <div><span>Majority shortId</span><strong>{{ majority_reality.short_id }}</strong></div>
+          <div><span>Majority SNI</span><strong>{{ majority_reality.sni }}</strong></div>
+          <div><span>Majority fingerprint</span><strong>{{ majority_reality.fingerprint }}</strong></div>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <section class="bo-panel">
+      <div class="bo-panel-head">
+        <h3>Xray / 3x-ui health snapshots</h3>
+      </div>
+      <div class="table-responsive">
+        <table class="table bo-table align-middle">
+          <thead>
+            <tr>
+              <th>Node</th>
+              <th>Health</th>
+              <th>Last check</th>
+              <th>Reality public key</th>
+              <th>ShortId</th>
+              <th>SNI</th>
+              <th>Fingerprint</th>
+              <th>Last error</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in health_rows %}
+              <tr>
+                <td>{{ row.name }}</td>
+                <td>{{ row.health }}</td>
+                <td>{{ row.last_health_at }}</td>
+                <td><code>{{ row.public_key }}</code></td>
+                <td><code>{{ row.short_id }}</code></td>
+                <td>{{ row.sni }}</td>
+                <td>{{ row.fingerprint }}</td>
+                <td>{{ row.last_health_error }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="8" class="text-muted">Health snapshots пока отсутствуют.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <section class="bo-panel">
+      <div class="bo-panel-head">
+        <h3>Recent node sync errors</h3>
+      </div>
+      <div class="table-responsive">
+        <table class="table bo-table align-middle">
+          <thead>
+            <tr>
+              <th>Node</th>
+              <th>Subscription</th>
+              <th>3x-ui name</th>
+              <th>Sync state</th>
+              <th>Error</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in sync_error_rows %}
+              <tr>
+                <td>{{ row.node }}</td>
+                <td>{{ row.subscription }}</td>
+                <td>{{ row.client }}</td>
+                <td>{{ row.state }}</td>
+                <td>{{ row.error }}</td>
+                <td>{{ row.updated_at }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="text-muted">Последних ошибок sync нет.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
 {% endblock %}

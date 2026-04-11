@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import Counter
 import json
 import os
 import sys
@@ -410,6 +411,66 @@ def ensure_local_main_node() -> VPNNode | None:
         )
     except Exception:
         return None
+
+
+def _node_reality_signature(node: VPNNode) -> tuple[str, str, str, str]:
+    return (
+        str(getattr(node, "last_reality_public_key", "") or "").strip(),
+        str(getattr(node, "last_reality_short_id", "") or "").strip(),
+        str(getattr(node, "last_reality_sni", "") or "").strip(),
+        str(getattr(node, "last_reality_fingerprint", "") or "").strip(),
+    )
+
+
+def _eligible_lb_nodes(nodes: list[VPNNode]) -> tuple[list[VPNNode], tuple[str, str, str, str] | None]:
+    eligible = [
+        node
+        for node in nodes
+        if bool(getattr(node, "lb_enabled", False))
+        and bool(getattr(node, "is_active", False))
+        and not bool(getattr(node, "needs_backfill", False))
+        and getattr(node, "last_health_ok", None) is True
+    ]
+    if not eligible:
+        return [], None
+
+    signatures = [_node_reality_signature(node) for node in eligible]
+    non_empty = [signature for signature in signatures if any(signature)]
+    if not non_empty:
+        return eligible, None
+
+    baseline, _ = Counter(non_empty).most_common(1)[0]
+    filtered = [node for node in eligible if _node_reality_signature(node) == baseline]
+    return filtered, baseline
+
+
+def _node_lb_reason(node: VPNNode, included_ids: set[int]) -> str:
+    if node.id in included_ids:
+        return "in pool"
+    if not bool(getattr(node, "lb_enabled", False)):
+        return "lb disabled"
+    if not bool(getattr(node, "is_active", False)):
+        return "node inactive"
+    if bool(getattr(node, "needs_backfill", False)):
+        return "backfill pending"
+    if getattr(node, "last_health_ok", None) is False:
+        return "health error"
+    if getattr(node, "last_health_ok", None) is None:
+        return "health unknown"
+    return "reality mismatch"
+
+
+def _haproxy_backend_preview(nodes: list[VPNNode]) -> str:
+    lines: list[str] = []
+    for node in nodes:
+        safe_name = f"node_{int(node.id)}_{str(getattr(node, 'name', 'node') or 'node').replace(' ', '-').lower()}"
+        lines.append(
+            f"server {safe_name[:64]} {node.backend_host}:{int(node.backend_port)} check weight {max(1, int(getattr(node, 'backend_weight', 100) or 100))}"
+        )
+    if not lines:
+        lines.append("# no eligible lb nodes")
+        lines.append("server cluster_empty 127.0.0.1:65535 disabled")
+    return "\n".join(lines)
 
 
 async def _push_subscription_expiry_to_xui(subscription: BotSubscription, expires_at) -> list[str]:
@@ -1522,6 +1583,71 @@ class SystemOverviewView(StaffRequiredMixin, TemplateView):
             "Если cluster mode выключен, таблицы нод и sync всё равно полезны как inventory и health audit.",
             "Перед включением lb_enabled на новой ноде: откройте firewall для backend/inbound port, дождитесь health=healthy, закончите backfill и сверьте REALITY key/shortId/SNI с majority пулом.",
             "HAProxy template теперь рассчитан на long-lived TCP sessions. При первом node-add всё равно сделайте dry-run render и тест старым и новым конфигом.",
+        ]
+
+        nodes = list(safe_get(lambda: VPNNode.objects.order_by("name", "id"), []))
+        pool_nodes, majority_signature = _eligible_lb_nodes(nodes)
+        pool_ids = {int(node.id) for node in pool_nodes}
+        ctx["lb_rows"] = [
+            {
+                "id": node.id,
+                "name": node.name,
+                "backend": f"{node.backend_host}:{node.backend_port}",
+                "health": health_badge(node),
+                "lb": boolean_badge(bool(getattr(node, "lb_enabled", False)), "enabled", "disabled"),
+                "backfill": sync_state_badge("needed" if getattr(node, "needs_backfill", False) else "ok"),
+                "reason": status_badge(
+                    _node_lb_reason(node, pool_ids),
+                    "success" if int(node.id) in pool_ids else ("warning" if getattr(node, "last_health_ok", None) is None else "secondary"),
+                ),
+                "updated_at": format_cell(node.updated_at),
+            }
+            for node in nodes
+        ]
+        ctx["haproxy_backend_preview"] = _haproxy_backend_preview(pool_nodes)
+        if majority_signature and any(majority_signature):
+            ctx["majority_reality"] = {
+                "public_key": majority_signature[0][:24] + ("..." if len(majority_signature[0]) > 24 else ""),
+                "short_id": majority_signature[1] or "—",
+                "sni": majority_signature[2] or "—",
+                "fingerprint": majority_signature[3] or "—",
+            }
+        else:
+            ctx["majority_reality"] = None
+
+        sync_errors = safe_get(
+            lambda: VPNNodeClient.objects.select_related("node", "subscription")
+            .exclude(last_error__isnull=True)
+            .exclude(last_error="")
+            .order_by("-updated_at", "-id")[:10],
+            [],
+        )
+        ctx["sync_error_rows"] = [
+            {
+                "node": item.node.name if item.node_id else "—",
+                "subscription": item.subscription_id,
+                "client": item.client_email or "—",
+                "state": sync_state_badge(item.sync_state),
+                "error": str(item.last_error or "").strip(),
+                "updated_at": format_cell(item.updated_at),
+            }
+            for item in sync_errors
+        ]
+
+        ctx["health_rows"] = [
+            {
+                "name": node.name,
+                "health": health_badge(node),
+                "last_health_at": format_cell(node.last_health_at),
+                "last_health_error": getattr(node, "last_health_error", "") or "—",
+                "public_key": (str(getattr(node, "last_reality_public_key", "") or "")[:24] + "...")
+                if getattr(node, "last_reality_public_key", None)
+                else "—",
+                "short_id": getattr(node, "last_reality_short_id", None) or "—",
+                "sni": getattr(node, "last_reality_sni", None) or "—",
+                "fingerprint": getattr(node, "last_reality_fingerprint", None) or "—",
+            }
+            for node in nodes
         ]
         return ctx
 
