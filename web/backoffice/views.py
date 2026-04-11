@@ -581,7 +581,17 @@ async def _delete_subscription_from_xui(subscription: BotSubscription) -> list[s
                 sub_id=(str(getattr(subscription, "xui_sub_id", "") or "") or None),
             )
         except Exception as exc:
-            errors.append(f"{label}: {exc}")
+            client_exists = True
+            try:
+                client_exists = await xui.has_client(
+                    inbound_id,
+                    str(subscription.client_uuid),
+                    email=str(subscription.client_email or "") or None,
+                )
+            except Exception:
+                client_exists = True
+            if client_exists:
+                errors.append(f"{label}: {exc}")
         finally:
             await xui.close()
 

@@ -24,6 +24,7 @@ from django.test import RequestFactory
 from django.utils import timezone
 
 from backoffice.views import BotSubscriptionDeleteView
+from backoffice.views import _delete_subscription_from_xui, _run_async_from_sync
 
 
 class BackofficeSubscriptionDeleteUnitTests(unittest.TestCase):
@@ -109,6 +110,40 @@ class BackofficeSubscriptionDeleteUnitTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         subscription.delete.assert_not_called()
+
+    def test_delete_xui_treats_missing_client_as_success(self):
+        now = timezone.now()
+        subscription = SimpleNamespace(
+            id=8,
+            inbound_id=1,
+            client_uuid="11111111-1111-1111-1111-111111111111",
+            client_email="missing@example.com",
+            expires_at=now - timedelta(days=1),
+            xui_sub_id=None,
+        )
+        xui = MagicMock()
+        xui.start = AsyncMock()
+        xui.delete_client = AsyncMock(side_effect=RuntimeError("client not found"))
+        xui.has_client = AsyncMock(return_value=False)
+        xui.close = AsyncMock()
+
+        def _fake_env_value(name: str, default: str = "") -> str:
+            values = {
+                "XUI_BASE_URL": "https://panel.local",
+                "XUI_USERNAME": "user",
+                "XUI_PASSWORD": "pass",
+            }
+            return values.get(name, default)
+
+        with (
+            patch("backoffice.views.bool_env", return_value=False),
+            patch("backoffice.views.env_value", side_effect=_fake_env_value),
+            patch("backoffice.views.XUIClient", return_value=xui),
+        ):
+            errors = _run_async_from_sync(_delete_subscription_from_xui(subscription))
+
+        self.assertEqual(errors, [])
+        xui.has_client.assert_awaited_once()
 
 
 if __name__ == "__main__":

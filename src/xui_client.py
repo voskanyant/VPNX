@@ -128,6 +128,20 @@ class XUIClient:
                 return str(sub_id) if sub_id else None
         return None
 
+    async def has_client(self, inbound_id: int, client_uuid: str, *, email: str | None = None) -> bool:
+        inbound = await self.get_inbound(inbound_id)
+        settings_raw = inbound.get("settings", "{}")
+        settings = json.loads(settings_raw) if isinstance(settings_raw, str) else settings_raw
+        clients = settings.get("clients", [])
+        normalized_uuid = str(client_uuid).lower()
+        normalized_email = str(email or "").strip().lower()
+        for client in clients:
+            if str(client.get("id", "")).lower() == normalized_uuid:
+                return True
+            if normalized_email and str(client.get("email", "")).strip().lower() == normalized_email:
+                return True
+        return False
+
     @staticmethod
     def _build_client_payload(
         *,
