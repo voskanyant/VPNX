@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import sys
+import uuid
 from datetime import timedelta, timezone as dt_timezone
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.xui_client import XUIClient
+from src.client_naming import build_xui_client_name
+from src.vless import build_vless_url
 
 
 LOGGER = logging.getLogger(__name__)
@@ -52,6 +55,7 @@ LOGGER = logging.getLogger(__name__)
 from .forms import (
     BackofficeCategoryForm,
     BackofficePageForm,
+    BackofficeSubscriptionCreateForm,
     BackofficeSubscriptionExpiryForm,
     BackofficeVPNNodeForm,
     BackofficePostForm,
@@ -370,6 +374,159 @@ def int_env(name: str, default: int) -> int:
         return int(default)
 
 
+def _active_vpn_nodes_snapshot() -> list[dict[str, Any]]:
+    try:
+        rows = list(
+            VPNNode.objects.filter(is_active=True)
+            .order_by("id")
+            .values(
+                "id",
+                "xui_base_url",
+                "xui_username",
+                "xui_password",
+                "xui_inbound_id",
+            )
+        )
+    except (OperationalError, ProgrammingError):
+        return []
+    return [dict(row) for row in rows]
+
+
+def _deterministic_sub_id(client_uuid: str) -> str:
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"vxcloud:{client_uuid}").hex
+
+
+async def _load_subscription_runtime(
+    *,
+    cluster_nodes: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    async def read_node(base_url: str, username: str, password: str, inbound_id: int, label: str) -> dict[str, Any]:
+        if not (base_url and username and password):
+            raise RuntimeError(f"{label}: x-ui credentials are not configured")
+        xui = XUIClient(base_url.rstrip("/"), username, password)
+        try:
+            await xui.start()
+            inbound = await xui.get_inbound(inbound_id)
+            reality = xui.parse_reality(inbound)
+            return {
+                "base_url": base_url.rstrip("/"),
+                "inbound_id": int(inbound_id),
+                "inbound_port": int(inbound["port"]),
+                "reality": reality,
+            }
+        finally:
+            await xui.close()
+
+    if bool_env("VPN_CLUSTER_ENABLED", False):
+        nodes = sorted(list(cluster_nodes or []), key=lambda item: int(item.get("id", 0) or 0))
+        for node in nodes:
+            label = f"node#{int(node.get('id', 0) or 0)}"
+            try:
+                inbound_id = int(node.get("xui_inbound_id", None))
+            except (TypeError, ValueError):
+                continue
+            try:
+                return await read_node(
+                    str(node.get("xui_base_url", "") or ""),
+                    str(node.get("xui_username", "") or ""),
+                    str(node.get("xui_password", "") or ""),
+                    inbound_id,
+                    label,
+                )
+            except Exception:
+                continue
+        raise RuntimeError("No active VPN node with readable inbound/reality settings")
+
+    return await read_node(
+        env_value("XUI_BASE_URL"),
+        env_value("XUI_USERNAME"),
+        env_value("XUI_PASSWORD"),
+        int_env("XUI_INBOUND_ID", 1),
+        "primary",
+    )
+
+
+async def _create_subscription_on_xui(
+    *,
+    client_uuid: str,
+    client_email: str,
+    display_name: str,
+    expires_at,
+    enabled: bool,
+    cluster_nodes: list[dict[str, Any]] | None = None,
+    xui_sub_id: str | None = None,
+) -> list[dict[str, Any]]:
+    limit_ip = int_env("MAX_DEVICES_PER_SUB", 1)
+    flow = env_value("VPN_FLOW", "xtls-rprx-vision")
+    results: list[dict[str, Any]] = []
+
+    async def apply_on_node(
+        *,
+        node_id: int,
+        base_url: str,
+        username: str,
+        password: str,
+        inbound_id: int,
+        label: str,
+    ) -> None:
+        if not (base_url and username and password):
+            results.append({"node_id": node_id, "ok": False, "error": f"{label}: x-ui credentials are not configured"})
+            return
+        xui = XUIClient(base_url.rstrip("/"), username, password)
+        try:
+            await xui.start()
+            await xui.add_client(
+                inbound_id,
+                client_uuid,
+                client_email,
+                expires_at,
+                limit_ip=limit_ip,
+                flow=flow,
+                comment=display_name,
+                sub_id=xui_sub_id,
+                enable=enabled,
+            )
+            sub_id = xui_sub_id or await xui.get_client_sub_id(inbound_id, client_uuid)
+            results.append({"node_id": node_id, "ok": True, "xui_sub_id": sub_id})
+        except Exception as exc:
+            results.append({"node_id": node_id, "ok": False, "error": str(exc)})
+        finally:
+            await xui.close()
+
+    if bool_env("VPN_CLUSTER_ENABLED", False):
+        for node in list(cluster_nodes or []):
+            try:
+                inbound_id = int(node.get("xui_inbound_id", None))
+            except (TypeError, ValueError):
+                results.append(
+                    {
+                        "node_id": int(node.get("id", 0) or 0),
+                        "ok": False,
+                        "error": "invalid x-ui inbound id",
+                    }
+                )
+                continue
+            await apply_on_node(
+                node_id=int(node.get("id", 0) or 0),
+                base_url=str(node.get("xui_base_url", "") or ""),
+                username=str(node.get("xui_username", "") or ""),
+                password=str(node.get("xui_password", "") or ""),
+                inbound_id=inbound_id,
+                label=f"node#{int(node.get('id', 0) or 0)}",
+            )
+        return results
+
+    await apply_on_node(
+        node_id=0,
+        base_url=env_value("XUI_BASE_URL"),
+        username=env_value("XUI_USERNAME"),
+        password=env_value("XUI_PASSWORD"),
+        inbound_id=int_env("XUI_INBOUND_ID", 1),
+        label="primary",
+    )
+    return results
+
+
 def ensure_local_main_node() -> VPNNode | None:
     xui_base_url = env_value("XUI_BASE_URL")
     username = env_value("XUI_USERNAME")
@@ -478,7 +635,12 @@ def _haproxy_backend_preview(nodes: list[VPNNode]) -> str:
     return "\n".join(lines)
 
 
-async def _push_subscription_expiry_to_xui(subscription: BotSubscription, expires_at) -> list[str]:
+async def _push_subscription_expiry_to_xui(
+    subscription: BotSubscription,
+    expires_at,
+    *,
+    cluster_nodes: list[dict[str, Any]] | None = None,
+) -> list[str]:
     desired_enabled = bool(
         getattr(subscription, "is_active", False)
         and expires_at > timezone.now()
@@ -510,18 +672,18 @@ async def _push_subscription_expiry_to_xui(subscription: BotSubscription, expire
             await xui.close()
 
     if bool_env("VPN_CLUSTER_ENABLED", False):
-        nodes = list(VPNNode.objects.filter(is_active=True).order_by("id"))
+        nodes = list(cluster_nodes or [])
         for node in nodes:
-            label = f"node#{int(node.id)}"
+            label = f"node#{int(node.get('id', 0) or 0)}"
             try:
-                inbound_id = int(getattr(node, "xui_inbound_id", None))
+                inbound_id = int(node.get("xui_inbound_id", None))
             except (TypeError, ValueError):
                 errors.append(f"{label}: invalid x-ui inbound id")
                 continue
             await apply_on_node(
-                str(getattr(node, "xui_base_url", "") or ""),
-                str(getattr(node, "xui_username", "") or ""),
-                str(getattr(node, "xui_password", "") or ""),
+                str(node.get("xui_base_url", "") or ""),
+                str(node.get("xui_username", "") or ""),
+                str(node.get("xui_password", "") or ""),
                 inbound_id,
                 label,
             )
@@ -558,7 +720,11 @@ def _update_node_client_sync_state(subscription_id: int, **fields: Any) -> None:
         return
 
 
-async def _delete_subscription_from_xui(subscription: BotSubscription) -> list[str]:
+async def _delete_subscription_from_xui(
+    subscription: BotSubscription,
+    *,
+    cluster_nodes: list[dict[str, Any]] | None = None,
+) -> list[str]:
     limit_ip = int_env("MAX_DEVICES_PER_SUB", 1)
     flow = env_value("VPN_FLOW", "xtls-rprx-vision")
     errors: list[str] = []
@@ -596,18 +762,18 @@ async def _delete_subscription_from_xui(subscription: BotSubscription) -> list[s
             await xui.close()
 
     if bool_env("VPN_CLUSTER_ENABLED", False):
-        nodes = list(VPNNode.objects.filter(is_active=True).order_by("id"))
+        nodes = list(cluster_nodes or [])
         for node in nodes:
-            label = f"node#{int(getattr(node, 'id', 0) or 0)}"
+            label = f"node#{int(node.get('id', 0) or 0)}"
             try:
-                inbound_id = int(getattr(node, "xui_inbound_id", None))
+                inbound_id = int(node.get("xui_inbound_id", None))
             except (TypeError, ValueError):
                 errors.append(f"{label}: invalid x-ui inbound id")
                 continue
             await apply_on_node(
-                str(node.xui_base_url),
-                str(node.xui_username),
-                str(node.xui_password),
+                str(node.get("xui_base_url", "") or ""),
+                str(node.get("xui_username", "") or ""),
+                str(node.get("xui_password", "") or ""),
                 inbound_id,
                 label,
             )
@@ -1087,9 +1253,12 @@ class BotUserDeleteView(LegacyContentContextMixin, StaffRequiredMixin, DeleteVie
         subscriptions_qs = BotSubscription.objects.filter(user_id=self.object.id)
         subscriptions = list(subscriptions_qs)
         subscription_ids = list(subscriptions_qs.values_list("id", flat=True))
+        cluster_nodes = _active_vpn_nodes_snapshot() if bool_env("VPN_CLUSTER_ENABLED", False) else None
         xui_errors: list[str] = []
         for subscription in subscriptions:
-            xui_errors.extend(asyncio.run(_delete_subscription_from_xui(subscription)))
+            xui_errors.extend(
+                _run_async_from_sync(_delete_subscription_from_xui(subscription, cluster_nodes=cluster_nodes))
+            )
         if xui_errors:
             messages.error(
                 request,
@@ -1116,6 +1285,7 @@ class BotSubscriptionListView(BaseListView):
     title = "Подписки"
     subtitle = "Текущие устройства, сроки и импортные конфиги."
     readonly = False
+    add_url_name = "backoffice:bot_subscription_create"
     edit_url_name = "backoffice:bot_subscription_expiry_update"
     delete_url_name = "backoffice:bot_subscription_delete"
     columns = [
@@ -1151,6 +1321,169 @@ class BotSubscriptionListView(BaseListView):
                 }
             )
         return rows
+
+
+class BotSubscriptionCreateView(StaffRequiredMixin, TemplateView):
+    template_name = "backoffice/form.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        form = kwargs.get("form") or BackofficeSubscriptionCreateForm(
+            initial={"expires_at": timezone.localtime(timezone.now() + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M")}
+        )
+        ctx["title"] = "ÐÐ¾Ð²Ð°Ñ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ°"
+        ctx["form"] = form
+        return self.add_wordpress_context(ctx)
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        form = BackofficeSubscriptionCreateForm(request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+
+        user_id = int(form.cleaned_data["user_id"])
+        display_name = str(form.cleaned_data["display_name"]).strip()
+        expires_at = form.cleaned_data["expires_at"]
+        if timezone.is_naive(expires_at):
+            expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
+        expires_at = expires_at.astimezone(dt_timezone.utc)
+        now = timezone.now()
+        should_be_active = expires_at > now
+        cluster_nodes = _active_vpn_nodes_snapshot() if bool_env("VPN_CLUSTER_ENABLED", False) else None
+
+        user = get_object_or_404(BotUser, pk=user_id)
+        client_uuid = str(uuid.uuid4())
+        client_email = build_xui_client_name(
+            user_id=user_id,
+            client_uuid=client_uuid,
+            username=str(getattr(user, "username", "") or "") or None,
+            first_name=str(getattr(user, "first_name", "") or "") or None,
+            client_code=str(getattr(user, "client_code", "") or "") or None,
+        )
+        stored_display_name = display_name or client_email
+        xui_sub_id = _deterministic_sub_id(client_uuid) if bool_env("VPN_CLUSTER_ENABLED", False) else None
+
+        try:
+            runtime = _run_async_from_sync(_load_subscription_runtime(cluster_nodes=cluster_nodes))
+        except Exception as exc:
+            form.add_error(None, f"ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð¿Ñ€Ð¾Ñ‡Ð¸Ñ‚Ð°Ñ‚ÑŒ inbound/reality Ð¸Ð· 3x-ui: {exc}")
+            return self.render_to_response(self.get_context_data(form=form))
+
+        reality = runtime["reality"]
+        vless_url = build_vless_url(
+            uuid=client_uuid,
+            host=env_value("VPN_PUBLIC_HOST"),
+            port=int_env("VPN_PUBLIC_PORT", int(runtime["inbound_port"])),
+            tag=env_value("VPN_TAG", "VPN"),
+            public_key=reality.public_key,
+            short_id=reality.short_id,
+            sni=reality.sni,
+            fingerprint=reality.fingerprint,
+            flow=env_value("VPN_FLOW", "xtls-rprx-vision"),
+        )
+
+        subscription = BotSubscription(
+            user_id=user_id,
+            inbound_id=int(runtime["inbound_id"]),
+            client_uuid=client_uuid,
+            client_email=client_email,
+            xui_sub_id=xui_sub_id,
+            display_name=stored_display_name,
+            vless_url=vless_url,
+            expires_at=expires_at,
+            is_active=should_be_active,
+            revoked_at=None,
+            created_at=now,
+            updated_at=now,
+        )
+        subscription.save(force_insert=True)
+
+        try:
+            provision_results = _run_async_from_sync(
+                _create_subscription_on_xui(
+                    client_uuid=client_uuid,
+                    client_email=client_email,
+                    display_name=stored_display_name,
+                    expires_at=expires_at,
+                    enabled=should_be_active,
+                    cluster_nodes=cluster_nodes,
+                    xui_sub_id=xui_sub_id,
+                )
+            )
+        except Exception as exc:
+            subscription.delete()
+            form.add_error(None, f"ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ ÑÐ¾Ð·Ð´Ð°Ñ‚ÑŒ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð° Ð² 3x-ui: {exc}")
+            return self.render_to_response(self.get_context_data(form=form))
+
+        successful = [item for item in provision_results if item.get("ok")]
+        if not successful:
+            subscription.delete()
+            form.add_error(None, "ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ ÑÐ¾Ð·Ð´Ð°Ñ‚ÑŒ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð° Ð½Ð¸ Ð½Ð° Ð¾Ð´Ð½Ð¾Ð¹ Ð½Ð¾Ð´Ðµ 3x-ui.")
+            return self.render_to_response(self.get_context_data(form=form))
+
+        primary_sub_id = xui_sub_id or str(successful[0].get("xui_sub_id") or "").strip() or None
+        if primary_sub_id != getattr(subscription, "xui_sub_id", None):
+            subscription.xui_sub_id = primary_sub_id
+            subscription.updated_at = timezone.now()
+            subscription.save(update_fields=["xui_sub_id", "updated_at"])
+
+        if cluster_nodes:
+            results_by_node = {int(item.get("node_id", 0) or 0): item for item in provision_results}
+            sync_now = timezone.now()
+            for node in cluster_nodes:
+                node_id = int(node.get("id", 0) or 0)
+                result = results_by_node.get(node_id) or {"ok": False, "error": "node was not provisioned"}
+                defaults = {
+                    "client_uuid": client_uuid,
+                    "client_email": client_email,
+                    "xui_sub_id": result.get("xui_sub_id") or primary_sub_id,
+                    "desired_enabled": should_be_active,
+                    "desired_expires_at": expires_at,
+                    "observed_enabled": should_be_active if result.get("ok") else None,
+                    "observed_expires_at": expires_at if result.get("ok") else None,
+                    "sync_state": "ok" if result.get("ok") else "error",
+                    "last_synced_at": sync_now if result.get("ok") else None,
+                    "last_error": None if result.get("ok") else str(result.get("error") or "unknown error")[:1000],
+                    "updated_at": sync_now,
+                }
+                existing = VPNNodeClient.objects.filter(node_id=node_id, subscription_id=subscription.id).first()
+                if existing:
+                    for field, value in defaults.items():
+                        setattr(existing, field, value)
+                    existing.save(
+                        update_fields=[
+                            "client_uuid",
+                            "client_email",
+                            "xui_sub_id",
+                            "desired_enabled",
+                            "desired_expires_at",
+                            "observed_enabled",
+                            "observed_expires_at",
+                            "sync_state",
+                            "last_synced_at",
+                            "last_error",
+                            "updated_at",
+                        ]
+                    )
+                else:
+                    VPNNodeClient.objects.create(
+                        node_id=node_id,
+                        subscription_id=subscription.id,
+                        created_at=sync_now,
+                        **defaults,
+                    )
+
+        failed = [item for item in provision_results if not item.get("ok")]
+        if failed:
+            messages.warning(
+                request,
+                "ÐŸÐ¾Ð´Ð¿Ð¸ÑÐºÐ° ÑÐ¾Ð·Ð´Ð°Ð½Ð° Ð² Ð±Ð°Ð·Ðµ, Ð½Ð¾ Ð½Ðµ Ð½Ð° Ð²ÑÐµÑ… Ð½Ð¾Ð´Ð°Ñ… 3x-ui: "
+                + "; ".join(
+                    f"node#{int(item.get('node_id', 0) or 0)}: {item.get('error')}" for item in failed[:3]
+                ),
+            )
+        else:
+            messages.success(request, "ÐŸÐ¾Ð´Ð¿Ð¸ÑÐºÐ° ÑÐ¾Ð·Ð´Ð°Ð½Ð°")
+        return redirect("backoffice:bot_subscription_list")
 
 
 class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
@@ -1199,8 +1532,11 @@ class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
                 updated_at=change_time,
             )
 
+        cluster_nodes = _active_vpn_nodes_snapshot() if bool_env("VPN_CLUSTER_ENABLED", False) else None
         try:
-            errors = _run_async_from_sync(_push_subscription_expiry_to_xui(subscription, expires_at))
+            errors = _run_async_from_sync(
+                _push_subscription_expiry_to_xui(subscription, expires_at, cluster_nodes=cluster_nodes)
+            )
         except Exception:
             LOGGER.exception(
                 "backoffice_subscription_expiry_push_failed",
@@ -1265,8 +1601,9 @@ class BotSubscriptionDeleteView(LegacyContentContextMixin, StaffRequiredMixin, D
             messages.error(request, "Нельзя удалить активную подписку.")
             return self.render_to_response(self.get_context_data())
 
+        cluster_nodes = _active_vpn_nodes_snapshot() if bool_env("VPN_CLUSTER_ENABLED", False) else None
         try:
-            xui_errors = _run_async_from_sync(_delete_subscription_from_xui(self.object))
+            xui_errors = _run_async_from_sync(_delete_subscription_from_xui(self.object, cluster_nodes=cluster_nodes))
         except Exception:
             LOGGER.exception(
                 "backoffice_subscription_delete_xui_failed",

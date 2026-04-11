@@ -5,7 +5,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 
 from blog.models import Category, Page, Post, PostType, SiteText
-from cabinet.models import VPNNode
+from cabinet.models import BotUser, VPNNode
 
 
 class StaffAuthenticationForm(AuthenticationForm):
@@ -217,6 +217,41 @@ class BackofficeSubscriptionExpiryForm(BootstrapFormMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._apply_bootstrap_classes()
+
+
+class BackofficeSubscriptionCreateForm(BootstrapFormMixin, forms.Form):
+    user_id = forms.IntegerField(
+        label="User ID",
+        min_value=1,
+        help_text="ID пользователя из /ops -> Пользователи.",
+    )
+    display_name = forms.CharField(
+        label="Имя подписки",
+        max_length=255,
+        help_text="Понятное имя для списка подписок в /ops и в кабинете.",
+    )
+    expires_at = forms.DateTimeField(
+        label="Дата окончания",
+        input_formats=[
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M",
+            "%m/%d/%Y %I:%M %p",
+            "%m/%d/%Y %I:%M:%S %p",
+        ],
+        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M"),
+        help_text="Если дата уже в прошлом, подписка будет создана как неактивная.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._apply_bootstrap_classes()
+
+    def clean_user_id(self) -> int:
+        user_id = int(self.cleaned_data["user_id"])
+        if not BotUser.objects.filter(pk=user_id).exists():
+            raise ValidationError("Пользователь не найден.")
+        return user_id
 
 
 class BackofficeVPNNodeForm(BootstrapFormMixin, forms.ModelForm):

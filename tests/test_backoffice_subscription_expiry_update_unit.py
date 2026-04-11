@@ -138,21 +138,21 @@ class BackofficeSubscriptionExpiryUpdateUnitTests(unittest.TestCase):
         )
         target_local = timezone.localtime(current + timedelta(days=3)).strftime("%Y-%m-%dT%H:%M")
         view = BotSubscriptionExpiryUpdateView.as_view()
-        broken_node = SimpleNamespace(
-            id=10,
-            xui_base_url="https://node.local",
-            xui_username="u",
-            xui_password="p",
-            xui_inbound_id=None,
-            is_active=True,
-        )
+        broken_node = [
+            {
+                "id": 10,
+                "xui_base_url": "https://node.local",
+                "xui_username": "u",
+                "xui_password": "p",
+                "xui_inbound_id": None,
+            }
+        ]
 
         with (
             patch.object(BotSubscriptionExpiryUpdateView, "_subscription", return_value=subscription),
             patch("backoffice.views.bool_env", return_value=True),
-            patch("backoffice.views.VPNNode.objects.filter") as filter_mock,
+            patch("backoffice.views._active_vpn_nodes_snapshot", return_value=broken_node),
         ):
-            filter_mock.return_value.order_by.return_value = [broken_node]
             response = view(self._build_request(target_local), pk=58)
 
         self.assertEqual(response.status_code, 302)
@@ -184,6 +184,34 @@ class BackofficeSubscriptionExpiryUpdateUnitTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertGreaterEqual(node_clients_qs.update.call_count, 2)
         filter_mock.assert_called_with(subscription_id=60)
+
+    def test_post_passes_cluster_nodes_snapshot_into_async_push(self):
+        current = timezone.now()
+        subscription = SimpleNamespace(
+            id=61,
+            display_name="Cluster push config",
+            client_email="cluster-push@example.com",
+            expires_at=current,
+            is_active=True,
+            revoked_at=None,
+            updated_at=current,
+            save=MagicMock(),
+        )
+        target_local = timezone.localtime(current + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M")
+        view = BotSubscriptionExpiryUpdateView.as_view()
+        cluster_nodes = [{"id": 10, "xui_base_url": "https://node.local", "xui_username": "u", "xui_password": "p", "xui_inbound_id": 1}]
+        push_mock = AsyncMock(return_value=[])
+
+        with (
+            patch.object(BotSubscriptionExpiryUpdateView, "_subscription", return_value=subscription),
+            patch("backoffice.views.bool_env", return_value=True),
+            patch("backoffice.views._active_vpn_nodes_snapshot", return_value=cluster_nodes),
+            patch("backoffice.views._push_subscription_expiry_to_xui", new=push_mock),
+        ):
+            response = view(self._build_request(target_local), pk=61)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(push_mock.await_args.kwargs["cluster_nodes"], cluster_nodes)
 
     def test_post_does_not_500_when_xui_push_raises(self):
         current = timezone.now()

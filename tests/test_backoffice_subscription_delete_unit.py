@@ -111,6 +111,33 @@ class BackofficeSubscriptionDeleteUnitTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         subscription.delete.assert_not_called()
 
+    def test_delete_passes_cluster_nodes_snapshot_into_async_cleanup(self):
+        now = timezone.now()
+        subscription = SimpleNamespace(
+            id=9,
+            display_name="Cluster delete config",
+            client_email="cluster-delete@example.com",
+            is_active=False,
+            expires_at=now - timedelta(days=1),
+            revoked_at=None,
+            delete=MagicMock(),
+        )
+        node_clients_qs = MagicMock()
+        cluster_nodes = [{"id": 10, "xui_base_url": "https://node.local", "xui_username": "u", "xui_password": "p", "xui_inbound_id": 1}]
+        delete_mock = AsyncMock(return_value=[])
+
+        with (
+            patch.object(BotSubscriptionDeleteView, "get_object", return_value=subscription),
+            patch("backoffice.views.bool_env", return_value=True),
+            patch("backoffice.views._active_vpn_nodes_snapshot", return_value=cluster_nodes),
+            patch("backoffice.views._delete_subscription_from_xui", new=delete_mock),
+            patch("backoffice.views.VPNNodeClient.objects.filter", return_value=node_clients_qs),
+        ):
+            response = BotSubscriptionDeleteView.as_view()(self._build_request(), pk=9)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(delete_mock.await_args.kwargs["cluster_nodes"], cluster_nodes)
+
     def test_delete_xui_treats_missing_client_as_success(self):
         now = timezone.now()
         subscription = SimpleNamespace(
