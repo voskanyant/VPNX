@@ -366,34 +366,32 @@ def int_env(name: str, default: int) -> int:
 
 def ensure_local_main_node() -> VPNNode | None:
     xui_base_url = env_value("XUI_BASE_URL")
-    if not xui_base_url:
+    username = env_value("XUI_USERNAME")
+    password = env_value("XUI_PASSWORD")
+    if not xui_base_url or not username or not password:
         return None
 
     backend_host = env_value("VPN_NODE_BACKEND_HOST") or env_value("MAIN_NODE_BACKEND_HOST") or "127.0.0.1"
     backend_port = int_env("VPN_PUBLIC_PORT", 29940)
     inferred_name = env_value("MAIN_NODE_NAME") or "node-1-main"
     inferred_region = env_value("MAIN_NODE_REGION") or "Germany"
-
-    existing = safe_get(
-        lambda: VPNNode.objects.filter(
-            Q(xui_base_url=xui_base_url)
-            | Q(name=inferred_name)
-            | (Q(backend_host=backend_host) & Q(backend_port=backend_port))
+    try:
+        existing = (
+            VPNNode.objects.filter(
+                Q(xui_base_url=xui_base_url)
+                | Q(name=inferred_name)
+                | (Q(backend_host=backend_host) & Q(backend_port=backend_port))
+            )
+            .order_by("id")
+            .first()
         )
-        .order_by("id")
-        .first(),
-        None,
-    )
-    if existing:
-        return existing
+        if existing:
+            return existing
 
-    username = env_value("XUI_USERNAME")
-    password = env_value("XUI_PASSWORD")
-    inbound_id = int_env("XUI_INBOUND_ID", 1)
-    backend_weight = int_env("MAIN_NODE_BACKEND_WEIGHT", 100)
+        inbound_id = int_env("XUI_INBOUND_ID", 1)
+        backend_weight = int_env("MAIN_NODE_BACKEND_WEIGHT", 100)
 
-    return safe_get(
-        lambda: VPNNode.objects.create(
+        return VPNNode.objects.create(
             name=inferred_name,
             region=inferred_region,
             xui_base_url=xui_base_url,
@@ -406,9 +404,9 @@ def ensure_local_main_node() -> VPNNode | None:
             is_active=True,
             lb_enabled=bool_env("MAIN_NODE_LB_ENABLED", False),
             needs_backfill=False,
-        ),
-        None,
-    )
+        )
+    except Exception:
+        return None
 
 
 async def _push_subscription_expiry_to_xui(subscription: BotSubscription, expires_at) -> list[str]:
