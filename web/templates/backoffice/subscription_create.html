@@ -17,13 +17,28 @@
             {% if field.name == "user_id" %}
               <input
                 type="text"
-                class="form-control mb-2"
-                id="bot-user-search"
-                placeholder="Поиск по имени, username, client code или ID"
+                class="form-control"
+                id="bot-user-picker"
+                list="bot-user-picker-options"
+                placeholder="Начните вводить имя пользователя"
                 autocomplete="off"
               >
+              <input
+                type="hidden"
+                name="{{ field.html_name }}"
+                id="{{ field.id_for_label }}"
+                value="{{ field.value|default:'' }}"
+              >
+              <datalist id="bot-user-picker-options">
+                {% for value, label in field.field.choices %}
+                  {% if value %}
+                    <option value="{{ label }}" data-user-id="{{ value }}"></option>
+                  {% endif %}
+                {% endfor %}
+              </datalist>
+            {% else %}
+              {{ field }}
             {% endif %}
-            {{ field }}
             {% if field.help_text %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}
             {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>{% endif %}
           </div>
@@ -111,33 +126,34 @@
   })();
 
   (() => {
-    const searchInput = document.getElementById("bot-user-search");
-    const select = document.querySelector('select[data-searchable-select="bot-user"]');
-    if (!searchInput || !select) return;
+    const picker = document.getElementById("bot-user-picker");
+    const hidden = document.getElementById("id_user_id");
+    const datalist = document.getElementById("bot-user-picker-options");
+    if (!picker || !hidden || !datalist) return;
 
-    const options = Array.from(select.options).map((option) => ({
-      option,
-      text: (option.textContent || "").toLowerCase(),
+    const options = Array.from(datalist.options).map((option) => ({
+      id: option.dataset.userId || "",
+      label: option.value || "",
     }));
 
-    const applyFilter = () => {
-      const query = (searchInput.value || "").trim().toLowerCase();
-      let visibleCount = 0;
-      for (const item of options) {
-        const visible = !query || item.text.includes(query);
-        item.option.hidden = !visible;
-        if (visible) visibleCount += 1;
-      }
-      if (visibleCount > 0) {
-        const selectedVisible = !select.selectedOptions.length || !select.selectedOptions[0].hidden;
-        if (!selectedVisible) {
-          const firstVisible = options.find((item) => !item.option.hidden);
-          if (firstVisible) select.value = firstVisible.option.value;
-        }
+    const syncHiddenFromLabel = () => {
+      const current = (picker.value || "").trim();
+      const match = options.find((item) => item.label === current);
+      hidden.value = match ? match.id : "";
+      picker.setCustomValidity(match || current === "" ? "" : "Выберите пользователя из списка");
+    };
+
+    const syncLabelFromHidden = () => {
+      const current = (hidden.value || "").trim();
+      const match = options.find((item) => item.id === current);
+      if (match) {
+        picker.value = match.label;
       }
     };
 
-    searchInput.addEventListener("input", applyFilter);
+    picker.addEventListener("input", syncHiddenFromLabel);
+    picker.addEventListener("change", syncHiddenFromLabel);
+    syncLabelFromHidden();
   })();
 </script>
 {% endblock %}

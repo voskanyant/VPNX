@@ -271,7 +271,7 @@ class BackofficeSubscriptionCreateForm(BootstrapFormMixin, forms.Form):
         label="Пользователь",
         queryset=BotUser.objects.none(),
         empty_label=None,
-        help_text="Выберите пользователя по имени. Поиск работает прямо в списке.",
+        help_text="Начните вводить имя и выберите пользователя из выпадающего списка.",
     )
     display_name = forms.CharField(
         label="Имя подписки",
@@ -302,7 +302,6 @@ class BackofficeSubscriptionCreateForm(BootstrapFormMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["user_id"].queryset = BotUser.objects.order_by("first_name", "username", "id")
-        self.fields["user_id"].widget.attrs["data-searchable-select"] = "bot-user"
         self._apply_bootstrap_classes()
 
     def clean_user_id(self) -> BotUser:
