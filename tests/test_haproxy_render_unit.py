@@ -41,10 +41,14 @@ class HAProxyRenderUnitTests(unittest.TestCase):
             frontend_bind_addr="0.0.0.0",
             frontend_port=29940,
             backend_servers=backend_servers,
+            stick_table_size="200k",
+            stick_table_expire="20m",
         )
 
         self.assertIn("mode tcp", cfg)
         self.assertIn("balance leastconn", cfg)
+        self.assertIn("stick-table type ip size 200k expire 20m", cfg)
+        self.assertIn("stick on src", cfg)
         self.assertIn("option clitcpka", cfg)
         self.assertIn("option srvtcpka", cfg)
         self.assertIn("timeout client 4h", cfg)
