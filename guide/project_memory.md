@@ -131,7 +131,7 @@ Current proven state on production:
 - current codebase target after HAProxy container migration:
   - runtime config lives in `ops/haproxy/runtime/haproxy.cfg`
   - Docker service name is `haproxy` / container name `vxcloud-haproxy`
-  - legacy host `haproxy.service` should be stopped by deploy
+  - deploy is now container-only and does not try to stop legacy systemd services
   - HAProxy container should use `network_mode: host`
   - local same-server backend access should use `127.0.0.1:29941`
   - `/ops/ -> VPN ноды` create/update/delete now re-renders the shared runtime config automatically

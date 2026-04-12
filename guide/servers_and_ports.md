@@ -110,7 +110,7 @@ Suggested field values:
 - current runtime ownership:
   - HAProxy should run as Docker service `haproxy`
   - runtime config should live in `ops/haproxy/runtime/haproxy.cfg`
-  - host `haproxy.service` should no longer be the intended runtime
+  - host `haproxy.service` should remain disabled/inactive and is no longer touched by deploy
 - current result:
   - HAProxy sees the real client IP
   - Xray access log also sees the real client IP

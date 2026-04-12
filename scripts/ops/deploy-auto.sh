@@ -94,36 +94,6 @@ show_port_occupant_exact() {
   docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep ":${port}->" || true
 }
 
-stop_legacy_systemd_unit() {
-  if ! systemctl list-unit-files | grep -q '^vxcloud-web\.service'; then
-    return 0
-  fi
-
-  echo "Stopping legacy systemd unit vxcloud-web.service..."
-  if systemctl stop vxcloud-web.service 2>/dev/null; then
-    return 0
-  fi
-  if sudo -n systemctl stop vxcloud-web.service 2>/dev/null; then
-    return 0
-  fi
-  echo "Could not stop vxcloud-web.service via systemctl (no non-interactive privileges)."
-}
-
-stop_legacy_haproxy_service() {
-  if ! systemctl list-unit-files | grep -q '^haproxy\.service'; then
-    return 0
-  fi
-
-  echo "Stopping legacy host haproxy.service..."
-  if systemctl stop haproxy.service 2>/dev/null; then
-    return 0
-  fi
-  if sudo -n systemctl stop haproxy.service 2>/dev/null; then
-    return 0
-  fi
-  echo "Could not stop haproxy.service via systemctl (no non-interactive privileges)."
-}
-
 kill_any_on_8088() {
   local pids pid
   pids="$(ss -lntp "( sport = :8088 )" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u || true)"
@@ -142,7 +112,6 @@ kill_any_on_8088() {
 }
 
 cleanup_legacy_bindings() {
-  stop_legacy_systemd_unit
   kill_any_on_8088
   docker compose --env-file .env down --remove-orphans || true
 }
@@ -168,16 +137,10 @@ ensure_haproxy_frontend_port_available() {
   fi
 
   echo "HAProxy frontend port ${port} is busy before starting containerized HAProxy."
-  stop_legacy_haproxy_service
-
-  if port_in_use_exact "$port"; then
-    echo "ERROR: port ${port} is still occupied after attempting to stop host haproxy.service."
-    show_port_occupant_exact "$port"
-    echo "Run this once manually on the server, then re-run deploy:"
-    echo "  sudo systemctl stop haproxy"
-    echo "  sudo ss -ltnp | grep ${port}"
-    exit 1
-  fi
+  echo "ERROR: port ${port} is already occupied."
+  show_port_occupant_exact "$port"
+  echo "Free that port manually, then re-run deploy."
+  exit 1
 }
 
 start_proxy_with_port_takeover() {
@@ -235,7 +198,6 @@ echo "[7/11] Start app services..."
 docker compose --env-file .env up -d wordpress web
 echo "Rendering HAProxy runtime config for container..."
 run_in_web_with_retry 15 2 python /app/scripts/ops/render_haproxy_cfg.py --env-file /app/.env --output-path /app/ops/haproxy/runtime/haproxy.cfg --skip-validate --skip-reload
-stop_legacy_haproxy_service
 ensure_haproxy_frontend_port_available
 docker compose --env-file .env up -d haproxy
 start_proxy_with_port_takeover
