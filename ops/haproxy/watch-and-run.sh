@@ -2,7 +2,7 @@
 set -eu
 
 CFG_PATH="${HAPROXY_CFG_PATH:-/usr/local/etc/haproxy/runtime/haproxy.cfg}"
-PID_FILE="${HAPROXY_PID_FILE:-/run/haproxy.pid}"
+PID_FILE="${HAPROXY_PID_FILE:-/tmp/haproxy.pid}"
 CHECK_INTERVAL="${HAPROXY_WATCH_INTERVAL_SECONDS:-2}"
 
 checksum() {
