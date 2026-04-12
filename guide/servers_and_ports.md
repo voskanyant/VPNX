@@ -83,6 +83,10 @@ Current `/ops/` capabilities:
 - backfill complete
 - `lb_enabled = false` until all above is true
 
+Detailed operator procedure with exact commands:
+
+- [add_vpn_node_runbook.md](./add_vpn_node_runbook.md)
+
 Suggested field values:
 
 - for current main server / `node-1`:
@@ -107,6 +111,10 @@ Suggested field values:
 - current active HAProxy backend line must look like:
   - `server node_10_node-1-main 127.0.0.1:29941 check weight 100 send-proxy check-send-proxy`
 - current 3x-ui inbound for the production node should keep `Proxy Protocol = on`
+- current HAProxy routing mode should be:
+  - `balance leastconn`
+  - `stick-table type ip size 200k expire 20m`
+  - `stick on src`
 - current runtime ownership:
   - HAProxy should run as Docker service `haproxy`
   - HAProxy should run in host network mode on the main server
@@ -116,3 +124,4 @@ Suggested field values:
   - HAProxy sees the real client IP
   - Xray access log also sees the real client IP
   - Xray-log-based IP analytics are meaningful again
+  - one client should stay on one node during the stick-table TTL instead of being split between nodes on each new TCP connection

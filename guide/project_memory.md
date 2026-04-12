@@ -103,7 +103,8 @@ Current intended UX:
 
 Current HAProxy behavior:
 
-- balances new TCP connections
+- balances first placement of new clients by connection load
+- then keeps the same source IP on the same node for the stick-table TTL
 - uses structural node health, not app-specific health
 - does not detect "Telegram broken but node otherwise alive"
 - does not migrate already established VPN sessions
@@ -208,6 +209,11 @@ Current low-risk HAProxy tuning already applied:
 
 - `tcplog` was removed from the HAProxy template after the first stable production cutover
 - reason: reduce per-connection overhead on frequent short-lived flows like YouTube Shorts
+- sticky routing was added on top of `leastconn`
+- current intended behavior:
+  - first placement chooses a backend by current load
+  - next connections from the same source IP stay on that backend for the stickiness window
+  - after inactivity and `expire`, placement can be chosen again
 
 Recommended initial values:
 
@@ -239,3 +245,4 @@ Recommended initial values:
 - [emergency_runbook.md](./emergency_runbook.md)
 - [servers_and_ports.md](./servers_and_ports.md)
 - [known_issues.md](./known_issues.md)
+- [add_vpn_node_runbook.md](./add_vpn_node_runbook.md)

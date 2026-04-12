@@ -74,6 +74,7 @@ Current production recommendation:
 - let the HAProxy container watch that file and self-reload on change
 - for the local same-server node, use `backend_host=127.0.0.1` and `backend_port=29941`
 - keep 3x-ui inbound `Proxy Protocol = on` and `.env` `HAPROXY_BACKEND_SEND_PROXY=1`
+- keep routing as `leastconn + stick-table + stick on src`, so a client is placed by load once and then remains on one node until stickiness expires
 - use `/ops/ -> VPN ноды` as source of LB state, with Django re-rendering the runtime config after node create/update/delete
 
 Relevant env vars:
@@ -84,6 +85,8 @@ Relevant env vars:
 - `HAPROXY_FRONTEND_PORT` (default: `VPN_PUBLIC_PORT`)
 - `HAPROXY_RELOAD_CMD` (leave empty when HAProxy is containerized and self-reloads from file changes)
 - `HAPROXY_BIN` (default: `haproxy`)
+- `HAPROXY_STICK_TABLE_SIZE` (default: `200k`)
+- `HAPROXY_STICK_TABLE_EXPIRE` (default: `20m`)
 
 Dry-run example:
 
@@ -133,6 +136,10 @@ python scripts/ops/render_haproxy_cfg.py --env-file .env
 7. Safe rollback
 - Disable node in LB (`Disable LB`) and render HAProxy again.
 - Optionally mark node inactive for maintenance.
+
+Detailed operator runbook with exact commands:
+
+- [guide/add_vpn_node_runbook.md](guide/add_vpn_node_runbook.md)
 
 ### Single-Node Compatibility
 
