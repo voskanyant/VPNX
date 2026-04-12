@@ -192,7 +192,7 @@ docker compose --env-file .env logs --tail=100 haproxy
 
 Expected behavior:
 
-- backend line points to `82.21.117.154:29941`
+- backend line points to `127.0.0.1:29941`
 - backend line contains `check weight 100`
 - backend line contains `send-proxy`
 - backend line contains `check-send-proxy`
@@ -215,7 +215,7 @@ Expected behavior:
 
 - сразу выключить `lb_enabled` у новой ноды
 - перерендерить HAProxy
-- reload HAProxy
+- check containerized HAProxy logs and confirm the runtime config was refreshed
 
 ## 12. Final no-go conditions
 

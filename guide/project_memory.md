@@ -119,7 +119,7 @@ Current proven state on production:
 - this proves `/ops/ -> VPN ноды` really controls HAProxy-routed traffic
 - production cutover is now complete:
   - public `29940` is owned by HAProxy
-  - backend `node-1-main` points to `82.21.117.154:29941`
+  - backend `node-1-main` points to `127.0.0.1:29941`
   - local Xray inbound listens on `29941`
   - client configs still use public port `29940`
   - current working chain is `client -> HAProxy:29940 -> Xray:29941`
@@ -172,7 +172,7 @@ Recommended meanings of key flags:
 Safe node-remove rule:
 
 1. disable `lb_enabled`
-2. reload HAProxy
+2. confirm `/ops/` re-rendered the runtime config and HAProxy container noticed the change
 3. wait
 4. then stop/remove node
 
@@ -197,12 +197,17 @@ Current tested safe procedure for the real production path:
    - `docker compose --env-file .env exec -T web python /app/scripts/ops/render_haproxy_cfg.py --env-file /app/.env --frontend-port 29940 --dry-run > /tmp/haproxy-prod-cutover.cfg`
 6. verify generated backend line:
    - `grep -n "server " /tmp/haproxy-prod-cutover.cfg`
-   - expected: `server ... 82.21.117.154:29941 check weight 100 send-proxy check-send-proxy`
+   - expected: `server ... 127.0.0.1:29941 check weight 100 send-proxy check-send-proxy`
 7. for containerized HAProxy, write the runtime file that the container watches:
    - `docker compose --env-file .env exec -T web python /app/scripts/ops/render_haproxy_cfg.py --env-file /app/.env --output-path /app/ops/haproxy/runtime/haproxy.cfg --skip-validate --skip-reload`
 8. verify HAProxy container state:
    - `docker compose --env-file .env logs --tail=100 haproxy`
 9. reconnect client on the same old `29940` config
+
+Current low-risk HAProxy tuning already applied:
+
+- `tcplog` was removed from the HAProxy template after the first stable production cutover
+- reason: reduce per-connection overhead on frequent short-lived flows like YouTube Shorts
 
 Recommended initial values:
 

@@ -69,8 +69,11 @@ The script:
 Current production recommendation:
 
 - run HAProxy in Docker
+- run the HAProxy container in host network mode
 - keep runtime config in `ops/haproxy/runtime/haproxy.cfg`
 - let the HAProxy container watch that file and self-reload on change
+- for the local same-server node, use `backend_host=127.0.0.1` and `backend_port=29941`
+- keep 3x-ui inbound `Proxy Protocol = on` and `.env` `HAPROXY_BACKEND_SEND_PROXY=1`
 - use `/ops/ -> VPN ноды` as source of LB state, with Django re-rendering the runtime config after node create/update/delete
 
 Relevant env vars:
@@ -119,7 +122,7 @@ When you buy/add a second server, use this flow:
 - Confirm node `needs_backfill` clears and `last_backfill_at` is set.
 - New subscriptions continue syncing to backfill nodes before they are admitted into LB.
 
-6. Enable in LB and reload HAProxy
+6. Enable in LB and refresh the HAProxy runtime config
 - Run admin action `Enable LB`.
 - Render/apply config:
 

@@ -77,7 +77,7 @@ sudo tail -n 40 /usr/local/x-ui/access.log
 
 Expected production backend line:
 
-- `server node_10_node-1-main 82.21.117.154:29941 check weight 100 send-proxy check-send-proxy`
+- `server node_10_node-1-main 127.0.0.1:29941 check weight 100 send-proxy check-send-proxy`
 - x-ui access log should show the real client IP, not `82.21.117.154`
 
 Быстрые operational reminders:
@@ -108,7 +108,7 @@ chmod +x scripts/ops/deploy-auto.sh
 1. Проверить, что проблема только на одном узле.
 2. Убрать узел из балансировки:
    - в `/ops/` выключить `lb_enabled`
-   - перерендерить/reload HAProxy
+   - проверить runtime config и логи containerized HAProxy
 3. Убедиться, что новые подключения больше не попадают на этот узел.
 4. Проверить рабочие узлы.
 5. Только после этого чинить сломанный узел.

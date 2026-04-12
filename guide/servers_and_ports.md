@@ -105,10 +105,11 @@ Suggested field values:
 - current production chain is:
   - `client -> 29940/tcp (HAProxy) -> 29941/tcp (Xray backend)`
 - current active HAProxy backend line must look like:
-  - `server node_10_node-1-main 82.21.117.154:29941 check weight 100 send-proxy check-send-proxy`
+  - `server node_10_node-1-main 127.0.0.1:29941 check weight 100 send-proxy check-send-proxy`
 - current 3x-ui inbound for the production node should keep `Proxy Protocol = on`
 - current runtime ownership:
   - HAProxy should run as Docker service `haproxy`
+  - HAProxy should run in host network mode on the main server
   - runtime config should live in `ops/haproxy/runtime/haproxy.cfg`
   - host `haproxy.service` should remain disabled/inactive and is no longer touched by deploy
 - current result:

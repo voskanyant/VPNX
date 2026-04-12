@@ -55,7 +55,7 @@ Current intended model:
 - local Xray backend now listens on `29941`
 - `30940` was introduced only as a temporary HAProxy test frontend
 - node on/off behavior in `/ops/` has already been proven on `30940`
-- node on/off behavior is now also wired into the real production path on `29940`, but only after HAProxy render/reload
+- node on/off behavior is now also wired into the real production path on `29940` through runtime config auto-render and container self-reload
 
 ### PROXY protocol must stay aligned between HAProxy and Xray
 
