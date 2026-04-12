@@ -203,15 +203,23 @@ class TicketReplyForm(BootstrapFormMixin, forms.Form):
 class BackofficeSubscriptionExpiryForm(BootstrapFormMixin, forms.Form):
     expires_at = forms.DateTimeField(
         label="Дата окончания",
+        required=False,
         input_formats=[
+            "%d/%m/%Y %H:%M",
+            "%d.%m.%Y %H:%M",
             "%Y-%m-%dT%H:%M",
             "%Y-%m-%d %H:%M:%S",
             "%Y-%m-%d %H:%M",
             "%m/%d/%Y %I:%M %p",
             "%m/%d/%Y %I:%M:%S %p",
         ],
-        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M"),
-        help_text="Изменение применяется в базе и сразу отправляется в 3x-ui.",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "дд/мм/гггг чч:мм",
+                "autocomplete": "off",
+            }
+        ),
+        help_text="Оставьте пустым для бессрочной подписки. Формат: дд/мм/гггг чч:мм.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -232,15 +240,23 @@ class BackofficeSubscriptionCreateForm(BootstrapFormMixin, forms.Form):
     )
     expires_at = forms.DateTimeField(
         label="Дата окончания",
+        required=False,
         input_formats=[
+            "%d/%m/%Y %H:%M",
+            "%d.%m.%Y %H:%M",
             "%Y-%m-%dT%H:%M",
             "%Y-%m-%d %H:%M:%S",
             "%Y-%m-%d %H:%M",
             "%m/%d/%Y %I:%M %p",
             "%m/%d/%Y %I:%M:%S %p",
         ],
-        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M"),
-        help_text="Если дата уже в прошлом, подписка будет создана как неактивная.",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "дд/мм/гггг чч:мм",
+                "autocomplete": "off",
+            }
+        ),
+        help_text="Оставьте пустым для бессрочной подписки. Формат: дд/мм/гггг чч:мм.",
     )
 
     def __init__(self, *args, **kwargs):

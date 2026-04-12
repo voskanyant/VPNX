@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 from collections import Counter
+import io
 import json
 import logging
 import os
 import sys
 import uuid
-from datetime import timedelta, timezone as dt_timezone
+from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 from typing import Any
 from urllib import error as urllib_error
@@ -46,8 +48,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.xui_client import XUIClient
+import qrcode
 from src.client_naming import build_xui_client_name
 from src.vless import build_vless_url
+from src.xui_client import NO_EXPIRY_SENTINEL
 
 
 LOGGER = logging.getLogger(__name__)
@@ -247,6 +251,24 @@ def format_cell(value: Any) -> Any:
             pass
         return value.strftime("%d.%m.%Y %H:%M")
     return value
+
+
+def is_no_expiry(value: Any) -> bool:
+    return isinstance(value, datetime) and value >= NO_EXPIRY_SENTINEL
+
+
+def format_subscription_expires_at(value: Any) -> str:
+    if value is None or is_no_expiry(value):
+        return "Бессрочно"
+    formatted = format_cell(value)
+    return str(formatted) if formatted else ""
+
+
+def build_qr_data_url(text: str) -> str:
+    img = qrcode.make(text)
+    buff = io.BytesIO()
+    img.save(buff, format="PNG")
+    return f"data:image/png;base64,{base64.b64encode(buff.getvalue()).decode('ascii')}"
 
 
 def status_badge(text: str, tone: str = "secondary") -> str:
@@ -1315,7 +1337,7 @@ class BotSubscriptionListView(BaseListView):
                         item.display_name,
                         item.client_email,
                         status_badge(status_label, status_tone),
-                        format_cell(item.expires_at),
+                        format_subscription_expires_at(item.expires_at),
                         format_cell(item.updated_at),
                     ],
                 }
@@ -1324,15 +1346,42 @@ class BotSubscriptionListView(BaseListView):
 
 
 class BotSubscriptionCreateView(LegacyContentContextMixin, StaffRequiredMixin, TemplateView):
-    template_name = "backoffice/form.html"
+    template_name = "backoffice/subscription_create.html"
+
+    @staticmethod
+    def _session_key() -> str:
+        return "backoffice_created_subscription_id"
+
+    def _default_form(self) -> BackofficeSubscriptionCreateForm:
+        return BackofficeSubscriptionCreateForm(initial={"expires_at": ""})
+
+    def _build_created_result(self, subscription: BotSubscription) -> dict[str, Any]:
+        vless_url = str(getattr(subscription, "vless_url", "") or "")
+        return {
+            "subscription_id": int(getattr(subscription, "id", 0) or 0),
+            "display_name": str(getattr(subscription, "display_name", "") or ""),
+            "client_email": str(getattr(subscription, "client_email", "") or ""),
+            "expires_at_label": format_subscription_expires_at(getattr(subscription, "expires_at", None)),
+            "vless_url": vless_url,
+            "qr_image_data_url": build_qr_data_url(vless_url) if vless_url else "",
+        }
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        form = kwargs.get("form") or BackofficeSubscriptionCreateForm(
-            initial={"expires_at": timezone.localtime(timezone.now() + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M")}
-        )
-        ctx["title"] = "ÐÐ¾Ð²Ð°Ñ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ°"
+        form = kwargs.get("form") or self._default_form()
+        created_result = kwargs.get("created_result")
+        if created_result is None:
+            created_subscription_id = self.request.session.pop(self._session_key(), None)
+            if created_subscription_id:
+                try:
+                    subscription = BotSubscription.objects.get(pk=created_subscription_id)
+                except BotSubscription.DoesNotExist:
+                    subscription = None
+                if subscription is not None:
+                    created_result = self._build_created_result(subscription)
+        ctx["title"] = "Новая подписка"
         ctx["form"] = form
+        ctx["created_result"] = created_result
         return self.add_wordpress_context(ctx)
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
@@ -1347,18 +1396,22 @@ class BotSubscriptionCreateView(LegacyContentContextMixin, StaffRequiredMixin, T
                 "backoffice_subscription_create_failed",
                 extra={"user_id": int(form.cleaned_data.get("user_id", 0) or 0)},
             )
-            form.add_error(None, f"?? ??????? ??????? ????????: {exc}")
+            form.add_error(None, f"Не удалось создать подписку: {exc}")
             return self.render_to_response(self.get_context_data(form=form))
 
     def _post_impl(self, request: HttpRequest, form: BackofficeSubscriptionCreateForm) -> HttpResponse:
         user_id = int(form.cleaned_data["user_id"])
         display_name = str(form.cleaned_data["display_name"]).strip()
         expires_at = form.cleaned_data["expires_at"]
-        if timezone.is_naive(expires_at):
-            expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
-        expires_at = expires_at.astimezone(dt_timezone.utc)
+        infinite_expiry = expires_at is None
+        if infinite_expiry:
+            expires_at = NO_EXPIRY_SENTINEL
+        elif timezone.is_naive(expires_at):
+            expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone()).astimezone(dt_timezone.utc)
+        else:
+            expires_at = expires_at.astimezone(dt_timezone.utc)
         now = timezone.now()
-        should_be_active = expires_at > now
+        should_be_active = True if infinite_expiry else expires_at > now
         cluster_nodes = _active_vpn_nodes_snapshot() if bool_env("VPN_CLUSTER_ENABLED", False) else None
 
         user = get_object_or_404(BotUser, pk=user_id)
@@ -1376,7 +1429,7 @@ class BotSubscriptionCreateView(LegacyContentContextMixin, StaffRequiredMixin, T
         try:
             runtime = _run_async_from_sync(_load_subscription_runtime(cluster_nodes=cluster_nodes))
         except Exception as exc:
-            form.add_error(None, f"?? ??????? ????????? inbound/reality ?? 3x-ui: {exc}")
+            form.add_error(None, f"Не удалось прочитать inbound/reality из 3x-ui: {exc}")
             return self.render_to_response(self.get_context_data(form=form))
 
         reality = runtime["reality"]
@@ -1409,7 +1462,7 @@ class BotSubscriptionCreateView(LegacyContentContextMixin, StaffRequiredMixin, T
         try:
             subscription.save(force_insert=True)
         except Exception as exc:
-            form.add_error(None, f"?? ??????? ????????? ???????? ? ????: {exc}")
+            form.add_error(None, f"Не удалось сохранить подписку в базе: {exc}")
             return self.render_to_response(self.get_context_data(form=form))
 
         try:
@@ -1418,7 +1471,7 @@ class BotSubscriptionCreateView(LegacyContentContextMixin, StaffRequiredMixin, T
                     client_uuid=client_uuid,
                     client_email=client_email,
                     display_name=stored_display_name,
-                    expires_at=expires_at,
+                    expires_at=None if infinite_expiry else expires_at,
                     enabled=should_be_active,
                     cluster_nodes=cluster_nodes,
                     xui_sub_id=xui_sub_id,
@@ -1426,13 +1479,13 @@ class BotSubscriptionCreateView(LegacyContentContextMixin, StaffRequiredMixin, T
             )
         except Exception as exc:
             subscription.delete()
-            form.add_error(None, f"?? ??????? ??????? ??????? ? 3x-ui: {exc}")
+            form.add_error(None, f"Не удалось создать клиента в 3x-ui: {exc}")
             return self.render_to_response(self.get_context_data(form=form))
 
         successful = [item for item in provision_results if item.get("ok")]
         if not successful:
             subscription.delete()
-            form.add_error(None, "?? ??????? ??????? ??????? ?? ?? ????? ???? 3x-ui.")
+            form.add_error(None, "Не удалось создать клиента ни на одной ноде 3x-ui.")
             return self.render_to_response(self.get_context_data(form=form))
 
         primary_sub_id = xui_sub_id or str(successful[0].get("xui_sub_id") or "").strip() or None
@@ -1514,11 +1567,14 @@ class BotSubscriptionCreateView(LegacyContentContextMixin, StaffRequiredMixin, T
                 problem_chunks.append(f"sync-state: {sync_state_errors[0]}")
             messages.warning(
                 request,
-                "???????? ???????, ?? ???? ???????? ?????????????: " + " | ".join(problem_chunks),
+                "Подписка создана, но есть проблемы синхронизации: " + " | ".join(problem_chunks),
             )
         else:
-            messages.success(request, "???????? ???????")
-        return redirect("backoffice:bot_subscription_list")
+            messages.success(request, "Подписка создана")
+        created_subscription_id = int(getattr(subscription, "id", 0) or 0)
+        if created_subscription_id:
+            request.session[self._session_key()] = created_subscription_id
+        return redirect("backoffice:bot_subscription_create")
 
 class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
     template_name = "backoffice/form.html"
@@ -1528,7 +1584,9 @@ class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
 
     def _initial(self, subscription: BotSubscription) -> dict[str, Any]:
         current = getattr(subscription, "expires_at", None) or timezone.now()
-        return {"expires_at": timezone.localtime(current).strftime("%Y-%m-%dT%H:%M")}
+        if is_no_expiry(current):
+            return {"expires_at": ""}
+        return {"expires_at": timezone.localtime(current).strftime("%d/%m/%Y %H:%M")}
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
@@ -1546,7 +1604,9 @@ class BotSubscriptionExpiryUpdateView(StaffRequiredMixin, TemplateView):
             return self.render_to_response(self.get_context_data(form=form))
 
         expires_at = form.cleaned_data["expires_at"]
-        if timezone.is_naive(expires_at):
+        if expires_at is None:
+            expires_at = NO_EXPIRY_SENTINEL
+        elif timezone.is_naive(expires_at):
             expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
         expires_at = expires_at.astimezone(dt_timezone.utc)
         change_time = timezone.now()

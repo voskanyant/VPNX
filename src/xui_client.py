@@ -29,6 +29,9 @@ class InboundClientState:
     comment: str | None = None
 
 
+NO_EXPIRY_SENTINEL = datetime(2099, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+
+
 class XUIClient:
     def __init__(self, base_url: str, username: str, password: str) -> None:
         self.base_url = base_url.rstrip("/")
@@ -164,7 +167,7 @@ class XUIClient:
         except (TypeError, ValueError):
             expiry_ms = 0
         if expiry_ms <= 0:
-            return datetime.fromtimestamp(0, tz=timezone.utc)
+            return NO_EXPIRY_SENTINEL
         return datetime.fromtimestamp(expiry_ms / 1000, tz=timezone.utc)
 
     async def list_clients(self, inbound_id: int) -> list[InboundClientState]:
@@ -196,14 +199,14 @@ class XUIClient:
         *,
         client_uuid: str,
         email: str,
-        expiry: datetime,
+        expiry: datetime | None,
         enable: bool,
         limit_ip: int,
         flow: str = "",
         sub_id: str | None = None,
         comment: str | None = None,
     ) -> dict[str, Any]:
-        expiry_ms = int(expiry.timestamp() * 1000)
+        expiry_ms = 0 if expiry is None or expiry >= NO_EXPIRY_SENTINEL else int(expiry.timestamp() * 1000)
         client: dict[str, Any] = {
             "id": client_uuid,
             "email": email,
@@ -224,7 +227,7 @@ class XUIClient:
         inbound_id: int,
         client_uuid: str,
         email: str,
-        expiry: datetime,
+        expiry: datetime | None,
         limit_ip: int = 0,
         flow: str = "",
         comment: str | None = None,
@@ -249,7 +252,7 @@ class XUIClient:
         inbound_id: int,
         client_uuid: str,
         email: str,
-        expiry: datetime,
+        expiry: datetime | None,
         limit_ip: int = 0,
         flow: str = "",
         comment: str | None = None,
@@ -274,7 +277,7 @@ class XUIClient:
         inbound_id: int,
         client_uuid: str,
         email: str,
-        expiry: datetime,
+        expiry: datetime | None,
         *,
         enable: bool,
         limit_ip: int = 0,

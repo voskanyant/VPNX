@@ -17,6 +17,8 @@ import django
 
 django.setup()
 
+from src.xui_client import NO_EXPIRY_SENTINEL
+
 from django.contrib.auth.models import User
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.middleware import SessionMiddleware
@@ -149,6 +151,67 @@ class BackofficeSubscriptionCreateUnitTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 302)
+
+    def test_create_subscription_without_expiry_uses_no_expiry_semantics(self):
+        runtime = {
+            "inbound_id": 1,
+            "inbound_port": 29940,
+            "reality": SimpleNamespace(
+                public_key="pub",
+                short_id="ec40",
+                sni="www.apple.com",
+                fingerprint="chrome",
+            ),
+        }
+        provision_mock = AsyncMock(return_value=[{"node_id": 0, "ok": True, "xui_sub_id": "sub-ops-001"}])
+        saved_objects: list[SimpleNamespace] = []
+
+        def fake_save(instance, *args, **kwargs):
+            if getattr(instance, "id", None) in (None, 0):
+                instance.id = 501
+            saved_objects.append(
+                SimpleNamespace(
+                    expires_at=getattr(instance, "expires_at", None),
+                    is_active=getattr(instance, "is_active", None),
+                )
+            )
+
+        with (
+            patch("backoffice.forms.BotUser.objects.filter") as user_filter_mock,
+            patch(
+                "backoffice.views.get_object_or_404",
+                return_value=SimpleNamespace(id=1, username="tester", first_name="Test", client_code="VX-000001"),
+            ),
+            patch("backoffice.views._load_subscription_runtime", new=AsyncMock(return_value=runtime)),
+            patch("backoffice.views._create_subscription_on_xui", new=provision_mock),
+            patch("backoffice.views.env_value", side_effect=lambda name, default="": {
+                "VPN_PUBLIC_HOST": "vxcloud.ru",
+                "VPN_TAG": "VXcloud",
+                "VPN_FLOW": "xtls-rprx-vision",
+            }.get(name, default)),
+            patch("backoffice.views.int_env", side_effect=lambda name, default: 29940 if name == "VPN_PUBLIC_PORT" else default),
+            patch("backoffice.views.bool_env", return_value=False),
+            patch("backoffice.views.BotSubscription.save", new=fake_save),
+            patch("backoffice.views.BotSubscription.objects.get") as subscription_get_mock,
+        ):
+            user_filter_mock.return_value.exists.return_value = True
+            subscription_get_mock.return_value = SimpleNamespace(
+                id=501,
+                display_name="my VPN",
+                client_email="tg_1_example",
+                expires_at=NO_EXPIRY_SENTINEL,
+                vless_url="vless://example",
+            )
+            response = BotSubscriptionCreateView.as_view()(
+                self._build_request(user_id=1, display_name="my VPN", expires_at="")
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(provision_mock.await_args.kwargs["expires_at"], None)
+        self.assertEqual(provision_mock.await_args.kwargs["enabled"], True)
+        self.assertTrue(saved_objects)
+        self.assertEqual(saved_objects[0].expires_at, NO_EXPIRY_SENTINEL)
+        self.assertTrue(saved_objects[0].is_active)
 
 
 if __name__ == "__main__":
