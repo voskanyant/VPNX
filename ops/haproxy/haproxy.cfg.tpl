@@ -6,7 +6,6 @@ global
 defaults
   log global
   mode tcp
-  option tcplog
   option clitcpka
   option srvtcpka
   timeout connect 10s
@@ -15,7 +14,6 @@ defaults
 
 frontend vxcloud_vless_in
   mode tcp
-  option tcplog
   bind ${FRONTEND_BIND_ADDR}:${FRONTEND_PORT}
   default_backend vxcloud_vless_nodes
 
