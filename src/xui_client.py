@@ -30,6 +30,8 @@ class InboundClientState:
 
 
 NO_EXPIRY_SENTINEL = datetime(2099, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+RESERVED_PLACEHOLDER_EMAIL = "_vxcloud_reserved"
+RESERVED_PLACEHOLDER_COMMENT = "VXcloud reserved placeholder"
 
 
 class XUIClient:
@@ -313,9 +315,22 @@ class XUIClient:
         try:
             await self._post(f"/panel/api/inbounds/{inbound_id}/delClient/{client_uuid}", {})
             return "deleted"
-        except Exception:
+        except Exception as exc:
             if not email or expiry is None:
                 raise
+            if "no client remained in inbound" in str(exc).lower():
+                await self.update_client(
+                    inbound_id,
+                    client_uuid,
+                    RESERVED_PLACEHOLDER_EMAIL,
+                    NO_EXPIRY_SENTINEL,
+                    limit_ip=0,
+                    flow="",
+                    comment=RESERVED_PLACEHOLDER_COMMENT,
+                    sub_id=None,
+                    enable=False,
+                )
+                return "placeholder"
             await self.set_client_enabled(
                 inbound_id,
                 client_uuid,
