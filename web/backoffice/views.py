@@ -1284,6 +1284,13 @@ class BotUserDeleteView(LegacyContentContextMixin, StaffRequiredMixin, DeleteVie
             "linked_accounts": safe_count(LinkedAccount.objects.filter(telegram_id=telegram_id)),
         }
 
+    @staticmethod
+    def _site_only_auth_user_id(user: BotUser) -> int | None:
+        telegram_id = int(getattr(user, "telegram_id", 0) or 0)
+        if telegram_id < 0 and abs(telegram_id) > WEB_PLACEHOLDER_TELEGRAM_ID_OFFSET:
+            return int(abs(telegram_id) - WEB_PLACEHOLDER_TELEGRAM_ID_OFFSET)
+        return None
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         counts = self._related_counts(self.object)
@@ -1312,6 +1319,7 @@ class BotUserDeleteView(LegacyContentContextMixin, StaffRequiredMixin, DeleteVie
             return self.render_to_response(self.get_context_data())
 
         telegram_id = int(getattr(self.object, "telegram_id", 0) or 0)
+        site_auth_user_id = self._site_only_auth_user_id(self.object)
         subscriptions_qs = BotSubscription.objects.filter(user_id=self.object.id)
         subscriptions = list(subscriptions_qs)
         subscription_ids = list(subscriptions_qs.values_list("id", flat=True))
@@ -1336,6 +1344,8 @@ class BotUserDeleteView(LegacyContentContextMixin, StaffRequiredMixin, DeleteVie
                 VPNNodeClient.objects.filter(subscription_id__in=subscription_ids).delete()
             BotOrder.objects.filter(user_id=self.object.id).delete()
             subscriptions_qs.delete()
+            if site_auth_user_id is not None:
+                User.objects.filter(id=site_auth_user_id).delete()
             self.object.delete()
 
         messages.success(request, "Пользователь удалён")

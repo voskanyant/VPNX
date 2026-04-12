@@ -127,6 +127,58 @@ class BackofficeUserDeleteUnitTests(unittest.TestCase):
         self.assertEqual(counts["subscriptions"], 2)
         self.assertEqual(counts["active_subscriptions"], 0)
 
+    def test_delete_removes_site_only_auth_user(self):
+        site_user_id = 123
+        bot_user = SimpleNamespace(
+            id=5,
+            telegram_id=-(10**12 + site_user_id),
+            delete=MagicMock(),
+        )
+        counts = {
+            "subscriptions": 0,
+            "active_subscriptions": 0,
+            "orders": 0,
+            "node_clients": 0,
+            "support_tickets": 0,
+            "support_messages": 0,
+            "linked_accounts": 0,
+        }
+
+        class _FakeListQuerySet(list):
+            def __init__(self):
+                super().__init__()
+                self.delete = MagicMock()
+
+            def values_list(self, *args, **kwargs):
+                return []
+
+        subscriptions_qs = _FakeListQuerySet()
+        linked_qs = MagicMock()
+        support_messages_qs = MagicMock()
+        support_tickets_qs = MagicMock()
+        node_clients_qs = MagicMock()
+        orders_qs = MagicMock()
+        auth_user_qs = MagicMock()
+
+        with (
+            patch.object(BotUserDeleteView, "get_object", return_value=bot_user),
+            patch.object(BotUserDeleteView, "_related_counts", return_value=counts),
+            patch("backoffice.views.BotSubscription.objects.filter", return_value=subscriptions_qs),
+            patch("backoffice.views.LinkedAccount.objects.filter", return_value=linked_qs),
+            patch("backoffice.views.SupportMessage.objects.filter", return_value=support_messages_qs),
+            patch("backoffice.views.SupportTicket.objects.filter", return_value=support_tickets_qs),
+            patch("backoffice.views.VPNNodeClient.objects.filter", return_value=node_clients_qs),
+            patch("backoffice.views.BotOrder.objects.filter", return_value=orders_qs),
+            patch("backoffice.views.User.objects.filter", return_value=auth_user_qs) as user_filter,
+        ):
+            response = BotUserDeleteView.as_view()(self._build_request(), pk=5)
+
+        self.assertEqual(response.status_code, 302)
+        user_filter.assert_called_once_with(id=site_user_id)
+        auth_user_qs.delete.assert_called_once()
+        subscriptions_qs.delete.assert_called_once()
+        bot_user.delete.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
