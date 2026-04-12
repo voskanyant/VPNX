@@ -39,7 +39,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import EmailAuthenticationForm, SignUpForm, UserProfileForm
-from .models import BotOrder, BotSubscription, BotUser, LinkedAccount, PaymentEvent, TelegramLinkToken, WebLoginToken
+from .models import BotOrder, BotSubscription, BotUser, LinkedAccount, PaymentEvent, TelegramLinkToken, WebLoginToken, VPNNodeClient
 from payments.providers import get_payment_provider
 
 
@@ -1325,40 +1325,18 @@ def _delete_subscription_everywhere(subscription: BotSubscription) -> tuple[bool
     if bool(state["is_active"]):
         return False, "Активный конфиг нельзя удалить. Сначала дождитесь окончания срока действия."
 
-    inbound_id = int(subscription.inbound_id)
-    client_uuid = str(subscription.client_uuid)
-    client_email = str(subscription.client_email or "")
-    expires_at = getattr(subscription, "expires_at", None)
-    xui_sub_id = str(getattr(subscription, "xui_sub_id", "") or "") or None
-
     try:
-        repo_root = Path(__file__).resolve().parents[2]
-        if str(repo_root) not in sys.path:
-            sys.path.insert(0, str(repo_root))
-        from src.config import Settings as BotSettings  # type: ignore
-        from src.xui_client import XUIClient  # type: ignore
+        from backoffice.views import (  # type: ignore
+            _active_vpn_nodes_snapshot,
+            _delete_subscription_from_xui,
+            _run_async_from_sync,
+            bool_env,
+        )
 
-        bot_settings = BotSettings.from_env()
-        if not bot_settings.vpn_cluster_enabled:
-            if bot_settings.xui_base_url and bot_settings.xui_username and bot_settings.xui_password:
-                xui = XUIClient(bot_settings.xui_base_url, bot_settings.xui_username, bot_settings.xui_password)
-                try:
-                    asyncio.run(xui.start())
-                    delete_result = asyncio.run(
-                        xui.delete_client(
-                            inbound_id,
-                            client_uuid,
-                            email=client_email or None,
-                            expiry=expires_at,
-                            limit_ip=bot_settings.max_devices_per_sub,
-                            flow=bot_settings.vpn_flow,
-                            sub_id=xui_sub_id,
-                        )
-                    )
-                    if delete_result != "deleted":
-                        return False, "Не удалось удалить конфиг в 3x-ui. Попробуйте ещё раз или проверьте клиента вручную."
-                finally:
-                    asyncio.run(xui.close())
+        cluster_nodes = _active_vpn_nodes_snapshot() if bool_env("VPN_CLUSTER_ENABLED", False) else None
+        xui_errors = _run_async_from_sync(_delete_subscription_from_xui(subscription, cluster_nodes=cluster_nodes))
+        if xui_errors:
+            return False, "Не удалось удалить конфиг в 3x-ui. Попробуйте ещё раз или проверьте клиента вручную."
     except Exception:
         LOGGER.exception(
             "account_subscription_delete_xui_failed",
@@ -1366,7 +1344,9 @@ def _delete_subscription_everywhere(subscription: BotSubscription) -> tuple[bool
         )
         return False, "Не удалось удалить конфиг в 3x-ui. Попробуйте ещё раз позже."
 
-    subscription.delete()
+    with transaction.atomic():
+        VPNNodeClient.objects.filter(subscription_id=subscription.id).delete()
+        subscription.delete()
     return True, None
 
 
