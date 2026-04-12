@@ -736,7 +736,7 @@ def signup_view(request: HttpRequest) -> HttpResponse:
         username = form.cleaned_data["username"].strip()
         email = form.cleaned_data["email"].strip().lower()
         password = form.cleaned_data["password"]
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(username__iexact=username).exists():
             form.add_error("username", "Пользователь с таким логином уже существует")
         else:
             user = User.objects.create_user(username=username, email=email, password=password)
@@ -1191,7 +1191,7 @@ def account_api_signup(request: HttpRequest) -> JsonResponse:
     username = form.cleaned_data["username"].strip()
     email = form.cleaned_data["email"].strip().lower()
     password = form.cleaned_data["password"]
-    if User.objects.filter(username=username).exists():
+    if User.objects.filter(username__iexact=username).exists():
         return _json_error("Не удалось создать аккаунт.", errors={"username": "Пользователь с таким логином уже существует"})
 
     user = User.objects.create_user(username=username, email=email, password=password)

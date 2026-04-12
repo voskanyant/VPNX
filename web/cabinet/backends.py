@@ -17,4 +17,11 @@ class EmailOrUsernameModelBackend(ModelBackend):
                 return user
             return None
 
-        return super().authenticate(request, username=login_value, password=password, **kwargs)
+        users = list(User.objects.filter(username__iexact=login_value)[:2])
+        if len(users) != 1:
+            return None
+
+        user = users[0]
+        if user.check_password(password) and self.user_can_authenticate(user):
+            return user
+        return None

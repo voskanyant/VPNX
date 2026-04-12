@@ -17,6 +17,12 @@ class SignUpForm(forms.Form):
             raise forms.ValidationError("Пользователь с таким email уже существует")
         return email
 
+    def clean_username(self):
+        username = (self.cleaned_data.get("username") or "").strip()
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError("Пользователь с таким логином уже существует")
+        return username
+
     def clean(self):
         cleaned = super().clean()
         password = cleaned.get("password")
@@ -46,7 +52,7 @@ class UserProfileForm(forms.Form):
 
     def clean_username(self):
         username = (self.cleaned_data.get("username") or "").strip()
-        if User.objects.exclude(pk=self.user.pk).filter(username=username).exists():
+        if User.objects.exclude(pk=self.user.pk).filter(username__iexact=username).exists():
             raise forms.ValidationError("Пользователь с таким логином уже существует")
         return username
 
