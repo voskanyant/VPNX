@@ -101,6 +101,8 @@ services:
       - .env
     environment:
       HAPROXY_PID_FILE: /tmp/haproxy.pid
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["/bin/sh", "/usr/local/bin/haproxy-watch.sh"]
     volumes:
       - ./ops/haproxy/runtime:/usr/local/etc/haproxy/runtime

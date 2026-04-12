@@ -86,7 +86,7 @@ Current `/ops/` capabilities:
 Suggested field values:
 
 - for current main server / `node-1`:
-  - `backend_host = 82.21.117.154`
+  - `backend_host = host.docker.internal` when HAProxy runs in Docker on the same server as Xray
   - `backend_port = 29941`
   - `is_active = true`
   - `needs_backfill = false`

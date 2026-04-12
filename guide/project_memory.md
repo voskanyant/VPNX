@@ -132,6 +132,7 @@ Current proven state on production:
   - runtime config lives in `ops/haproxy/runtime/haproxy.cfg`
   - Docker service name is `haproxy` / container name `vxcloud-haproxy`
   - legacy host `haproxy.service` should be stopped by deploy
+  - local same-server backend access should use `host.docker.internal` instead of the server's own public IP
   - `/ops/ -> VPN ноды` create/update/delete now re-renders the shared runtime config automatically
   - the HAProxy container watches that file and self-reloads
 
