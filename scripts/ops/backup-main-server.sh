@@ -68,12 +68,12 @@ echo "[2/7] Export git revision..."
 git rev-parse HEAD > "${BACKUP_DIR}/git-revision.txt"
 
 echo "[3/7] Backup PostgreSQL..."
-docker exec -T vxcloud-db pg_dump -U "${POSTGRES_DB_USER}" -d "${POSTGRES_DB_NAME}" -Fc \
+docker exec -i vxcloud-db pg_dump -U "${POSTGRES_DB_USER}" -d "${POSTGRES_DB_NAME}" -Fc \
   > "${BACKUP_DIR}/postgres-vxcloud.dump"
 
 echo "[4/7] Backup MariaDB..."
 if [[ -n "$WORDPRESS_DB_NAME" && -n "$WORDPRESS_DB_USER" && -n "$WORDPRESS_DB_PASSWORD" ]]; then
-  docker exec -e MYSQL_PWD="${WORDPRESS_DB_PASSWORD}" -T vxcloud-wpdb \
+  docker exec -e MYSQL_PWD="${WORDPRESS_DB_PASSWORD}" -i vxcloud-wpdb \
     mariadb-dump -u"${WORDPRESS_DB_USER}" --single-transaction --quick "${WORDPRESS_DB_NAME}" \
     > "${BACKUP_DIR}/mariadb-wordpress.sql"
 else
