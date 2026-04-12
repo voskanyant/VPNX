@@ -20,6 +20,8 @@ frontend vxcloud_vless_in
 backend vxcloud_vless_nodes
   mode tcp
   balance leastconn
+  stick-table type ip size ${STICK_TABLE_SIZE} expire ${STICK_TABLE_EXPIRE}
+  stick on src
   option tcp-check
   default-server inter 3s rise 2 fall 3 slowstart 60s
 ${BACKEND_SERVERS}

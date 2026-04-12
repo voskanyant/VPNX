@@ -121,12 +121,16 @@ def _render_config(
     frontend_bind_addr: str,
     frontend_port: int,
     backend_servers: str,
+    stick_table_size: str,
+    stick_table_expire: str,
 ) -> str:
     template_text = template_path.read_text(encoding="utf-8")
     return Template(template_text).safe_substitute(
         FRONTEND_BIND_ADDR=frontend_bind_addr,
         FRONTEND_PORT=str(frontend_port),
         BACKEND_SERVERS=backend_servers,
+        STICK_TABLE_SIZE=stick_table_size,
+        STICK_TABLE_EXPIRE=stick_table_expire,
     )
 
 
@@ -189,6 +193,8 @@ def main() -> int:
     )
     reload_cmd = (args.reload_cmd if args.reload_cmd is not None else os.getenv("HAPROXY_RELOAD_CMD", "")).strip()
     haproxy_bin = (args.haproxy_bin or os.getenv("HAPROXY_BIN", "haproxy")).strip()
+    stick_table_size = (os.getenv("HAPROXY_STICK_TABLE_SIZE", "") or "").strip() or "200k"
+    stick_table_expire = (os.getenv("HAPROXY_STICK_TABLE_EXPIRE", "") or "").strip() or "20m"
 
     if not template_path.exists():
         raise RuntimeError(f"Template file does not exist: {template_path}")
@@ -204,6 +210,8 @@ def main() -> int:
         frontend_bind_addr=frontend_bind_addr,
         frontend_port=frontend_port,
         backend_servers=backend_servers,
+        stick_table_size=stick_table_size,
+        stick_table_expire=stick_table_expire,
     )
 
     if args.dry_run:
