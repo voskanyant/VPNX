@@ -36,20 +36,25 @@ jobs:
             docker compose --env-file .env up -d db wpdb
             docker compose --env-file .env up -d wordpress web proxy
             docker compose --env-file .env stop haproxy bot || true
+            docker compose --env-file .env up -d proxy
 
             docker compose --env-file .env exec -T web python /app/web/manage.py makemigrations --check --dry-run
 
-            attempt=1
             max_attempts=45
-            until curl -fsS -o /dev/null http://127.0.0.1:8088/ops/login/?next=/ops/; do
-              if [[ "$attempt" -ge "$max_attempts" ]]; then
-                echo "ERROR: local proxy healthcheck failed"
-                docker compose --env-file .env ps
-                docker compose --env-file .env logs --tail=100 web proxy
-                exit 1
+            healthy=0
+            for attempt in $(seq 1 "$max_attempts"); do
+              if curl -fsS -o /dev/null http://127.0.0.1:8088/ops/login/?next=/ops/; then
+                healthy=1
+                break
               fi
               sleep 2
-              attempt=$((attempt + 1))
             done
+
+            if [[ "$healthy" -ne 1 ]]; then
+              echo "ERROR: local proxy healthcheck failed"
+              docker compose --env-file .env ps
+              docker compose --env-file .env logs --tail=100 web proxy
+              exit 1
+            fi
 
             docker compose --env-file .env ps
