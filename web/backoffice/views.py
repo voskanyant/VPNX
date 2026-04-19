@@ -247,6 +247,13 @@ def safe_get(queryset_callable, fallback):
         return fallback
 
 
+def safe_list(queryset_callable) -> list[Any]:
+    try:
+        return list(queryset_callable())
+    except (OperationalError, ProgrammingError):
+        return []
+
+
 def generate_admin_password(length: int = 16) -> str:
     return get_random_string(length, allowed_chars="abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789")
 
@@ -1098,7 +1105,7 @@ class DashboardView(StaffRequiredMixin, TemplateView):
             ),
             "sync_errors": safe_count(VPNNodeClient.objects.exclude(sync_state="ok")),
         }
-        edges = list(safe_get(lambda: EdgeServer.objects.order_by("priority", "id"), []))
+        edges = safe_list(lambda: EdgeServer.objects.order_by("priority", "id"))
         primary_edge = _current_primary_edge(edges)
         public_vpn_label = edge_endpoint(primary_edge) if primary_edge else f"{env_value('VPN_PUBLIC_HOST', '-')}:{env_value('VPN_PUBLIC_PORT', '-')}"
         public_vpn_meta = (
@@ -2554,7 +2561,7 @@ class SystemOverviewView(StaffRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        edges = list(safe_get(lambda: EdgeServer.objects.order_by("priority", "id"), []))
+        edges = safe_list(lambda: EdgeServer.objects.order_by("priority", "id"))
         primary_edge = _current_primary_edge(edges)
         ctx["title"] = "Cluster, edges & HAProxy"
         ctx["system_groups"] = [
@@ -2614,7 +2621,7 @@ class SystemOverviewView(StaffRequiredMixin, TemplateView):
             "HAProxy template рассчитан на long-lived TCP sessions. При первом node-add или edge-cutover всё равно делайте dry-run render и ручной тест новым конфигом.",
         ]
 
-        nodes = list(safe_get(lambda: VPNNode.objects.order_by("name", "id"), []))
+        nodes = safe_list(lambda: VPNNode.objects.order_by("name", "id"))
         pool_nodes, majority_signature = _eligible_lb_nodes(nodes)
         pool_ids = {int(node.id) for node in pool_nodes}
         ctx["edge_rows"] = [
