@@ -46,6 +46,12 @@ class Settings:
     vpn_cluster_healthcheck_interval_seconds: int
     vpn_cluster_sync_interval_seconds: int
     vpn_cluster_sync_batch_size: int
+    vpn_rebalance_enabled: bool
+    vpn_rebalance_interval_seconds: int
+    vpn_rebalance_max_moves_per_node: int
+    vpn_rebalance_move_fraction: float
+    vpn_rebalance_cooldown_hours: int
+    vpn_rebalance_min_score_gap: float
     vpn_tag: str
     vpn_flow: str
     plan_days: int
@@ -90,6 +96,12 @@ def load_settings() -> Settings:
         vpn_cluster_healthcheck_interval_seconds=int(_get("VPN_CLUSTER_HEALTHCHECK_INTERVAL_SECONDS", "30")),
         vpn_cluster_sync_interval_seconds=int(_get("VPN_CLUSTER_SYNC_INTERVAL_SECONDS", "60")),
         vpn_cluster_sync_batch_size=int(_get("VPN_CLUSTER_SYNC_BATCH_SIZE", "200")),
+        vpn_rebalance_enabled=_get("VPN_REBALANCE_ENABLED", _get("VPN_CLUSTER_ENABLED", "0")).strip() == "1",
+        vpn_rebalance_interval_seconds=int(_get("VPN_REBALANCE_INTERVAL_SECONDS", "604800")),
+        vpn_rebalance_max_moves_per_node=int(_get("VPN_REBALANCE_MAX_MOVES_PER_NODE", "50")),
+        vpn_rebalance_move_fraction=float(_get("VPN_REBALANCE_MOVE_FRACTION", "0.20")),
+        vpn_rebalance_cooldown_hours=int(_get("VPN_REBALANCE_COOLDOWN_HOURS", "168")),
+        vpn_rebalance_min_score_gap=float(_get("VPN_REBALANCE_MIN_SCORE_GAP", "2.5")),
         vpn_tag=_get("VPN_TAG", "VPN"),
         vpn_flow=_get("VPN_FLOW", "xtls-rprx-vision"),
         plan_days=int(_get("PLAN_DAYS", "30")),

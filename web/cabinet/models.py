@@ -83,6 +83,18 @@ class BotSubscription(models.Model):
     xui_sub_id = models.TextField(null=True, blank=True)
     display_name = models.TextField()
     vless_url = models.TextField()
+    assigned_node = models.ForeignKey(
+        "VPNNode",
+        db_column="assigned_node_id",
+        on_delete=models.DO_NOTHING,
+        null=True,
+        blank=True,
+    )
+    assignment_source = models.TextField()
+    assigned_at = models.DateTimeField(null=True, blank=True)
+    last_rebalanced_at = models.DateTimeField(null=True, blank=True)
+    migration_state = models.TextField()
+    feed_token = models.TextField(null=True, blank=True)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField()
     revoked_at = models.DateTimeField(null=True, blank=True)
@@ -249,3 +261,56 @@ class VPNNodeClient(models.Model):
 
     def __str__(self) -> str:
         return f"node={self.node_id} sub={self.subscription_id} state={self.sync_state}"
+
+
+class VPNNodeLoadSnapshot(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    node = models.ForeignKey(VPNNode, db_column="node_id", on_delete=models.DO_NOTHING)
+    assigned_active_subscriptions = models.IntegerField()
+    observed_enabled_clients = models.IntegerField()
+    total_traffic_bytes = models.BigIntegerField()
+    peak_concurrency = models.IntegerField()
+    health_ok = models.BooleanField()
+    health_error = models.TextField(null=True, blank=True)
+    score_hint = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "vpn_node_load_snapshots"
+        verbose_name = "VPN Node Load Snapshot"
+        verbose_name_plural = "VPN Node Load Snapshots"
+
+
+class VPNRebalanceDecision(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    subscription = models.ForeignKey(BotSubscription, db_column="subscription_id", on_delete=models.DO_NOTHING)
+    from_node = models.ForeignKey(
+        VPNNode,
+        db_column="from_node_id",
+        on_delete=models.DO_NOTHING,
+        null=True,
+        blank=True,
+        related_name="rebalance_decisions_from",
+    )
+    to_node = models.ForeignKey(
+        VPNNode,
+        db_column="to_node_id",
+        on_delete=models.DO_NOTHING,
+        null=True,
+        blank=True,
+        related_name="rebalance_decisions_to",
+    )
+    decision_kind = models.TextField()
+    assignment_source = models.TextField()
+    from_score = models.FloatField(null=True, blank=True)
+    to_score = models.FloatField(null=True, blank=True)
+    score_delta = models.FloatField(null=True, blank=True)
+    reason = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "vpn_rebalance_decisions"
+        verbose_name = "VPN Rebalance Decision"
+        verbose_name_plural = "VPN Rebalance Decisions"
