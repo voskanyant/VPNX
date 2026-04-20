@@ -489,6 +489,7 @@ def _active_vpn_nodes_snapshot() -> list[dict[str, Any]]:
                 "xui_username",
                 "xui_password",
                 "xui_inbound_id",
+                "is_active",
                 "backend_host",
                 "backend_port",
                 "backend_weight",
