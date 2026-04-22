@@ -26,7 +26,7 @@
         <form method="post" action="/account/subscriptions/{{ subscription.id }}/delete/">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}" />
-          <button class="account-button account-button-danger" type="submit">Удалить</button>
+          <button class="account-button account-danger-button" type="submit">Удалить</button>
         </form>
       {% endif %}
     </div>
@@ -59,23 +59,21 @@
         <div class="account-summary account-summary-compact">
           <article class="account-summary-card">
             <div class="account-summary-label">Статус</div>
-            <div class="account-summary-stack">
-              {% if has_active %}
-                <span class="vx-pill vx-pill-success status-pill">Активна</span>
-              {% else %}
-                <span class="vx-pill vx-pill-muted status-pill">Неактивна</span>
-              {% endif %}
+            <div class="account-summary-main">
+              <strong>{% if has_active %}Активна{% else %}Неактивна{% endif %}</strong>
             </div>
           </article>
           <article class="account-summary-card">
             <div class="account-summary-label">Действует до</div>
-            <div class="account-summary-value">{{ subscription.expires_at|date:'d.m.Y H:i' }}</div>
+            <div class="account-summary-main">
+              <strong>{{ subscription.expires_at|date:'d.m.Y H:i' }}</strong>
+            </div>
           </article>
           {% if subscription.user and subscription.user.client_code %}
             <article class="account-summary-card">
               <div class="account-summary-label">ID клиента</div>
-              <div class="account-summary-stack">
-                <span class="account-token">{{ subscription.user.client_code }}</span>
+              <div class="account-summary-main">
+                <strong>{{ subscription.user.client_code }}</strong>
               </div>
             </article>
           {% endif %}
@@ -84,30 +82,24 @@
 
       {% if subscriptions %}
         <article class="account-section">
-          <div class="account-link-label">??? ???????</div>
+          <div class="account-link-label">Все конфиги</div>
           <div class="account-config-list">
             {% for sub_item in subscriptions %}
               {% if sub_item.id == subscription.id %}
                 <div class="account-config-item account-config-item-current">
                   <span class="account-config-item-id">#{{ sub_item.id }}</span>
-                  <span class="account-config-item-name">{{ sub_item.display_name|default:"??????" }}</span>
-                  <span class="account-config-item-meta">{% if sub_item.expires_at %}{{ sub_item.expires_at|date:'d.m.Y H:i' }}{% else %}?????????{% endif %}</span>
+                  <span class="account-config-item-name">{{ sub_item.display_name|default:"Конфиг" }}</span>
+                  <span class="account-config-item-meta">{% if sub_item.expires_at %}{{ sub_item.expires_at|date:'d.m.Y H:i' }}{% else %}бессрочно{% endif %}</span>
                 </div>
               {% else %}
                 <a class="account-config-item" href="{{ backend_config_prefix }}{{ sub_item.id }}/">
                   <span class="account-config-item-id">#{{ sub_item.id }}</span>
-                  <span class="account-config-item-name">{{ sub_item.display_name|default:"??????" }}</span>
-                  <span class="account-config-item-meta">{% if sub_item.expires_at %}{{ sub_item.expires_at|date:'d.m.Y H:i' }}{% else %}?????????{% endif %}</span>
+                  <span class="account-config-item-name">{{ sub_item.display_name|default:"Конфиг" }}</span>
+                  <span class="account-config-item-meta">{% if sub_item.expires_at %}{{ sub_item.expires_at|date:'d.m.Y H:i' }}{% else %}бессрочно{% endif %}</span>
                 </a>
               {% endif %}
             {% endfor %}
           </div>
-        </article>
-      {% endif %}>
-                #{{ sub_item.id }} — {{ sub_item.expires_at|date:'d.m.Y H:i' }} {% if sub_item.is_active %}(активен){% endif %}
-              </option>
-            {% endfor %}
-          </select>
         </article>
       {% endif %}
 
