@@ -2304,7 +2304,7 @@ body.vx-account-shell #footer {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 34px;
+  gap: 28px;
   font-family: inherit;
 }
 
@@ -2342,14 +2342,14 @@ body.vx-account-shell #footer {
 }
 
 .account-title {
-  font-size: clamp(2.8rem, 5vw, 4.9rem);
+  font-size: clamp(2.35rem, 4.4vw, 4.1rem);
   line-height: 0.92;
   max-width: none;
 }
 
 .account-title-compact {
   max-width: none;
-  font-size: clamp(2.2rem, 4vw, 3rem);
+  font-size: clamp(1.85rem, 3.2vw, 2.55rem);
 }
 
 .account-intro,
@@ -2361,8 +2361,8 @@ body.vx-account-shell #footer {
 }
 
 .account-intro {
-  max-width: 54ch;
-  margin: 16px 0 0;
+  max-width: 52ch;
+  margin: 12px 0 0;
 }
 
 .account-hero-actions {
@@ -2370,7 +2370,7 @@ body.vx-account-shell #footer {
   flex-wrap: wrap;
   justify-content: flex-start;
   gap: 10px;
-  margin-top: 24px;
+  margin-top: 18px;
   max-width: 540px;
 }
 
@@ -2387,14 +2387,14 @@ body.vx-account-shell #footer {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 46px;
-  padding: 0.85rem 1rem;
+  min-height: 42px;
+  padding: 0.72rem 0.9rem;
   border-radius: 0;
   border: 1px solid #111111;
   background: #ffffff;
   color: #111111;
   font: inherit;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.2;
   text-decoration: none;
@@ -2411,7 +2411,7 @@ body.vx-account-shell #footer {
 
 .account-button strong {
   color: #111111;
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -2456,7 +2456,7 @@ body.vx-account-shell #footer {
 .account-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .account-summary-compact {
@@ -2476,8 +2476,8 @@ body.vx-account-shell #footer {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 22px;
+  gap: 10px;
+  padding: 18px;
 }
 
 .account-summary-card-wide {
@@ -2496,14 +2496,14 @@ body.vx-account-shell #footer {
 .account-summary-value,
 .account-meta-box strong {
   color: #111111;
-  font-size: 1.08rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.35;
 }
 
 .account-summary-note {
   color: #111111;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -2518,7 +2518,7 @@ body.vx-account-shell #footer {
 }
 
 .account-section {
-  padding: 26px;
+  padding: 22px;
 }
 
 .account-section-head {
@@ -2530,7 +2530,7 @@ body.vx-account-shell #footer {
 }
 
 .account-section-title {
-  font-size: clamp(1.9rem, 3vw, 2.4rem);
+  font-size: clamp(1.55rem, 2.6vw, 2rem);
   line-height: 1;
 }
 
@@ -2548,8 +2548,8 @@ body.vx-account-shell #footer {
 .account-device-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 22px;
+  gap: 14px;
+  padding: 18px;
   background: #ffffff;
 }
 
@@ -2562,7 +2562,7 @@ body.vx-account-shell #footer {
 
 .account-device-name {
   color: #111111;
-  font-size: 1.06rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.3;
   letter-spacing: -0.01em;
@@ -2576,7 +2576,7 @@ body.vx-account-shell #footer {
 
 .account-device-status {
   color: #111111;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.18em;
   line-height: 1.4;
@@ -2596,13 +2596,16 @@ body.vx-account-shell #footer {
   appearance: none;
   border: 1px solid #cfcfcf;
   border-radius: 0;
-  padding: 0.95rem 1rem;
+  min-height: 44px;
+  padding: 0.72rem 0.85rem;
   background: #ffffff;
   color: #111111;
   font: inherit;
-  font-size: 15px;
-  line-height: 1.35;
+  font-size: 14px;
+  line-height: 1.25;
   box-shadow: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .account-input:focus,
@@ -2612,9 +2615,9 @@ body.vx-account-shell #footer {
 }
 
 .account-icon-button {
-  flex: 0 0 50px;
-  width: 50px;
-  height: 50px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2639,7 +2642,7 @@ body.vx-account-shell #footer {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 16px;
+  padding: 14px;
   border: 1px solid #111111;
   border-radius: 0;
   background: #ffffff;
@@ -2690,13 +2693,13 @@ body.vx-account-shell #footer {
 }
 
 .account-config-layout {
-  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
 }
 
 .account-config-stack {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
 }
 
 .account-section-qr {
@@ -2708,16 +2711,59 @@ body.vx-account-shell #footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 360px;
-  padding: 20px;
+  min-height: 280px;
+  padding: 16px;
   border: 1px solid #111111;
   border-radius: 0;
   background: #ffffff;
 }
 
 .account-qr-image {
-  width: min(100%, 320px);
+  width: min(100%, 260px);
   height: auto;
+}
+
+.account-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-config-item {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border: 1px solid #111111;
+  color: #111111;
+  text-decoration: none;
+}
+
+.account-config-item:hover {
+  text-decoration: none;
+  background: #fafafa;
+}
+
+.account-config-item-current {
+  background: #111111;
+  color: #ffffff;
+}
+
+.account-config-item-id,
+.account-config-item-meta {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.account-config-item-name {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .account-subtle-block {
@@ -2770,12 +2816,16 @@ body.vx-account-shell #footer {
   }
 
   .account-page-shell {
-    gap: 18px;
+    gap: 16px;
   }
 
   .account-title {
     max-width: none;
-    font-size: clamp(2.2rem, 13vw, 3.5rem);
+    font-size: clamp(1.85rem, 11vw, 2.8rem);
+  }
+
+  .account-title-compact {
+    font-size: clamp(1.55rem, 9vw, 2.1rem);
   }
 
   .account-summary,
@@ -2788,8 +2838,8 @@ body.vx-account-shell #footer {
   .account-section,
   .account-summary-card,
   .account-device-card {
-    padding: 18px;
-    border-radius: 22px;
+    padding: 16px;
+    border-radius: 0;
   }
 
   .account-section-head {
@@ -2814,14 +2864,26 @@ body.vx-account-shell #footer {
   }
 
   .account-icon-button {
-    flex: 0 0 48px;
-    width: 48px;
-    height: 48px;
-    border-radius: 16px;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    border-radius: 0;
   }
 
   .account-qr-frame {
     min-height: auto;
     padding: 16px;
+  }
+
+  .account-button,
+  .account-primary-button,
+  .account-secondary-button,
+  .account-danger-button {
+    width: 100%;
+  }
+
+  .account-config-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }
