@@ -5,18 +5,19 @@
 {% block title %}{{ open_app_page_title }}{% endblock %}
 
 {% block content %}
-<section class="surface-card auth-shell">
+<section class="surface-card auth-shell site-auth-shell">
   {% cms_text "cabinet.open_app.heading" "Открытие в приложении" as open_app_heading %}
   {% cms_text "cabinet.open_app.description" "Сейчас откроем конфиг в приложении автоматически. Если не открылось, используйте кнопку ниже." as open_app_description %}
-  <h1 class="display-6 fw-bold mb-3">{{ open_app_heading }}</h1>
+  <div class="account-eyebrow">Open in app</div>
+  <h1 class="account-title-compact">{{ open_app_heading }}</h1>
 
   {% if deeplink %}
-    <p class="text-secondary mb-3">{{ open_app_description }}</p>
-    <div class="d-flex gap-2 flex-wrap mb-3">
-      <a class="btn btn-primary" href="{{ deeplink }}">🚀 Открыть конфиг</a>
-      <button class="btn btn-outline-secondary" type="button" onclick="copyLink()">📋 Скопировать ссылку</button>
+    <p class="account-subtle">{{ open_app_description }}</p>
+    <div class="auth-actions">
+      <a class="account-primary-button" href="{{ deeplink }}">Открыть конфиг</a>
+      <button class="account-secondary-button" type="button" onclick="copyLink()">Скопировать ссылку</button>
     </div>
-    <textarea id="deeplink-box" class="form-control" rows="5" readonly>{{ deeplink }}</textarea>
+    <textarea id="deeplink-box" class="account-input auth-textarea" rows="5" readonly>{{ deeplink }}</textarea>
     <script>
       (function () {
         const url = "{{ deeplink|escapejs }}";
@@ -33,7 +34,7 @@
     </script>
   {% else %}
     {% cms_text "cabinet.open_app.invalid" "Некорректная ссылка. Вернитесь в бот и нажмите «Моя подписка» снова." as open_app_invalid %}
-    <div class="alert alert-danger mb-0">{{ open_app_invalid }}</div>
+    <div class="account-message account-message-error">{{ open_app_invalid }}</div>
   {% endif %}
 </section>
 {% endblock %}

@@ -184,6 +184,8 @@ def _safe_local_redirect_url(request: HttpRequest, candidate: str | None, fallba
 
 def _telegram_auth_success_response(request: HttpRequest, *, target_url: str) -> HttpResponse:
     target = _safe_local_redirect_url(request, target_url, _account_default_redirect_url(request))
+    if (request.GET.get("popup") or "").strip() != "1" and not _account_embed_mode(request):
+        return redirect(target)
     return render(
         request,
         "registration/telegram_auth_complete.html",
@@ -218,6 +220,7 @@ def _telegram_login_auth_url_for_return_to(request: HttpRequest, return_to: str 
     safe_return_to = _safe_local_redirect_url(request, return_to, fallback_return_to)
 
     params: dict[str, str] = {"return_to": safe_return_to}
+    params["popup"] = "1"
     next_url = (request.GET.get("next") or "").strip()
     if next_url:
         params["next"] = next_url
@@ -1617,7 +1620,7 @@ def _verify_telegram_login_payload(payload: dict[str, str]) -> tuple[dict[str, o
     if not bot_token:
         return None, "server_not_configured"
 
-    ignored_keys = {"next", "return_to", "embed"}
+    ignored_keys = {"next", "return_to", "embed", "popup"}
     normalized: dict[str, str] = {}
     for key, value in payload.items():
         if str(key) in ignored_keys:

@@ -17,22 +17,21 @@
     <div class="account-hero-copy">
       <div class="account-eyebrow">VXcloud account</div>
       <h1 class="account-title">{{ cabinet_heading }}</h1>
-      <p class="account-intro">Прямые subscription URL, понятные статусы устройств и быстрые действия без отдельного админского интерфейса.</p>
-    </div>
-
-    <div class="account-hero-actions">
-      <a class="account-button account-button-primary" href="{{ backend_buy_url }}"{% if embed_mode %} target="_top"{% endif %}>
-        <span>{{ cabinet_buy_new_action }}</span>
-        <strong>{{ card_price_label }}</strong>
-      </a>
-      <a class="account-button" href="{{ backend_renew_url }}"{% if embed_mode %} target="_top"{% endif %}>
-        <span>{{ cabinet_renew_action_short }}</span>
-        <strong>{{ card_price_label }}</strong>
-      </a>
-      <a class="account-button" href="{{ support_url }}"{% if embed_mode %} target="_top"{% endif %}>
-        <span>{{ cabinet_support_action }}</span>
-        <strong>24/7</strong>
-      </a>
+      <p class="account-intro">Все доступы, subscription URL и действия собраны в одном месте без отдельного админского интерфейса.</p>
+      <div class="account-hero-actions">
+        <a class="account-button account-button-primary" href="{{ backend_buy_url }}"{% if embed_mode %} target="_top"{% endif %}>
+          <span>{{ cabinet_buy_new_action }}</span>
+          <strong>{{ card_price_label }}</strong>
+        </a>
+        <a class="account-button" href="{{ backend_renew_url }}"{% if embed_mode %} target="_top"{% endif %}>
+          <span>{{ cabinet_renew_action_short }}</span>
+          <strong>{{ card_price_label }}</strong>
+        </a>
+        <a class="account-button" href="{{ support_url }}"{% if embed_mode %} target="_top"{% endif %}>
+          <span>{{ cabinet_support_action }}</span>
+          <strong>24/7</strong>
+        </a>
+      </div>
     </div>
   </section>
 
@@ -42,36 +41,49 @@
     </section>
   {% else %}
     <section class="account-summary">
-      <article class="account-summary-card account-summary-card-wide">
+      <article class="account-summary-card">
         <div class="account-summary-label">Аккаунт</div>
         <div class="account-summary-main">
           <strong>{{ request.user.username }}</strong>
-          {% if bot_user and bot_user.client_code %}
-            <span class="account-token">{{ bot_user.client_code }}</span>
-          {% else %}
-            <span class="account-token account-token-muted">client pending</span>
-          {% endif %}
+          <div class="account-summary-note">
+            {% if bot_user and bot_user.client_code %}
+              {{ bot_user.client_code }}
+            {% else %}
+              client pending
+            {% endif %}
+          </div>
+        </div>
+      </article>
+
+      <article class="account-summary-card">
+        <div class="account-summary-label">ID клиента</div>
+        <div class="account-summary-main">
+          <strong>
+            {% if bot_user and bot_user.client_code %}
+              {{ bot_user.client_code }}
+            {% else %}
+              —
+            {% endif %}
+          </strong>
         </div>
       </article>
 
       <article class="account-summary-card">
         <div class="account-summary-label">Активные подключения</div>
-        <div class="account-summary-value">{{ active_configs }}</div>
-      </article>
-
-      <article class="account-summary-card">
-        <div class="account-summary-label">Всего доступов</div>
-        <div class="account-summary-value">{{ subscription_rows|length }}</div>
+        <div class="account-summary-main">
+          <strong>{{ active_configs }}</strong>
+          <div class="account-summary-note">Всего {{ subscription_rows|length }}</div>
+        </div>
       </article>
 
       <article class="account-summary-card">
         <div class="account-summary-label">Telegram</div>
-        <div class="account-summary-stack">
+        <div class="account-summary-main">
           {% if linked %}
-            <span class="vx-pill vx-pill-success status-pill">Привязан</span>
-            <span class="account-subtle">{{ linked.telegram_id }}</span>
+            <strong>Привязан</strong>
+            <div class="account-summary-note">{{ linked.telegram_id }}</div>
           {% else %}
-            <span class="vx-pill vx-pill-warning status-pill">Не привязан</span>
+            <strong>Не привязан</strong>
             <a class="account-inline-link" href="{{ backend_link_url }}">Привязать аккаунт</a>
           {% endif %}
         </div>
@@ -93,7 +105,7 @@
         {% for row in subscription_rows %}
           <article class="account-device-card">
             <div class="account-device-top">
-              <div>
+              <div class="account-device-headline">
                 <div class="account-device-name">{{ row.display_name }}</div>
                 <div class="account-subtle">
                   {% if row.expires_at %}
@@ -103,11 +115,7 @@
                   {% endif %}
                 </div>
               </div>
-              {% if row.is_active %}
-                <span class="vx-pill vx-pill-success status-pill">{{ row.status_text }}</span>
-              {% else %}
-                <span class="vx-pill vx-pill-muted status-pill">{{ row.status_text }}</span>
-              {% endif %}
+              <div class="account-device-status">{% if row.is_active %}Активен{% else %}Неактивен{% endif %}</div>
             </div>
 
             <form method="post" action="{{ backend_rename_prefix }}{{ row.id }}/rename/{% if embed_mode %}?embed=1{% endif %}" class="account-inline-form">

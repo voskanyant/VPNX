@@ -194,7 +194,9 @@ async def _sync_manual_clients_from_canonical(
 
 async def healthcheck_tick(db: DB) -> dict[str, int]:
     node_metrics = await db.list_node_assignment_metrics()
-    nodes = node_metrics or await db.get_active_vpn_nodes(lb_only=False)
+    nodes = node_metrics if isinstance(node_metrics, (list, tuple)) and node_metrics else None
+    if nodes is None:
+        nodes = await db.get_active_vpn_nodes(lb_only=False)
     if not nodes:
         return {"checked": 0, "ok": 0, "failed": 0}
 
@@ -212,7 +214,8 @@ async def healthcheck_tick(db: DB) -> dict[str, int]:
             await xui.start()
             inbound = await xui.get_inbound(inbound_id)
             reality = xui.parse_reality(inbound)
-            clients = await xui.list_clients(inbound_id)
+            list_clients = getattr(xui, "list_clients", None)
+            clients = await list_clients(inbound_id) if callable(list_clients) else []
             probe_latency_ms = int((time.perf_counter() - started) * 1000)
             observed_enabled_clients = sum(1 for client in clients if bool(client.enabled))
             await db.mark_node_health(

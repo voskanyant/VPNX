@@ -5,21 +5,38 @@
 {% block title %}{{ login_page_title }}{% endblock %}
 
 {% block content %}
-<section class="surface-card auth-shell">
+<section class="surface-card auth-shell site-auth-shell">
   {% cms_text "auth.login.heading" "Вход" as login_heading %}
   {% cms_text "auth.login.submit" "Войти" as login_submit %}
   {% cms_text "auth.login.no_account" "Нет аккаунта?" as login_no_account %}
   {% cms_text "auth.login.signup_action" "Регистрация" as login_signup_action %}
   {% cms_text "auth.login.forgot_password" "Забыли пароль?" as login_forgot_password %}
 
-  <h1 class="display-6 fw-bold mb-4">{{ login_heading }}</h1>
+  <div class="account-eyebrow">VXcloud account</div>
+  <h1 class="account-title-compact">{{ login_heading }}</h1>
   {% include "partials/_telegram_auth_widget.html" %}
-  <form method="post" class="vstack gap-3">
+  {% if form.non_field_errors %}
+    <div class="account-message account-message-error">
+      {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+    </div>
+  {% endif %}
+  <form method="post" class="auth-form">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary w-100">{{ login_submit }}</button>
+    <div class="auth-field">
+      <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+      {{ form.username }}
+      {% for error in form.username.errors %}<div class="auth-field-error">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="auth-field">
+      <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+      {{ form.password }}
+      {% for error in form.password.errors %}<div class="auth-field-error">{{ error }}</div>{% endfor %}
+    </div>
+    <button type="submit" class="account-primary-button auth-submit">{{ login_submit }}</button>
   </form>
-  <p class="mt-3 mb-1"><a href="{% if account_embed_mode %}{{ account_embed_password_reset_url }}{% else %}/accounts/password_reset/{% endif %}">{{ login_forgot_password }}</a></p>
-  <p class="mb-0 text-secondary">{{ login_no_account }} <a href="{% if account_embed_mode %}{{ account_embed_signup_url }}{% else %}/account/signup/{% endif %}">{{ login_signup_action }}</a></p>
+  <div class="auth-meta">
+    <p><a class="account-inline-link" href="{% if account_embed_mode %}{{ account_embed_password_reset_url }}{% else %}/accounts/password_reset/{% endif %}">{{ login_forgot_password }}</a></p>
+    <p class="account-subtle">{{ login_no_account }} <a class="account-inline-link" href="{% if account_embed_mode %}{{ account_embed_signup_url }}{% else %}/account/signup/{% endif %}">{{ login_signup_action }}</a></p>
+  </div>
 </section>
 {% endblock %}

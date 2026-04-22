@@ -1083,6 +1083,29 @@ textarea,
   color: #fff !important;
 }
 
+body.vx-account-shell .vx-nav-link {
+  border: 0;
+  border-radius: 0;
+  padding: 8px 0 !important;
+  margin: 0 14px;
+  background: transparent;
+  color: #111111 !important;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+body.vx-account-shell .vx-nav-link:hover,
+body.vx-account-shell .vx-nav-link:focus-visible,
+body.vx-account-shell .vx-nav-link.active {
+  background: transparent;
+  border-color: transparent;
+  color: #111111 !important;
+  text-decoration: underline;
+  text-underline-offset: 8px;
+}
+
 .surface-card {
   background: #fff;
   border: 1px solid #dfe7f3;
@@ -1101,6 +1124,144 @@ textarea,
 .auth-shell {
   max-width: 640px;
   margin-inline: auto;
+}
+
+.site-auth-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px;
+  font-family: inherit;
+}
+
+.site-auth-shell .account-title-compact {
+  margin: 0;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-field label {
+  color: #111111;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.site-auth-shell input[type="text"],
+.site-auth-shell input[type="email"],
+.site-auth-shell input[type="password"],
+.site-auth-shell .form-control {
+  width: 100%;
+  border: 1px solid #cfcfcf;
+  border-radius: 6px;
+  padding: 0.95rem 1rem;
+  background: #ffffff;
+  color: #111111;
+  font: inherit;
+  box-shadow: none;
+}
+
+.site-auth-shell input[type="text"]:focus,
+.site-auth-shell input[type="email"]:focus,
+.site-auth-shell input[type="password"]:focus,
+.site-auth-shell .form-control:focus {
+  outline: none;
+  border-color: #111111;
+  box-shadow: none;
+}
+
+.auth-field-error {
+  color: #a53333;
+  font-size: 0.9rem;
+}
+
+.auth-submit {
+  width: 100%;
+  justify-content: center;
+}
+
+.auth-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-meta p {
+  margin: 0;
+}
+
+.auth-widget-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.auth-widget-button {
+  display: inline-flex;
+  align-items: flex-start;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #6a6a6a;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.auth-divider span:first-child,
+.auth-divider span:last-child {
+  flex: 1 1 auto;
+  border-top: 1px solid #d9d9d9;
+}
+
+.auth-code-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.auth-code-value {
+  color: #111111;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.auth-note {
+  margin: 0;
+}
+
+.auth-textarea {
+  min-height: 132px;
+  resize: vertical;
 }
 
 .cabinet-page {
@@ -2143,16 +2304,14 @@ body.vx-account-shell #footer {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 34px;
+  font-family: inherit;
 }
 
 .account-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 24px;
-  align-items: end;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #ebe4da;
+  display: block;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #d9d9d9;
 }
 
 .account-hero-compact {
@@ -2167,9 +2326,9 @@ body.vx-account-shell #footer {
 .account-summary-label,
 .account-link-label,
 .account-meta-box span {
-  color: #8a7d6e;
-  font-size: 11px;
-  letter-spacing: 0.2em;
+  color: #111111;
+  font-size: 12px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 700;
 }
@@ -2183,39 +2342,36 @@ body.vx-account-shell #footer {
 }
 
 .account-title {
-  font-size: clamp(2.8rem, 6vw, 5.4rem);
-  line-height: 0.9;
-  max-width: 9ch;
+  font-size: clamp(2.8rem, 5vw, 4.9rem);
+  line-height: 0.92;
+  max-width: none;
 }
 
 .account-title-compact {
   max-width: none;
-  font-size: clamp(2.2rem, 4.5vw, 3.9rem);
+  font-size: clamp(2.2rem, 4vw, 3rem);
 }
 
 .account-intro,
 .account-subtle,
 .account-section-meta {
-  color: #6f655a;
-  font-size: 1rem;
-  line-height: 1.65;
+  color: #111111;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .account-intro {
-  max-width: 60ch;
+  max-width: 54ch;
   margin: 16px 0 0;
 }
 
 .account-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 10px;
-  max-width: 360px;
-}
-
-.account-hero-actions-compact {
-  max-width: 430px;
+  margin-top: 24px;
+  max-width: 540px;
 }
 
 .account-hero-actions form {
@@ -2233,17 +2389,17 @@ body.vx-account-shell #footer {
   gap: 10px;
   min-height: 46px;
   padding: 0.85rem 1rem;
-  border-radius: 999px;
-  border: 1px solid #ded4c6;
+  border-radius: 0;
+  border: 1px solid #111111;
   background: #ffffff;
   color: #111111;
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
 
 .account-button:hover,
@@ -2251,13 +2407,12 @@ body.vx-account-shell #footer {
 .account-secondary-button:hover,
 .account-danger-button:hover {
   text-decoration: none;
-  transform: translateY(-1px);
 }
 
 .account-button strong {
-  color: #756b60;
-  font-size: 0.84rem;
-  letter-spacing: 0.14em;
+  color: #111111;
+  font-size: 0.88rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -2274,32 +2429,33 @@ body.vx-account-shell #footer {
 
 .account-secondary-button:hover,
 .account-button:hover {
-  border-color: #cfc3b4;
+  border-color: #111111;
   color: #111111;
+  background: #f7f7f7;
 }
 
 .account-primary-button:hover,
 .account-button-primary:hover {
-  background: #232323;
-  border-color: #232323;
+  background: #000000;
+  border-color: #000000;
   color: #ffffff;
 }
 
 .account-danger-button {
-  border-color: #ead1d1;
-  color: #992f2f;
-  background: #fff8f8;
+  border-color: #111111;
+  color: #111111;
+  background: #ffffff;
 }
 
 .account-danger-button:hover {
-  background: #fff1f1;
-  border-color: #dfbaba;
-  color: #992f2f;
+  background: #f7f7f7;
+  border-color: #111111;
+  color: #111111;
 }
 
 .account-summary {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -2311,9 +2467,9 @@ body.vx-account-shell #footer {
 .account-section,
 .account-device-card {
   background: #ffffff;
-  border: 1px solid #e8e1d7;
-  border-radius: 26px;
-  box-shadow: 0 18px 44px rgba(22, 18, 13, 0.05);
+  border: 1px solid #111111;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .account-summary-card {
@@ -2333,44 +2489,36 @@ body.vx-account-shell #footer {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
 }
 
 .account-summary-main strong,
 .account-summary-value,
 .account-meta-box strong {
   color: #111111;
-  font-size: 1.24rem;
+  font-size: 1.08rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
-.account-token {
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  padding: 0.42rem 0.78rem;
-  border-radius: 999px;
-  background: #f6efe8;
-  border: 1px solid #e6d9cc;
-  color: #9b4b68;
-  font-size: 0.86rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.account-token-muted {
-  color: #7e756a;
+.account-summary-note {
+  color: #111111;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .account-inline-link {
-  color: #111111;
+  color: #b51f1f;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
+.account-inline-link:hover {
+  color: #8f1717;
+}
+
 .account-section {
-  padding: 24px;
+  padding: 26px;
 }
 
 .account-section-head {
@@ -2382,8 +2530,8 @@ body.vx-account-shell #footer {
 }
 
 .account-section-title {
-  font-size: clamp(1.7rem, 3vw, 2.65rem);
-  line-height: 0.96;
+  font-size: clamp(1.9rem, 3vw, 2.4rem);
+  line-height: 1;
 }
 
 .account-device-grid,
@@ -2401,8 +2549,8 @@ body.vx-account-shell #footer {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 20px;
-  background: #fffcf8;
+  padding: 22px;
+  background: #ffffff;
 }
 
 .account-device-top {
@@ -2414,10 +2562,25 @@ body.vx-account-shell #footer {
 
 .account-device-name {
   color: #111111;
-  font-size: 1.28rem;
+  font-size: 1.06rem;
   font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: -0.03em;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.account-device-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.account-device-status {
+  color: #111111;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  line-height: 1.4;
+  text-transform: uppercase;
 }
 
 .account-inline-form {
@@ -2431,8 +2594,8 @@ body.vx-account-shell #footer {
   width: 100%;
   min-width: 0;
   appearance: none;
-  border: 1px solid #e1d7cb;
-  border-radius: 18px;
+  border: 1px solid #cfcfcf;
+  border-radius: 0;
   padding: 0.95rem 1rem;
   background: #ffffff;
   color: #111111;
@@ -2445,7 +2608,7 @@ body.vx-account-shell #footer {
 .account-input:focus,
 .account-select:focus {
   outline: none;
-  border-color: #bca893;
+  border-color: #111111;
 }
 
 .account-icon-button {
@@ -2455,15 +2618,16 @@ body.vx-account-shell #footer {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #dfd4c7;
-  border-radius: 18px;
+  border: 1px solid #111111;
+  border-radius: 0;
   background: #ffffff;
   color: #111111;
   cursor: pointer;
 }
 
 .account-icon-button:hover {
-  border-color: #cdbfac;
+  border-color: #111111;
+  background: #f7f7f7;
 }
 
 .account-device-meta {
@@ -2476,9 +2640,9 @@ body.vx-account-shell #footer {
   flex-direction: column;
   gap: 8px;
   padding: 16px;
-  border: 1px solid #ece2d6;
-  border-radius: 20px;
-  background: #f8f2eb;
+  border: 1px solid #111111;
+  border-radius: 0;
+  background: #ffffff;
 }
 
 .account-link-block {
@@ -2513,16 +2677,16 @@ body.vx-account-shell #footer {
 
 .account-message {
   padding: 20px 22px;
-  border-radius: 22px;
-  background: #f8f2eb;
-  color: #6d6255;
-  border: 1px solid #e8dfd2;
+  border-radius: 0;
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid #111111;
 }
 
 .account-message-error {
-  background: #fff3f3;
-  color: #a53333;
-  border-color: #efd0d0;
+  background: #ffffff;
+  color: #111111;
+  border-color: #111111;
 }
 
 .account-config-layout {
@@ -2546,9 +2710,9 @@ body.vx-account-shell #footer {
   justify-content: center;
   min-height: 360px;
   padding: 20px;
-  border: 1px solid #eadfce;
-  border-radius: 24px;
-  background: #faf5ee;
+  border: 1px solid #111111;
+  border-radius: 0;
+  background: #ffffff;
 }
 
 .account-qr-image {
@@ -2558,6 +2722,23 @@ body.vx-account-shell #footer {
 
 .account-subtle-block {
   margin: 10px 0 0;
+}
+
+.account-page-shell .vx-pill,
+.site-auth-shell .vx-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #111111;
+  border-radius: 0;
+  background: #ffffff;
+  color: #111111;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 @media (max-width: 1180px) {
