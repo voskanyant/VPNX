@@ -466,6 +466,11 @@ class DB:
                     WHERE COALESCE(current_node_id, assigned_node_id) IS NOT NULL
                     GROUP BY COALESCE(current_node_id, assigned_node_id)
                 ),
+                recent_snapshots AS (
+                    SELECT *
+                    FROM vpn_node_load_snapshots
+                    WHERE observed_at >= (NOW() - INTERVAL '7 days')
+                ),
                 latest_snapshots AS (
                     SELECT DISTINCT ON (node_id)
                         node_id,
@@ -478,8 +483,21 @@ class DB:
                         health_ok,
                         health_error,
                         score
-                    FROM vpn_node_load_snapshots
+                    FROM recent_snapshots
                     ORDER BY node_id, observed_at DESC
+                ),
+                rollup_snapshots AS (
+                    SELECT
+                        node_id,
+                        COALESCE(MAX(total_traffic_bytes) - MIN(total_traffic_bytes), MAX(total_traffic_bytes), 0) AS weekly_traffic_bytes,
+                        MAX(peak_concurrency) AS peak_concurrency,
+                        COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY COALESCE(peak_concurrency, 0)), 0) AS p95_concurrency,
+                        COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY COALESCE(probe_latency_ms, 0)), 0) AS p95_probe_latency_ms,
+                        COUNT(*) FILTER (WHERE COALESCE(health_ok, FALSE) = FALSE) AS health_failures,
+                        MAX(observed_at) AS last_snapshot_at,
+                        AVG(score) AS avg_score
+                    FROM recent_snapshots
+                    GROUP BY node_id
                 ),
                 weekly_moves AS (
                     SELECT
@@ -495,14 +513,19 @@ class DB:
                     COALESCE(a.active_assigned_subscriptions, 0) AS active_assigned_subscriptions,
                     COALESCE(s.observed_enabled_clients, 0) AS observed_enabled_clients,
                     COALESCE(s.total_traffic_bytes, 0) AS total_traffic_bytes,
-                    s.peak_concurrency,
-                    s.probe_latency_ms,
-                    s.observed_at AS last_snapshot_at,
+                    COALESCE(r.weekly_traffic_bytes, COALESCE(s.total_traffic_bytes, 0)) AS weekly_traffic_bytes,
+                    COALESCE(r.peak_concurrency, s.peak_concurrency) AS peak_concurrency,
+                    r.p95_concurrency,
+                    COALESCE(r.p95_probe_latency_ms, s.probe_latency_ms) AS p95_probe_latency_ms,
+                    COALESCE(r.health_failures, 0) AS health_failures,
+                    COALESCE(s.probe_latency_ms, 0) AS probe_latency_ms,
+                    COALESCE(r.last_snapshot_at, s.observed_at) AS last_snapshot_at,
                     COALESCE(w.moves_in_week, 0) AS moves_in_week,
-                    s.score AS last_snapshot_score
+                    COALESCE(r.avg_score, s.score) AS last_snapshot_score
                 FROM vpn_nodes n
                 LEFT JOIN active_subs a ON a.node_id = n.id
                 LEFT JOIN latest_snapshots s ON s.node_id = n.id
+                LEFT JOIN rollup_snapshots r ON r.node_id = n.id
                 LEFT JOIN weekly_moves w ON w.node_id = n.id
                 ORDER BY n.id
                 """

@@ -436,6 +436,30 @@ class BackofficeVPNNodeForm(BootstrapFormMixin, forms.ModelForm):
 
         self._apply_bootstrap_classes()
 
+    def clean_public_ip(self) -> str:
+        return str(self.cleaned_data.get("public_ip") or "").strip()
+
+    def clean_node_fqdn(self) -> str:
+        return str(self.cleaned_data.get("node_fqdn") or "").strip().lower()
+
+    def clean_compatibility_pool(self) -> str:
+        return str(self.cleaned_data.get("compatibility_pool") or "default").strip().lower() or "default"
+
+    def clean(self):
+        cleaned = super().clean()
+        public_ip = str(cleaned.get("public_ip") or "").strip()
+        node_fqdn = str(cleaned.get("node_fqdn") or "").strip()
+        compatibility_pool = str(cleaned.get("compatibility_pool") or "").strip()
+        lb_enabled = bool(cleaned.get("lb_enabled"))
+        is_active = bool(cleaned.get("is_active"))
+        if (lb_enabled or is_active) and not public_ip:
+            self.add_error("public_ip", "Для активной или балансируемой ноды укажите публичный IP.")
+        if lb_enabled and not compatibility_pool:
+            self.add_error("compatibility_pool", "Для ноды в балансировке нужен compatibility pool.")
+        if lb_enabled and not node_fqdn:
+            self.add_error("node_fqdn", "Для multi-node rollout укажите стабильный hostname ноды (например de1.vxcloud.ru).")
+        return cleaned
+
 
 class BackofficeEdgeServerForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
