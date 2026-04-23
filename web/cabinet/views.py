@@ -171,6 +171,23 @@ def _account_default_redirect_url(request: HttpRequest) -> str:
     return str(getattr(settings, "LOGIN_REDIRECT_URL", "") or _account_frontend_url())
 
 
+def _is_account_auth_like_path(value: str | None) -> bool:
+    candidate = (value or "").strip()
+    if not candidate:
+        return False
+    try:
+        path = urlsplit(candidate).path or candidate
+    except Exception:
+        path = candidate
+    normalized = path.rstrip("/") or "/"
+    return normalized in {
+        "/accounts/login",
+        "/accounts/logout",
+        "/accounts/password_reset",
+        "/auth/telegram/login",
+    }
+
+
 def _safe_local_redirect_url(request: HttpRequest, candidate: str | None, fallback: str) -> str:
     value = (candidate or "").strip()
     if value and url_has_allowed_host_and_scheme(
@@ -208,7 +225,12 @@ def _build_public_absolute_url(request: HttpRequest, path: str) -> str:
 
 
 def _telegram_login_auth_url(request: HttpRequest) -> str:
-    return _telegram_login_auth_url_for_return_to(request, request.get_full_path())
+    requested_next = (request.GET.get("next") or "").strip()
+    current_path = request.get_full_path()
+    return_to = requested_next or current_path
+    if _is_account_auth_like_path(current_path):
+        return_to = requested_next or _account_default_redirect_url(request)
+    return _telegram_login_auth_url_for_return_to(request, return_to)
 
 
 def _telegram_login_auth_url_for_return_to(request: HttpRequest, return_to: str | None) -> str:
@@ -546,6 +568,7 @@ def _log_payment_event(
 class EmailLoginView(LoginView):
     authentication_form = EmailAuthenticationForm
     template_name = "registration/login.html"
+    redirect_authenticated_user = True
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1697,6 +1720,8 @@ def telegram_login(request: HttpRequest) -> HttpResponse:
         request.GET.get("next") or request.GET.get("return_to"),
         _account_default_redirect_url(request),
     )
+    if _is_account_auth_like_path(target_url):
+        target_url = _account_default_redirect_url(request)
     return _telegram_auth_success_response(request, target_url=target_url)
 
 

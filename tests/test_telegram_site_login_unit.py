@@ -102,6 +102,40 @@ class TelegramSiteLoginUnitTests(unittest.TestCase):
             backend="django.contrib.auth.backends.ModelBackend",
         )
 
+    def test_telegram_login_ignores_login_return_to_without_next(self):
+        payload = {
+            "id": "777000",
+            "first_name": "VX",
+            "last_name": "Cloud",
+            "username": "vxcloud_user",
+            "auth_date": "1712430000",
+        }
+        bot_token = "telegram-bot-token"
+        signed_payload = dict(payload)
+        signed_payload["hash"] = _sign_telegram_login_payload(payload, bot_token)
+        signed_payload["return_to"] = "/accounts/login/"
+
+        request = self.factory.get("/auth/telegram/login/", data=signed_payload)
+        user = object()
+
+        with override_settings(
+            TELEGRAM_WEBAPP_BOT_TOKEN=bot_token,
+            TELEGRAM_LOGIN_AUTH_MAX_AGE_SECONDS=10**9,
+            ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"],
+        ):
+            with patch("cabinet.views.transaction.atomic", return_value=nullcontext()):
+                with patch("cabinet.views._get_or_create_user_for_telegram", return_value=user):
+                    with patch("cabinet.views.login") as login_mock:
+                        response = telegram_login(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/account/")
+        login_mock.assert_called_once_with(
+            request,
+            user,
+            backend="django.contrib.auth.backends.ModelBackend",
+        )
+
     def test_telegram_login_redirects_back_on_invalid_signature(self):
         request = self.factory.get(
             "/auth/telegram/login/",
