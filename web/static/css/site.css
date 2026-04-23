@@ -559,6 +559,21 @@ a:hover {
   gap: 16px;
 }
 
+.row.row-main {
+  display: block;
+  grid-template-columns: none;
+  gap: 0;
+}
+
+.row.row-main > .col,
+.row.row-main > .large-12,
+.row.row-main > [class*="col-"] {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  grid-column: auto;
+}
+
 .row > [class*="col-"] {
   min-width: 0;
   grid-column: span 12;
