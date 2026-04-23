@@ -233,7 +233,7 @@ def _telegram_login_auth_url(request: HttpRequest) -> str:
     return _telegram_login_auth_url_for_return_to(request, return_to)
 
 
-def _telegram_login_auth_url_for_return_to(request: HttpRequest, return_to: str | None) -> str:
+def _telegram_login_auth_url_for_return_to(request: HttpRequest, return_to: str | None, *, popup: bool = False) -> str:
     bot_username = _telegram_login_bot_username()
     if not bot_username:
         return ""
@@ -242,7 +242,8 @@ def _telegram_login_auth_url_for_return_to(request: HttpRequest, return_to: str 
     safe_return_to = _safe_local_redirect_url(request, return_to, fallback_return_to)
 
     params: dict[str, str] = {"return_to": safe_return_to}
-    params["popup"] = "1"
+    if popup:
+        params["popup"] = "1"
     next_url = (request.GET.get("next") or "").strip()
     if next_url:
         params["next"] = next_url

@@ -6,6 +6,7 @@ import unittest
 from contextlib import nullcontext
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = PROJECT_ROOT / "web"
@@ -21,7 +22,7 @@ django.setup()
 
 from unittest.mock import patch
 
-from cabinet.views import _verify_telegram_login_payload, tg_magic_login, telegram_login
+from cabinet.views import _telegram_login_auth_url, _verify_telegram_login_payload, tg_magic_login, telegram_login
 
 
 def _sign_telegram_login_payload(payload: dict[str, str], bot_token: str) -> str:
@@ -33,6 +34,22 @@ def _sign_telegram_login_payload(payload: dict[str, str], bot_token: str) -> str
 class TelegramSiteLoginUnitTests(unittest.TestCase):
     def setUp(self) -> None:
         self.factory = RequestFactory()
+
+    def test_telegram_login_widget_url_uses_same_window_callback(self):
+        request = self.factory.get("/accounts/login/")
+        request.META["HTTP_HOST"] = "vxcloud.ru"
+
+        with patch.dict(os.environ, {"TELEGRAM_BOT_USERNAME": "vxcloud_login_bot"}):
+            auth_url = _telegram_login_auth_url(request)
+
+        parsed = urlparse(auth_url)
+        query = parse_qs(parsed.query)
+
+        self.assertEqual(parsed.scheme, "http")
+        self.assertEqual(parsed.netloc, "vxcloud.ru")
+        self.assertEqual(parsed.path, "/auth/telegram/login/")
+        self.assertEqual(query.get("return_to"), ["/account/"])
+        self.assertNotIn("popup", query)
 
     def test_verify_telegram_login_payload_accepts_valid_signature(self):
         auth_date = "1712430000"
