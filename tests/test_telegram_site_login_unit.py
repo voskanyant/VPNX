@@ -16,6 +16,7 @@ if str(WEB_ROOT) not in sys.path:
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "vxcloud_site.settings")
 
 import django
+from django.conf import settings
 from django.test import RequestFactory, override_settings
 
 django.setup()
@@ -34,6 +35,9 @@ def _sign_telegram_login_payload(payload: dict[str, str], bot_token: str) -> str
 class TelegramSiteLoginUnitTests(unittest.TestCase):
     def setUp(self) -> None:
         self.factory = RequestFactory()
+
+    def test_default_cross_origin_opener_policy_allows_telegram_popup_callback(self):
+        self.assertEqual(settings.SECURE_CROSS_ORIGIN_OPENER_POLICY, "same-origin-allow-popups")
 
     def test_telegram_login_widget_url_uses_same_window_callback(self):
         request = self.factory.get("/accounts/login/")
