@@ -2876,6 +2876,35 @@ body.vx-account-shell #footer {
   color: #ffffff;
 }
 
+.site-auth-shell .account-primary-button,
+.site-auth-shell button.account-primary-button,
+.site-auth-shell input[type="submit"].account-primary-button,
+.site-auth-shell .auth-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+  opacity: 1;
+  visibility: visible;
+}
+
+.site-auth-shell .account-primary-button:hover,
+.site-auth-shell .account-primary-button:focus-visible,
+.site-auth-shell button.account-primary-button:hover,
+.site-auth-shell button.account-primary-button:focus-visible,
+.site-auth-shell .auth-submit:hover,
+.site-auth-shell .auth-submit:focus-visible {
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+  outline: 2px solid #000000;
+  outline-offset: 3px;
+  text-decoration: none;
+}
+
 .account-danger-button {
   border-color: var(--account-line);
   color: var(--account-ink);

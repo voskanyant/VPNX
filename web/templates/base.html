@@ -113,6 +113,15 @@
         el.classList.add("site-input");
       });
       document.querySelectorAll("form button[type='submit'], form input[type='submit']").forEach((btn) => {
+        if (
+          btn.classList.contains("account-button") ||
+          btn.classList.contains("account-primary-button") ||
+          btn.classList.contains("account-secondary-button") ||
+          btn.classList.contains("account-danger-button") ||
+          btn.classList.contains("account-icon-button")
+        ) {
+          return;
+        }
         btn.classList.add("site-button");
         if (
           !btn.classList.contains("site-button-primary") &&
