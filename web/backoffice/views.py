@@ -56,7 +56,7 @@ from src.xui_client import XUIClient
 import qrcode
 from src.cluster.provisioner import create_client_on_node
 from src.dns_alias import delete_subscription_alias_record, ensure_subscription_alias_record, generate_subscription_alias
-from src.cluster.rebalance import manual_rebalance_tick, node_ineligibility_reason, preview_rebalance_plan, score_node
+from src.cluster.rebalance import emergency_failover_node, manual_rebalance_tick, node_ineligibility_reason, preview_rebalance_plan, score_node
 from src.client_naming import build_xui_client_name
 from src.config import load_settings
 from src.db import DB
@@ -1069,6 +1069,16 @@ async def _run_manual_rebalance(settings_obj: Any) -> dict[str, int]:
     try:
         await db.connect()
         return await manual_rebalance_tick(db, settings_obj)
+    finally:
+        await db.close()
+
+
+async def _run_emergency_failover(settings_obj: Any, source_node_id: int) -> dict[str, int]:
+    app_settings = load_settings()
+    db = DB(app_settings.database_url)
+    try:
+        await db.connect()
+        return await emergency_failover_node(db, settings_obj, source_node_id)
     finally:
         await db.close()
 
@@ -2901,13 +2911,39 @@ class SystemOverviewView(StaffRequiredMixin, TemplateView):
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         action = str(request.POST.get("action") or "").strip()
-        if action != "manual_rebalance":
+        if action not in {"manual_rebalance", "emergency_failover"}:
             messages.error(request, "Неизвестная операция.")
             return redirect("backoffice:system_overview")
         if not bool_env("VPN_CLUSTER_ENABLED", False):
             messages.error(request, "Cluster mode выключен. Включите VPN_CLUSTER_ENABLED=1 перед ручным rebalance.")
             return redirect("backoffice:system_overview")
         runtime_settings = _cluster_runtime_settings()
+        if action == "emergency_failover":
+            try:
+                source_node_id = int(request.POST.get("node_id") or 0)
+            except (TypeError, ValueError):
+                source_node_id = 0
+            if source_node_id <= 0:
+                messages.error(request, "Choose a source node for emergency failover.")
+                return redirect("backoffice:system_overview")
+            try:
+                result = _run_async_from_sync(_run_emergency_failover(runtime_settings, source_node_id))
+            except Exception as exc:
+                LOGGER.exception("Emergency failover failed")
+                messages.error(request, f"Emergency failover failed: {exc}")
+                return redirect("backoffice:system_overview")
+            if int(result.get("source_node_healthy", 0)):
+                messages.warning(request, "Emergency failover skipped: source node is still healthy.")
+            else:
+                messages.success(
+                    request,
+                    "Emergency failover finished: "
+                    f"processed={int(result.get('processed', 0))}, "
+                    f"moved={int(result.get('moved', 0))}, "
+                    f"skipped={int(result.get('skipped', 0))}, "
+                    f"failed={int(result.get('failed', 0))}.",
+                )
+            return redirect("backoffice:system_overview")
         try:
             result = _run_async_from_sync(_run_manual_rebalance(runtime_settings))
         except Exception as exc:
@@ -3011,6 +3047,7 @@ class SystemOverviewView(StaffRequiredMixin, TemplateView):
         ]
 
         nodes = safe_list(lambda: VPNNode.objects.order_by("name", "id"))
+        node_assignment_counts = _active_assignment_counts([int(node.id) for node in nodes])
         pool_nodes, majority_signature = _eligible_lb_nodes(nodes)
         pool_ids = {int(node.id) for node in pool_nodes}
         ctx["edge_rows"] = [
@@ -3077,6 +3114,10 @@ class SystemOverviewView(StaffRequiredMixin, TemplateView):
         ctx["health_rows"] = [
             {
                 "name": node.name,
+                "id": int(node.id),
+                "assigned": int(node_assignment_counts.get(int(node.id), 0)),
+                "can_emergency_failover": bool(getattr(node, "last_health_ok", None) is False)
+                and int(node_assignment_counts.get(int(node.id), 0)) > 0,
                 "health": health_badge(node),
                 "last_health_at": format_cell(node.last_health_at),
                 "last_health_error": getattr(node, "last_health_error", "") or "—",

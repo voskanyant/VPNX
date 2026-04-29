@@ -185,12 +185,14 @@
             <tr>
               <th>Node</th>
               <th>Health</th>
+              <th>Assigned</th>
               <th>Last check</th>
               <th>Reality public key</th>
               <th>ShortId</th>
               <th>SNI</th>
               <th>Fingerprint</th>
               <th>Last error</th>
+              <th>Emergency</th>
             </tr>
           </thead>
           <tbody>
@@ -198,16 +200,29 @@
               <tr>
                 <td>{{ row.name }}</td>
                 <td>{{ row.health }}</td>
+                <td>{{ row.assigned }}</td>
                 <td>{{ row.last_health_at }}</td>
                 <td><code>{{ row.public_key }}</code></td>
                 <td><code>{{ row.short_id }}</code></td>
                 <td>{{ row.sni }}</td>
                 <td>{{ row.fingerprint }}</td>
                 <td>{{ row.last_health_error }}</td>
+                <td>
+                  {% if row.can_emergency_failover %}
+                    <form method="post" class="m-0">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="emergency_failover">
+                      <input type="hidden" name="node_id" value="{{ row.id }}">
+                      <button type="submit" class="btn btn-danger btn-sm">Failover now</button>
+                    </form>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
               </tr>
             {% empty %}
               <tr>
-                <td colspan="8" class="text-muted">Health snapshots пока отсутствуют.</td>
+                <td colspan="10" class="text-muted">Health snapshots пока отсутствуют.</td>
               </tr>
             {% endfor %}
           </tbody>

@@ -598,6 +598,8 @@ async def _cleanup_cutover_moves(db: DB, settings: Settings) -> int:
             last_dns_change_id=alias_result.change_id,
             compatibility_pool=str(sub.get("compatibility_pool") or new_node.get("compatibility_pool") or "default"),
             mark_rebalanced=True,
+            clear_desired_node=True,
+            clear_overlap=True,
         )
         cleaned += 1
     return cleaned
@@ -696,4 +698,164 @@ async def manual_rebalance_tick(db: DB, settings: Settings) -> dict[str, int]:
         "presynced": presynced_existing + presynced_new,
         "cutover": cutover_existing + cutover_new,
         "cleaned": cleaned,
+    }
+
+
+async def emergency_failover_node(
+    db: DB,
+    settings: Settings,
+    source_node_id: int,
+    *,
+    limit: int | None = None,
+    allow_healthy_source: bool = False,
+) -> dict[str, int]:
+    """Immediately move active subscriptions away from one failed node.
+
+    This bypasses weekly cooldown/score-gap checks because the source node is
+    assumed unavailable. Destination safety checks still apply.
+    """
+    source = await db.get_vpn_node(int(source_node_id))
+    if not source:
+        return {"source_node_missing": 1, "processed": 0, "moved": 0, "failed": 0, "skipped": 0}
+    if source.get("last_health_ok") is True and not allow_healthy_source:
+        return {"source_node_healthy": 1, "processed": 0, "moved": 0, "failed": 0, "skipped": 0}
+
+    batch_limit = max(1, int(limit or getattr(settings, "vpn_cluster_sync_batch_size", 200)))
+    subscriptions = await db.list_active_subscriptions_for_node(int(source_node_id), limit=batch_limit)
+    if not subscriptions:
+        return {"source_node_missing": 0, "processed": 0, "moved": 0, "failed": 0, "skipped": 0}
+
+    metrics = [dict(item) for item in await db.list_node_assignment_metrics()]
+    destination_nodes: dict[str, list[dict[str, Any]]] = {}
+    for node in metrics:
+        if int(node.get("id") or 0) == int(source_node_id):
+            continue
+        pool = str(node.get("compatibility_pool") or "default").strip() or "default"
+        if score_node(node, compatibility_pool=pool) is None:
+            continue
+        destination_nodes.setdefault(pool, []).append(node)
+
+    processed = 0
+    moved = 0
+    failed = 0
+    skipped = 0
+    now = _workflow_now(settings).astimezone()
+
+    for sub in subscriptions:
+        processed += 1
+        pool = str(sub.get("compatibility_pool") or source.get("compatibility_pool") or "default").strip() or "default"
+        candidates = destination_nodes.get(pool) or []
+        scored = [item for item in (_simulated_score(node, compatibility_pool=pool) for node in candidates) if item is not None]
+        if not scored:
+            skipped += 1
+            await db.record_rebalance_decision(
+                subscription_id=int(sub["id"]),
+                from_node_id=int(source_node_id),
+                to_node_id=None,
+                decision_kind="emergency_failover_skipped",
+                reason="no eligible destination node in compatibility pool",
+                details={"compatibility_pool": pool},
+            )
+            continue
+
+        scored.sort(key=lambda item: (item.score, int(item.node.get("id", 0) or 0)))
+        destination = scored[0].node
+        destination_node_id = int(destination["id"])
+        reality = _node_reality_from_health(destination)
+        if reality is None:
+            skipped += 1
+            continue
+
+        try:
+            try:
+                node_result = await create_client_on_node(
+                    destination,
+                    str(sub["client_uuid"]),
+                    str(sub["client_email"]),
+                    str(sub.get("xui_sub_id") or "").strip() or None,
+                    sub["expires_at"],
+                    int(getattr(settings, "max_devices_per_sub", 1)),
+                    flow=str(getattr(settings, "vpn_flow", "xtls-rprx-vision") or ""),
+                )
+            except Exception:
+                node_result = await update_client_on_node(
+                    destination,
+                    str(sub["client_uuid"]),
+                    str(sub["client_email"]),
+                    str(sub.get("xui_sub_id") or "").strip() or None,
+                    sub["expires_at"],
+                    int(getattr(settings, "max_devices_per_sub", 1)),
+                    flow=str(getattr(settings, "vpn_flow", "xtls-rprx-vision") or ""),
+                )
+            xui_sub_id = str(node_result.get("xui_sub_id") or "").strip()
+            if xui_sub_id:
+                await db.update_subscription_xui_sub_id(int(sub["id"]), xui_sub_id)
+
+            alias_fqdn = str(sub.get("alias_fqdn") or "").strip() or generate_subscription_alias(settings)
+            alias_result = await ensure_subscription_alias_record(
+                settings=settings,
+                alias_fqdn=alias_fqdn,
+                node=destination,
+                ttl=int(getattr(settings, "vpn_alias_cutover_ttl", 60)),
+                record_id=str(sub.get("dns_record_id") or "").strip() or None,
+            )
+            vless_url = build_subscription_vless_url(
+                settings=settings,
+                node=destination,
+                client_uuid=str(sub["client_uuid"]),
+                reality=reality,
+                subscription={"alias_fqdn": alias_fqdn},
+            )
+            await db.update_subscription_assignment(
+                int(sub["id"]),
+                assigned_node_id=destination_node_id,
+                vless_url=vless_url,
+                assignment_source="emergency_failover",
+                migration_state="ready",
+                alias_fqdn=alias_fqdn,
+                current_node_id=destination_node_id,
+                desired_node_id=None,
+                assignment_state=ASSIGNMENT_STEADY,
+                ttl_seconds=alias_result.ttl,
+                overlap_until=None,
+                dns_provider=alias_result.provider,
+                dns_record_id=alias_result.record_id,
+                last_dns_change_id=alias_result.change_id,
+                compatibility_pool=pool,
+                mark_rebalanced=True,
+                cutover_at=now,
+                clear_desired_node=True,
+                clear_overlap=True,
+            )
+            await db.record_rebalance_decision(
+                subscription_id=int(sub["id"]),
+                from_node_id=int(source_node_id),
+                to_node_id=destination_node_id,
+                decision_kind="emergency_failover",
+                score_before=None,
+                score_after=float(scored[0].score),
+                reason="source node unhealthy; DNS alias cut over immediately",
+                details={
+                    "compatibility_pool": pool,
+                    "source_health_error": str(source.get("last_health_error") or ""),
+                    "dns_change_id": alias_result.change_id,
+                },
+                dns_change_id=alias_result.change_id,
+            )
+            destination["active_assigned_subscriptions"] = int(destination.get("active_assigned_subscriptions") or 0) + 1
+            moved += 1
+        except Exception:
+            failed += 1
+            LOGGER.exception(
+                "Emergency failover failed for source_node_id=%s subscription_id=%s",
+                int(source_node_id),
+                int(sub["id"]),
+            )
+
+    return {
+        "source_node_missing": 0,
+        "processed": processed,
+        "moved": moved,
+        "failed": failed,
+        "skipped": skipped,
     }

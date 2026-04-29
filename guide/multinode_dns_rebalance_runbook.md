@@ -83,6 +83,26 @@ The button runs the same guarded workflow immediately:
 
 It does not bypass planner safety. It still ignores unhealthy, disabled, backfill-pending, incompatible, cooldown-blocked, or low-benefit moves.
 
+## Emergency node failover
+
+If a node is down and users assigned to it need to move immediately, use:
+
+```text
+/ops/infra/system/
+```
+
+In `Xray / 3x-ui health snapshots`, unhealthy nodes with active assigned subscriptions show `Failover now`.
+
+Emergency failover does not wait for Sunday planning and does not require a score gap. For each active subscription on the failed node, VXcloud:
+
+- picks a healthy eligible destination in the same `compatibility_pool`
+- creates or updates the client on that destination node
+- updates the subscription alias `A` record to the destination node IP using the cutover TTL
+- updates the subscription assignment to the destination node
+- records an `emergency_failover` rebalance decision
+
+The old node is not contacted during emergency failover. If it comes back later, the normal node sync loop sees that the subscription no longer belongs there and removes/disables the stale client.
+
 ## Delete behavior
 
 When a config is deleted, VXcloud now attempts to remove:

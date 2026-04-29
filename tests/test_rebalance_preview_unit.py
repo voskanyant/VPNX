@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
-from src.cluster.rebalance import preview_rebalance_plan
+from src.cluster.rebalance import emergency_failover_node, preview_rebalance_plan
+from src.dns_alias import AliasRecordResult
 
 
 def _settings(**overrides):
@@ -14,6 +15,15 @@ def _settings(**overrides):
         vpn_rebalance_max_moves_per_node=50,
         vpn_rebalance_move_fraction=0.20,
         vpn_rebalance_min_score_gap=2.5,
+        vpn_cluster_sync_batch_size=200,
+        vpn_alias_namespace="connect.vxcloud.ru",
+        vpn_alias_cutover_ttl=60,
+        vpn_alias_default_ttl=300,
+        max_devices_per_sub=1,
+        vpn_flow="xtls-rprx-vision",
+        vpn_public_host="connect.vxcloud.ru",
+        vpn_public_port=443,
+        vpn_tag="VXcloud",
     )
     base.update(overrides)
     return SimpleNamespace(**base)
@@ -158,3 +168,47 @@ class RebalancePreviewUnitTests(IsolatedAsyncioTestCase):
 
         self.assertEqual(preview["summary"]["planned_moves"], 0)
         self.assertEqual(preview["moves"], [])
+
+    async def test_emergency_failover_moves_subscriptions_off_unhealthy_node(self):
+        db = AsyncMock()
+        source = _node(1, active_assigned=1, last_health_ok=False)
+        destination = _node(2, active_assigned=0)
+        db.get_vpn_node.return_value = source
+        db.list_active_subscriptions_for_node.return_value = [
+            {
+                "id": 301,
+                "client_uuid": "client-uuid",
+                "client_email": "client@example.com",
+                "xui_sub_id": "sub-id",
+                "expires_at": "expiry",
+                "alias_fqdn": "u-client.connect.vxcloud.ru",
+                "dns_record_id": "record-id",
+                "compatibility_pool": "default",
+            }
+        ]
+        db.list_node_assignment_metrics.return_value = [source, destination]
+
+        alias_result = AliasRecordResult(
+            fqdn="u-client.connect.vxcloud.ru",
+            target_ip="203.0.113.2",
+            ttl=60,
+            provider="cloudflare",
+            record_id="record-id",
+            change_id="change-id",
+        )
+
+        with (
+            patch("src.cluster.rebalance.create_client_on_node", new=AsyncMock(return_value={"xui_sub_id": "sub-id"})),
+            patch("src.cluster.rebalance.ensure_subscription_alias_record", new=AsyncMock(return_value=alias_result)),
+        ):
+            result = await emergency_failover_node(db, _settings(), 1)
+
+        self.assertEqual(result["processed"], 1)
+        self.assertEqual(result["moved"], 1)
+        update_kwargs = db.update_subscription_assignment.await_args.kwargs
+        self.assertEqual(update_kwargs["assigned_node_id"], 2)
+        self.assertEqual(update_kwargs["current_node_id"], 2)
+        self.assertEqual(update_kwargs["assignment_source"], "emergency_failover")
+        self.assertTrue(update_kwargs["clear_desired_node"])
+        self.assertTrue(update_kwargs["clear_overlap"])
+        db.record_rebalance_decision.assert_awaited()
