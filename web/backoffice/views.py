@@ -987,13 +987,21 @@ async def _push_subscription_expiry_to_xui(
     )
     limit_ip = backoffice_limit_ip()
     flow = env_value("VPN_FLOW", "xtls-rprx-vision")
+    xui_timeout = float_env("BACKOFFICE_XUI_TIMEOUT_SECONDS", 6.0)
+    xui_retries = int_env("BACKOFFICE_XUI_MAX_RETRIES", 0)
     errors: list[str] = []
 
     async def apply_on_node(base_url: str, username: str, password: str, inbound_id: int, label: str) -> None:
         if not (base_url and username and password):
             errors.append(f"{label}: x-ui credentials are not configured")
             return
-        xui = XUIClient(base_url.rstrip("/"), username, password)
+        xui = XUIClient(
+            base_url.rstrip("/"),
+            username,
+            password,
+            total_timeout_seconds=xui_timeout,
+            max_retries=xui_retries,
+        )
         try:
             await xui.start()
             await xui.set_client_enabled(
@@ -1013,6 +1021,7 @@ async def _push_subscription_expiry_to_xui(
 
     if bool_env("VPN_CLUSTER_ENABLED", False):
         nodes = list(cluster_nodes or [])
+        tasks: list[Any] = []
         for node in nodes:
             label = f"node#{int(node.get('id', 0) or 0)}"
             try:
@@ -1020,13 +1029,17 @@ async def _push_subscription_expiry_to_xui(
             except (TypeError, ValueError):
                 errors.append(f"{label}: invalid x-ui inbound id")
                 continue
-            await apply_on_node(
-                str(node.get("xui_base_url", "") or ""),
-                str(node.get("xui_username", "") or ""),
-                str(node.get("xui_password", "") or ""),
-                inbound_id,
-                label,
+            tasks.append(
+                apply_on_node(
+                    str(node.get("xui_base_url", "") or ""),
+                    str(node.get("xui_username", "") or ""),
+                    str(node.get("xui_password", "") or ""),
+                    inbound_id,
+                    label,
+                )
             )
+        if tasks:
+            await asyncio.gather(*tasks)
         return errors
 
     try:

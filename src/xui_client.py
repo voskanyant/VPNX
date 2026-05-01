@@ -35,13 +35,22 @@ RESERVED_PLACEHOLDER_COMMENT = "VXcloud reserved placeholder"
 
 
 class XUIClient:
-    def __init__(self, base_url: str, username: str, password: str) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        username: str,
+        password: str,
+        *,
+        total_timeout_seconds: float = 20,
+        max_retries: int = 2,
+        retry_delay_seconds: float = 0.6,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.username = username
         self.password = password
-        self._timeout = aiohttp.ClientTimeout(total=20)
-        self._max_retries = 2
-        self._retry_delay_seconds = 0.6
+        self._timeout = aiohttp.ClientTimeout(total=total_timeout_seconds)
+        self._max_retries = max(0, int(max_retries))
+        self._retry_delay_seconds = max(0, float(retry_delay_seconds))
         self._session: aiohttp.ClientSession | None = None
 
     async def start(self) -> None:
