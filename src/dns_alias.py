@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import os
 import secrets
 from dataclasses import dataclass
 from typing import Any
@@ -105,13 +106,17 @@ class CloudflareDNSAliasManager(DNSAliasManager):
     def __init__(self, *, api_token: str, zone_id: str) -> None:
         self._api_token = api_token
         self._zone_id = zone_id
+        try:
+            self._timeout_seconds = float(os.getenv("CLOUDFLARE_API_TIMEOUT_SECONDS", "8"))
+        except ValueError:
+            self._timeout_seconds = 8.0
 
     async def _request(self, method: str, path: str, *, params: dict[str, Any] | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {
             "Authorization": f"Bearer {self._api_token}",
             "Content-Type": "application/json",
         }
-        async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=20)) as session:
+        async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=self._timeout_seconds)) as session:
             async with session.request(method, f"{self.API_BASE}{path}", params=params, json=payload) as response:
                 body = await response.json(content_type=None)
                 if response.status >= 400 or not body.get("success", False):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -34,6 +35,20 @@ RESERVED_PLACEHOLDER_EMAIL = "_vxcloud_reserved"
 RESERVED_PLACEHOLDER_COMMENT = "VXcloud reserved placeholder"
 
 
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
 class XUIClient:
     def __init__(
         self,
@@ -41,13 +56,17 @@ class XUIClient:
         username: str,
         password: str,
         *,
-        total_timeout_seconds: float = 20,
-        max_retries: int = 2,
+        total_timeout_seconds: float | None = None,
+        max_retries: int | None = None,
         retry_delay_seconds: float = 0.6,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.username = username
         self.password = password
+        if total_timeout_seconds is None:
+            total_timeout_seconds = _env_float("XUI_API_TIMEOUT_SECONDS", 12.0)
+        if max_retries is None:
+            max_retries = _env_int("XUI_API_MAX_RETRIES", 1)
         self._timeout = aiohttp.ClientTimeout(total=total_timeout_seconds)
         self._max_retries = max(0, int(max_retries))
         self._retry_delay_seconds = max(0, float(retry_delay_seconds))

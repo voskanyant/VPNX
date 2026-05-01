@@ -104,7 +104,7 @@ class AccountSubscriptionDeleteUnitTests(unittest.TestCase):
         subscription.delete.assert_called_once()
         dns_delete.assert_awaited_once_with(subscription)
 
-    def test_delete_everywhere_aborts_when_xui_cleanup_reports_errors(self):
+    def test_delete_everywhere_continues_when_xui_cleanup_reports_errors(self):
         subscription = SimpleNamespace(
             id=56,
             inbound_id=1,
@@ -120,14 +120,15 @@ class AccountSubscriptionDeleteUnitTests(unittest.TestCase):
             patch("cabinet.views._subscription_state", return_value={"is_active": False}),
             patch("backoffice.views.bool_env", return_value=False),
             patch("backoffice.views._delete_subscription_from_xui", return_value=["primary: boom"]),
+            patch("backoffice.views._delete_subscription_alias_from_dns", new=AsyncMock(return_value=None)),
             patch("cabinet.views.VPNNodeClient.objects.filter", return_value=node_clients_qs),
         ):
             deleted, error_message = _delete_subscription_everywhere(subscription)
 
-        self.assertFalse(deleted)
-        self.assertIn("3x-ui", error_message or "")
-        node_clients_qs.delete.assert_not_called()
-        subscription.delete.assert_not_called()
+        self.assertTrue(deleted)
+        self.assertIsNone(error_message)
+        node_clients_qs.delete.assert_called_once()
+        subscription.delete.assert_called_once()
 
 
 if __name__ == "__main__":

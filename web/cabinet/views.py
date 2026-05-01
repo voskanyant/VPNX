@@ -26,7 +26,7 @@ from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.db import DatabaseError, IntegrityError
+from django.db import DatabaseError, IntegrityError, OperationalError, ProgrammingError
 from django.db import transaction
 from django.conf import settings
 from django.middleware.csrf import get_token
@@ -1439,7 +1439,13 @@ def _delete_subscription_everywhere(subscription: BotSubscription) -> tuple[bool
         cluster_nodes = _active_vpn_nodes_snapshot() if bool_env("VPN_CLUSTER_ENABLED", False) else None
         xui_errors = _run_async_from_sync(_delete_subscription_from_xui(subscription, cluster_nodes=cluster_nodes))
         if xui_errors:
-            return False, "Не удалось удалить конфиг в 3x-ui. Попробуйте ещё раз или проверьте клиента вручную."
+            LOGGER.warning(
+                "account_subscription_delete_xui_cleanup_warning",
+                extra={
+                    "subscription_id": int(subscription.id),
+                    "errors": "; ".join(str(error) for error in xui_errors[:3]),
+                },
+            )
         dns_error = _run_async_from_sync(_delete_subscription_alias_from_dns(subscription))
         if dns_error:
             LOGGER.warning(
@@ -1451,10 +1457,16 @@ def _delete_subscription_everywhere(subscription: BotSubscription) -> tuple[bool
             "account_subscription_delete_xui_failed",
             extra={"subscription_id": int(subscription.id)},
         )
-        return False, "Не удалось удалить конфиг в 3x-ui. Попробуйте ещё раз позже."
+        return False, "Не удалось удалить конфиг. Попробуйте ещё раз позже."
 
     with transaction.atomic():
-        VPNNodeClient.objects.filter(subscription_id=subscription.id).delete()
+        try:
+            VPNNodeClient.objects.filter(subscription_id=subscription.id).delete()
+        except (OperationalError, ProgrammingError):
+            LOGGER.warning(
+                "account_subscription_delete_node_client_cleanup_skipped",
+                extra={"subscription_id": int(subscription.id)},
+            )
         subscription.delete()
     return True, None
 

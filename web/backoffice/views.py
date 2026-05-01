@@ -651,7 +651,13 @@ async def _load_subscription_runtime(
     async def read_node(base_url: str, username: str, password: str, inbound_id: int, label: str) -> dict[str, Any]:
         if not (base_url and username and password):
             raise RuntimeError(f"{label}: x-ui credentials are not configured")
-        xui = XUIClient(base_url.rstrip("/"), username, password)
+        xui = XUIClient(
+            base_url.rstrip("/"),
+            username,
+            password,
+            total_timeout_seconds=float_env("BACKOFFICE_XUI_TIMEOUT_SECONDS", 6.0),
+            max_retries=int_env("BACKOFFICE_XUI_MAX_RETRIES", 0),
+        )
         try:
             await xui.start()
             inbound = await xui.get_inbound(inbound_id)
@@ -667,22 +673,27 @@ async def _load_subscription_runtime(
 
     if bool_env("VPN_CLUSTER_ENABLED", False):
         nodes = sorted(list(cluster_nodes or []), key=lambda item: int(item.get("id", 0) or 0))
+        tasks: list[Any] = []
         for node in nodes:
             label = f"node#{int(node.get('id', 0) or 0)}"
             try:
                 inbound_id = int(node.get("xui_inbound_id", None))
             except (TypeError, ValueError):
                 continue
-            try:
-                return await read_node(
+            tasks.append(
+                read_node(
                     str(node.get("xui_base_url", "") or ""),
                     str(node.get("xui_username", "") or ""),
                     str(node.get("xui_password", "") or ""),
                     inbound_id,
                     label,
                 )
-            except Exception:
-                continue
+            )
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if not isinstance(result, Exception):
+                    return result
         raise RuntimeError("No active VPN node with readable inbound/reality settings")
 
     return await read_node(
@@ -720,7 +731,13 @@ async def _create_subscription_on_xui(
         if not (base_url and username and password):
             results.append({"node_id": node_id, "ok": False, "error": f"{label}: x-ui credentials are not configured"})
             return
-        xui = XUIClient(base_url.rstrip("/"), username, password)
+        xui = XUIClient(
+            base_url.rstrip("/"),
+            username,
+            password,
+            total_timeout_seconds=float_env("BACKOFFICE_XUI_TIMEOUT_SECONDS", 6.0),
+            max_retries=int_env("BACKOFFICE_XUI_MAX_RETRIES", 0),
+        )
         try:
             await xui.start()
             await xui.add_client(
@@ -742,6 +759,7 @@ async def _create_subscription_on_xui(
             await xui.close()
 
     if bool_env("VPN_CLUSTER_ENABLED", False):
+        tasks: list[Any] = []
         for node in list(cluster_nodes or []):
             try:
                 inbound_id = int(node.get("xui_inbound_id", None))
@@ -754,14 +772,18 @@ async def _create_subscription_on_xui(
                     }
                 )
                 continue
-            await apply_on_node(
-                node_id=int(node.get("id", 0) or 0),
-                base_url=str(node.get("xui_base_url", "") or ""),
-                username=str(node.get("xui_username", "") or ""),
-                password=str(node.get("xui_password", "") or ""),
-                inbound_id=inbound_id,
-                label=f"node#{int(node.get('id', 0) or 0)}",
+            tasks.append(
+                apply_on_node(
+                    node_id=int(node.get("id", 0) or 0),
+                    base_url=str(node.get("xui_base_url", "") or ""),
+                    username=str(node.get("xui_username", "") or ""),
+                    password=str(node.get("xui_password", "") or ""),
+                    inbound_id=inbound_id,
+                    label=f"node#{int(node.get('id', 0) or 0)}",
+                )
             )
+        if tasks:
+            await asyncio.gather(*tasks)
         return results
 
     await apply_on_node(
@@ -1117,7 +1139,13 @@ async def _delete_subscription_from_xui(
             errors.append(f"{label}: x-ui credentials are not configured")
             return
 
-        xui = XUIClient(base_url.rstrip("/"), username, password)
+        xui = XUIClient(
+            base_url.rstrip("/"),
+            username,
+            password,
+            total_timeout_seconds=float_env("BACKOFFICE_XUI_TIMEOUT_SECONDS", 6.0),
+            max_retries=int_env("BACKOFFICE_XUI_MAX_RETRIES", 0),
+        )
         try:
             await xui.start()
             await xui.delete_client(
@@ -1130,22 +1158,15 @@ async def _delete_subscription_from_xui(
                 sub_id=(str(getattr(subscription, "xui_sub_id", "") or "") or None),
             )
         except Exception as exc:
-            client_exists = True
-            try:
-                client_exists = await xui.has_client(
-                    inbound_id,
-                    str(subscription.client_uuid),
-                    email=str(subscription.client_email or "") or None,
-                )
-            except Exception:
-                client_exists = True
-            if client_exists:
-                errors.append(f"{label}: {exc}")
+            if "not found" in str(exc).lower():
+                return
+            errors.append(f"{label}: {exc}")
         finally:
             await xui.close()
 
     if bool_env("VPN_CLUSTER_ENABLED", False):
         nodes = list(cluster_nodes or [])
+        tasks: list[Any] = []
         for node in nodes:
             label = f"node#{int(node.get('id', 0) or 0)}"
             try:
@@ -1153,13 +1174,17 @@ async def _delete_subscription_from_xui(
             except (TypeError, ValueError):
                 errors.append(f"{label}: invalid x-ui inbound id")
                 continue
-            await apply_on_node(
-                str(node.get("xui_base_url", "") or ""),
-                str(node.get("xui_username", "") or ""),
-                str(node.get("xui_password", "") or ""),
-                inbound_id,
-                label,
+            tasks.append(
+                apply_on_node(
+                    str(node.get("xui_base_url", "") or ""),
+                    str(node.get("xui_username", "") or ""),
+                    str(node.get("xui_password", "") or ""),
+                    inbound_id,
+                    label,
+                )
             )
+        if tasks:
+            await asyncio.gather(*tasks)
         return errors
 
     await apply_on_node(
@@ -2264,20 +2289,20 @@ class BotSubscriptionDeleteView(LegacyContentContextMixin, StaffRequiredMixin, D
         ctx = super().get_context_data(**kwargs)
         is_active, _, _ = subscription_status_state(self.object)
         title_name = self.object.display_name or self.object.client_email or f"#{self.object.id}"
-        ctx["title"] = "Удаление подписки"
+        ctx["title"] = "Delete subscription"
         ctx["object_label"] = title_name
         ctx["delete_blocked"] = is_active
         if is_active:
-            ctx["delete_warning"] = "Активную подписку удалять нельзя. Сначала дождитесь окончания срока или отключите её."
+            ctx["delete_warning"] = "Active subscriptions cannot be deleted. Expire or revoke it first."
         else:
-            ctx["delete_warning"] = "Будет удалена запись в базе, node sync записи и клиент в 3x-ui."
+            ctx["delete_warning"] = "VXcloud will delete the DB record, node sync rows, DNS alias, and best-effort 3x-ui client."
         return self.add_wordpress_context(ctx)
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         self.object = self.get_object()
         is_active, _, _ = subscription_status_state(self.object)
         if is_active:
-            messages.error(request, "Нельзя удалить активную подписку.")
+            messages.error(request, "Cannot delete an active subscription. Expire or revoke it first.")
             return self.render_to_response(self.get_context_data())
 
         cluster_nodes = _active_vpn_nodes_snapshot() if bool_env("VPN_CLUSTER_ENABLED", False) else None
@@ -2288,29 +2313,33 @@ class BotSubscriptionDeleteView(LegacyContentContextMixin, StaffRequiredMixin, D
                 "backoffice_subscription_delete_xui_failed",
                 extra={"subscription_id": int(getattr(self.object, "id", 0) or 0)},
             )
-            messages.error(
+            messages.warning(
                 request,
-                "Не удалось удалить клиента в 3x-ui. Подписка не удалена, проверьте ноду вручную.",
+                "3x-ui cleanup failed, but VXcloud will delete the inactive subscription. Check the old node manually if needed.",
             )
-            return self.render_to_response(self.get_context_data())
+            xui_errors = []
         if xui_errors:
-            messages.error(
+            messages.warning(
                 request,
-                "Не удалось удалить клиента в 3x-ui. Подписка не удалена: " + "; ".join(xui_errors[:3]),
+                "VXcloud will delete the inactive subscription, but 3x-ui cleanup had warnings: " + "; ".join(xui_errors[:3]),
             )
-            return self.render_to_response(self.get_context_data())
 
         dns_error = _run_async_from_sync(_delete_subscription_alias_from_dns(self.object))
         if dns_error:
-            messages.warning(request, "Подписка удаляется, но DNS alias нужно проверить в Cloudflare.")
+            messages.warning(request, "Subscription is being deleted, but DNS alias cleanup should be checked in Cloudflare.")
 
         with transaction.atomic():
-            VPNNodeClient.objects.filter(subscription_id=self.object.id).delete()
+            try:
+                VPNNodeClient.objects.filter(subscription_id=self.object.id).delete()
+            except (OperationalError, ProgrammingError):
+                LOGGER.warning(
+                    "backoffice_subscription_delete_node_client_cleanup_skipped",
+                    extra={"subscription_id": int(getattr(self.object, "id", 0) or 0)},
+                )
             self.object.delete()
 
-        messages.success(request, "Подписка удалена")
+        messages.success(request, "Subscription deleted.")
         return redirect(self.success_url)
-
 
 class BotOrderListView(BaseListView):
     model = BotOrder

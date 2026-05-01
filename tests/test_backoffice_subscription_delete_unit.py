@@ -94,7 +94,7 @@ class BackofficeSubscriptionDeleteUnitTests(unittest.TestCase):
         subscription.delete.assert_called_once()
         dns_delete.assert_awaited_once_with(subscription)
 
-    def test_delete_does_not_500_when_xui_delete_raises(self):
+    def test_delete_continues_when_xui_delete_raises(self):
         now = timezone.now()
         subscription = SimpleNamespace(
             id=7,
@@ -112,8 +112,8 @@ class BackofficeSubscriptionDeleteUnitTests(unittest.TestCase):
         ):
             response = BotSubscriptionDeleteView.as_view()(self._build_request(), pk=7)
 
-        self.assertEqual(response.status_code, 200)
-        subscription.delete.assert_not_called()
+        self.assertEqual(response.status_code, 302)
+        subscription.delete.assert_called_once()
 
     def test_delete_passes_cluster_nodes_snapshot_into_async_cleanup(self):
         now = timezone.now()
@@ -174,7 +174,7 @@ class BackofficeSubscriptionDeleteUnitTests(unittest.TestCase):
             errors = _run_async_from_sync(_delete_subscription_from_xui(subscription))
 
         self.assertEqual(errors, [])
-        xui.has_client.assert_awaited_once()
+        xui.has_client.assert_not_awaited()
 
 
 if __name__ == "__main__":
